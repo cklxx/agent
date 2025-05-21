@@ -7,7 +7,7 @@
         "@amap/amap-maps-mcp-server"
       ],
       "env": {
-        "AMAP_MAPS_API_KEY": "7897d07c1c16a4da56995e13968b1641"
+        "AMAP_MAPS_API_KEY": ""
       }
     },
     "playwright": {
@@ -30,7 +30,7 @@
         "tavily-mcp@0.1.2"
       ],
       "env": {
-        "TAVILY_API_KEY": "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"
+        "TAVILY_API_KEY": "tvly-dev-"
       }
     }
   }

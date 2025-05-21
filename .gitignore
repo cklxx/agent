@@ -27,4 +27,7 @@ conf.yaml
 # output/
 
 # Poetry specific files (if any need ignoring beyond default)
-# poetry.lock # Usually tracked, but list if you need to ignore it 
+# poetry.lock # Usually tracked, but list if you need to ignore it  
+
+# Ignore mcp.json
+mcp.json
