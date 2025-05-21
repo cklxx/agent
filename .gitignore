@@ -1,0 +1,30 @@
+# Ignore virtual environment directories
+.venv/
+venv/
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+
+# Ignore build and distribution directories
+build/
+dist/
+
+# Ignore configuration file (contains sensitive info like API keys)
+conf.yaml
+.env
+
+# Ignore IDE specific files (example for VS Code, add others if needed)
+.vscode/
+.idea/
+
+# Ignore other common files
+*.log
+*.swp
+
+# Ignore data files or output directories if any (add as needed)
+# data/
+# output/
+
+# Poetry specific files (if any need ignoring beyond default)
+# poetry.lock # Usually tracked, but list if you need to ignore it 
