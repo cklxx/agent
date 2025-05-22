@@ -108,7 +108,7 @@ IMPORTANT:
     def exec(self, prompt: str):
         """Call LLM to process the question and decide which tool to use"""
         logging.info("🤔 [DecideToolNode.exec] Calling LLM with prompt...")
-        messages = [{"role": "user", "content": prompt}]
+        messages = [{"role": "user", "content": prompt + " /think"}]
         response = call_llm(messages)
         logging.info(f"🤔 [DecideToolNode.exec] Received LLM response: {response[:200]}...") # Print snippet of response
         return response

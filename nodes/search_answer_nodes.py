@@ -132,8 +132,20 @@ class AnswerNode(Node):
         return f"多步推理过程如下：\n{summary}\n请基于以上推理链，回答用户问题：{shared.get('question', '')}"
     def exec(self, question: str) -> str:
         messages = [{"role": "user", "content": question}]
-        return call_llm(messages, with_function_call=True)
+        # 调用 stream_llm 并返回生成器
+        return stream_llm(messages, with_function_call=True)
     def post(self, shared: Dict, prep_res: str, exec_res: str) -> str:
-        shared["answer"] = exec_res
-        logging.info("\n【答案】\n%s", exec_res)
+        # 迭代流式输出并拼接结果
+        final_answer = ""
+        try:
+            for chunk in exec_res:
+                logging.info("\n【答案】\n%s", chunk)
+                final_answer += chunk
+                # 可选：在这里可以处理每个chunk，例如实时显示给用户
+                # logging.info(f"Stream chunk: {chunk}")
+        except Exception as e:
+            logging.error(f"[AnswerNode.post] Error processing stream: {e}")
+            final_answer += f"Error processing stream: {e}"
+
+        shared["answer"] = final_answer.strip() # Strip to remove leading/trailing whitespace
         return "default" 
