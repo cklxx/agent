@@ -139,7 +139,7 @@ class AnswerNode(Node):
         final_answer = ""
         try:
             for chunk in exec_res:
-                logging.info("\n【答案】\n%s", chunk)
+                logging.info(chunk)
                 final_answer += chunk
                 # 可选：在这里可以处理每个chunk，例如实时显示给用户
                 # logging.info(f"Stream chunk: {chunk}")
