@@ -20,11 +20,11 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Copy conf_template.yaml to conf.yaml
-      run: cp conf_template.yaml conf.yaml
+      run: cp conf.yaml.example conf.yaml
     - name: Create empty .env file
-      run: touch .env
+      run: cp .env.example .env
     - name: Create empty .mcp.json file
-      run: touch mcp.json
+      run: cp mcp.json.example mcp.json
     - name: Install uv
       uses: astral-sh/setup-uv@v4
     - name: Set up Python
