@@ -110,13 +110,6 @@ class TestSearchNode(unittest.TestCase):
         self.assertEqual(shared_preexisting.get("other_key"), "other_value") # Ensure other keys are preserved
         self.assertEqual(result_new, "default")
 
-if __name__ == '__main__':
-    # This part is for local execution, will be removed by the testing framework
-    # Placeholder for AnswerNode tests if they were in the same file and needed to be run
-    # class TestAnswerNode(unittest.TestCase):
-    #     def test_placeholder(self):
-    #         self.assertTrue(True)
-
 # --- Tests for AnswerNode ---
 from nodes.search_answer_nodes import AnswerNode # Assuming AnswerNode is in the same file
 import logging # For checking logs in post method
@@ -428,7 +421,3 @@ class TestThinkingNode(unittest.TestCase):
         self.assertEqual(shared_s2["thought"], exec_res_s2["branches"]) # 'thought' key gets all branches
         self.assertEqual(shared_s2["thoughtNumber"], 3) # Not incremented as we stop
         self.assertEqual(result_s2, "default")
-
-
-if __name__ == '__main__':    
-    unittest.main()
