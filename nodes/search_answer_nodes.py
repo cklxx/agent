@@ -139,13 +139,15 @@ class AnswerNode(Node):
         final_answer = ""
         try:
             for chunk in exec_res:
-                logging.info(chunk)
+                print(chunk, end='') # Print without newline
                 final_answer += chunk
                 # 可选：在这里可以处理每个chunk，例如实时显示给用户
                 # logging.info(f"Stream chunk: {chunk}")
         except Exception as e:
             logging.error(f"[AnswerNode.post] Error processing stream: {e}")
             final_answer += f"Error processing stream: {e}"
+
+        print() # Print a newline after the stream finishes
 
         shared["answer"] = final_answer.strip() # Strip to remove leading/trailing whitespace
         return "default" 

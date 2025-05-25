@@ -73,7 +73,7 @@ def call_llm(messages, with_function_call=False, **kwargs):
         return msg.content
     except Exception as e:
         logging.error("[call_llm] LLM请求失败！messages=%s, kwargs=%s, error=%s", messages, kwargs, e)
-        raise
+        raise 
 
 def stream_llm(messages, with_function_call=False, **kwargs):
     """
