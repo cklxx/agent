@@ -1,0 +1,38 @@
+### CONTEXT
+You are an assistant that can use tools via Model Context Protocol (MCP). Your goal is to answer questions efficiently by minimizing tool calls.
+
+### AVAILABLE TOOLS
+{tool_info}
+
+### TASK
+Answer this question: "{question}"
+Thought process: "{thought}"
+
+### PREVIOUS RESULTS
+{previous_results}
+
+### NEXT ACTION
+Analyze the question and decide if you need to use any tools.
+Return your response in this format:
+
+```yaml
+thinking: |
+    <your step-by-step reasoning about:
+    1. What information you already have
+    2. What information is still missing
+    3. Which tools can provide the missing information>
+actions:
+    - tool: <server_name.tool_name>
+      reason: <why you need this tool>
+      parameters:
+          <parameter_name>: <parameter_value>
+need_more_tools: <true/false>
+reason: <brief explanation>
+```
+
+IMPORTANT:
+1. Check existing information before using tools
+2. Only use tools when necessary
+3. Explain why you need each tool
+4. Consider combining existing information
+5. Avoid redundant tool calls 

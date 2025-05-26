@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from typing import Any, Dict, List, Optional
+import json
 
 from utils.dict_object import DictObject
 
@@ -11,6 +12,78 @@ try:
 except ImportError:
     MCP_AVAILABLE = False
     logging.warning("MCP SDK not available. External MCP server functionality will be disabled.")
+
+# --- MCP Get Tools (Command Server) ---
+async def mcp_get_tools_async(command: str, args: List[str], env: Dict[str, str]) -> List[Dict]:
+    """异步获取 MCP 工具列表"""
+    try:
+        # 创建子进程
+        process = await asyncio.create_subprocess_exec(
+            command,
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env
+        )
+        
+        # 设置超时时间（5秒）
+        try:
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=5.0)
+        except asyncio.TimeoutError:
+            process.kill()
+            raise TimeoutError("MCP 工具获取超时（5秒）")
+        
+        if process.returncode != 0:
+            error_msg = stderr.decode() if stderr else "Unknown error"
+            raise RuntimeError(f"MCP 工具获取失败: {error_msg}")
+            
+        return [DictObject(tool) for tool in json.loads(stdout.decode())]
+    except Exception as e:
+        logging.error(f"❌ MCP 工具获取错误: {e}")
+        raise
+
+async def mcp_call_tool_async(command: str, args: List[str], tool_name: str, arguments: Dict[str, Any], env: Dict[str, str]) -> Any:
+    """异步调用 MCP 工具"""
+    try:
+        # 创建子进程
+        process = await asyncio.create_subprocess_exec(
+            command,
+            *args,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env
+        )
+        
+        # 准备输入数据
+        input_data = json.dumps({
+            "tool": tool_name,
+            "arguments": arguments
+        }).encode()
+        
+        # 设置超时时间（5秒）
+        try:
+            stdout, stderr = await asyncio.wait_for(process.communicate(input_data), timeout=5.0)
+        except asyncio.TimeoutError:
+            process.kill()
+            raise TimeoutError("MCP 工具调用超时（5秒）")
+        
+        if process.returncode != 0:
+            error_msg = stderr.decode() if stderr else "Unknown error"
+            raise RuntimeError(f"MCP 工具调用失败: {error_msg}")
+            
+        return json.loads(stdout.decode())
+    except Exception as e:
+        logging.error(f"❌ MCP 工具调用错误: {e}")
+        raise
+
+def mcp_get_tools(command: str, args: List[str], env: Dict[str, str]) -> List[Dict]:
+    """同步获取 MCP 工具列表"""
+    return asyncio.run(mcp_get_tools_async(command, args, env))
+
+def mcp_call_tool(command: str, args: List[str], tool_name: str, arguments: Dict[str, Any], env: Dict[str, str]) -> Any:
+    """同步调用 MCP 工具"""
+    return asyncio.run(mcp_call_tool_async(command, args, tool_name, arguments, env))
 
 # --- MCP Get Tools (Command Server) ---
 def mcp_get_tools(command: Optional[str] = None, args: Optional[List[str]] = None, env: Optional[Dict[str, str]] = None):

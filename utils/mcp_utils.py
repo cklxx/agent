@@ -67,16 +67,39 @@ def call_tool(server_name: str, tool_name: str, arguments: Dict[str, Any]):
         return f"错误: 未找到服务器 '{server_name}'"
     
     if isinstance(server, CommandServer):
-        return mcp_call_tool(
-            command=server.command,
-            args=server.args,
-            tool_name=tool_name,
-            arguments=arguments,
-            env=server.env
-        )
+        try:
+            return mcp_call_tool(
+                command=server.command,
+                args=server.args,
+                tool_name=tool_name,
+                arguments=arguments,
+                env=server.env
+            )
+        except TimeoutError as e:
+            return f"错误: {str(e)}"
+        except Exception as e:
+            return f"错误: 工具调用失败 - {str(e)}"
     
     return f"错误: 不支持的服务器类型 '{server_name}'"
+
 # --- MCP Environment Setup ---
 def setup_mcp_environment():
     """设置 MCP 环境。"""
-    return {**os.environ, "MCP_SERVER_URL": "http://localhost:8080"} 
+    return {**os.environ, "MCP_SERVER_URL": "http://localhost:8080"}
+
+def load_prompt_template(template_name: str) -> str:
+    """Load prompt template from file.
+    
+    Args:
+        template_name: Name of the template file (without .txt extension)
+        
+    Returns:
+        str: Template content or empty string if loading fails
+    """
+    template_path = os.path.join("prompts", f"{template_name}.txt")
+    try:
+        with open(template_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        logging.error(f"Error loading prompt template {template_name}: {e}")
+        return "" 
