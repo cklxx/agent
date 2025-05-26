@@ -1,14 +1,13 @@
 import yaml
 from openai import OpenAI
 import logging
+from utils.config import config
 
-# 读取conf.yaml配置
-with open("conf.yaml", "r") as f:
-    conf = yaml.safe_load(f)
-
-api_key = conf.get("BASIC_MODEL", {}).get("api_key", "")
-base_url = conf.get("BASIC_MODEL", {}).get("base_url", None)
-model = conf.get("BASIC_MODEL", {}).get("model", "gpt-3.5-turbo-1106")
+# 使用配置管理模块获取模型配置
+model_config = config.get_basic_model_config()
+api_key = model_config.get("api_key", "")
+base_url = model_config.get("base_url", None)
+model = model_config.get("model", "gpt-3.5-turbo-1106")
 
 client = OpenAI(api_key=api_key, base_url=base_url) if base_url else OpenAI(api_key=api_key)
 

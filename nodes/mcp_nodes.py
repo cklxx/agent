@@ -1,11 +1,21 @@
 from pocketflow import Node
 from utils.call_llm import call_llm, stream_llm
 from utils.mcp_utils import get_tools, call_tool, load_prompt_template
+from utils.config import config
 import yaml
 from typing import Dict, Any, Optional, List
 import logging
 import json
 import os
+
+def load_config():
+    """Load configuration from conf.yaml"""
+    try:
+        with open("conf.yaml", "r") as f:
+            return yaml.safe_load(f)
+    except Exception as e:
+        logging.error(f"Error loading config: {e}")
+        return {}
 
 class GetToolsNode(Node):
     """Initialize and get tools"""
@@ -105,7 +115,14 @@ class DecideToolNode(Node):
     def exec(self, prompt: str):
         """Call LLM to process the question and decide which tool to use"""
         logging.info("🤔 [DecideToolNode.exec] Calling LLM with prompt...")
-        messages = [{"role": "user", "content": prompt + " /think"}]
+        
+        # 使用配置管理模块获取模型类型
+        model_type = config.get_model_type()
+        
+        # 根据模型类型添加相应的思考模式标记
+        thinking_marker = " /think" if model_type == "qwen" else " :thinking"
+        messages = [{"role": "user", "content": prompt + thinking_marker}]
+        
         response_stream = stream_llm(messages)
         
         # 收集流式输出的内容
