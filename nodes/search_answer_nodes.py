@@ -41,7 +41,7 @@ class AnswerNode(Node):
         if not thought:
             # 没有多步思考，直接返回用户问题和工具结果
             question = shared.get('question', '')
-            tool_result = shared.get('tool_execution_result', '')
+            tool_result = shared.get('tool_call_results', '')
             return f"用户问题：{question}\n工具返回结果：{tool_result}\n请基于工具结果直接回答用户问题。 /think"
         summary = ""
         for i, t in enumerate(thought, 1):

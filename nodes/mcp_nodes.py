@@ -129,6 +129,7 @@ class DecideToolNode(Node):
             # Check if we've reached the maximum number of tool calls
             if tool_call_count >= 5:
                 print("\n⚠️ 已达到最大工具调用次数限制 (5次)")
+                shared["tool_execution_result"] = json.dumps(shared["tool_call_results"], ensure_ascii=False, indent=3)
                 return "done"
             
             # Extract YAML content from the response
@@ -225,24 +226,14 @@ class DecideToolNode(Node):
             print(f"\nNeed more tools: {need_more_tools}")
             print(f"Reason: {reason}")
             
-            # Combine all results
-            final_result = {
-                "thinking": thinking,
-                "results": results,
-                "need_more_tools": need_more_tools,
-                "reason": reason,
-                "tool_call_count": tool_call_count
-            }
-            
-            # Store result in shared dictionary
-            shared["tool_execution_result"] = json.dumps(final_result, ensure_ascii=False, indent=2)
-            
             # Return next step based on need_more_tools and tool call count
             if need_more_tools and tool_call_count < 5:
                 return "decide"
             else:
                 if need_more_tools:
                     print("\n⚠️ 已达到最大工具调用次数限制，无法继续使用工具")
+                # Store result in shared dictionary
+                shared["tool_execution_result"] = json.dumps(shared["tool_call_results"], ensure_ascii=False, indent=3)
                 return "done"
             
         except Exception as e:
