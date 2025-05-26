@@ -11,6 +11,7 @@ This project is a tool-calling agent built with the PocketFlow framework, integr
 *   Python 3.10+
 *   uv (for Python environment and package management)
 *   Git
+*   Node.js and npm/npx
 
 ### Installation
 
@@ -27,6 +28,12 @@ This project is a tool-calling agent built with the PocketFlow framework, integr
     ```
     This will set up a `.venv` directory with all necessary packages.
 
+3.  Install Node.js dependencies and Playwright browsers:
+    ```bash
+    npm install
+    npx playwright install
+    ```
+
 ### Configuration
 
 #### 1. LLM Configuration (`conf.yaml`)
@@ -34,6 +41,7 @@ This project is a tool-calling agent built with the PocketFlow framework, integr
 *   Copy the example configuration file:
     ```bash
     cp conf.yaml.example conf.yaml
+    cp .env.example .env
     ```
 *   Edit `conf.yaml` to set your LLM API key and base URL.
     ```yaml
@@ -154,3 +162,85 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 ## License
 
 [Specify your license here, e.g., MIT](LICENSE)
+
+# MCP Servers Setup
+
+This project uses multiple MCP (Model Control Protocol) servers for different functionalities.
+
+## Prerequisites
+
+- Node.js and npm/npx installed
+- Required API keys (see below)
+- Playwright browsers installed (`npx playwright install`)
+
+## Required API Keys
+
+1. AMAP Maps API Key: `7897d07c1c16a4da56995e13968b1641`
+2. Tavily API Key: `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`
+
+## Installation
+
+1. Install Node.js dependencies:
+```bash
+npm install
+```
+
+2. Install Playwright browsers:
+```bash
+npx playwright install
+```
+
+3. Install Amap Maps MCP Server:
+```bash
+export AMAP_MAPS_API_KEY="7897d07c1c16a4da56995e13968b1641"
+npx -y @amap/amap-maps-mcp-server
+```
+
+4. Install Playwright MCP:
+```bash
+npx -y @playwright/mcp@latest
+```
+
+5. Install Tavily MCP:
+```bash
+export TAVILY_API_KEY="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"
+npx -y tavily-mcp@0.1.2
+```
+
+## Configuration
+
+The MCP servers are configured in `mcp.json`. Each server has its own configuration including:
+- Command to run
+- Arguments
+- Environment variables
+
+## Usage
+
+Each MCP server runs on stdio (standard input/output) and can be used by your application. The servers are:
+
+1. Amap Maps MCP Server - For map-related functionality
+2. Playwright MCP - For browser automation
+3. Tavily MCP - For search and information retrieval
+
+## Running the Servers
+
+To run all servers, you can use the following commands in separate terminal windows:
+
+```bash
+# Terminal 1 - Amap Maps
+export AMAP_MAPS_API_KEY="7897d07c1c16a4da56995e13968b1641"
+npx -y @amap/amap-maps-mcp-server
+
+# Terminal 2 - Playwright
+npx -y @playwright/mcp@latest
+
+# Terminal 3 - Tavily
+export TAVILY_API_KEY="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"
+npx -y tavily-mcp@0.1.2
+```
+
+## Notes
+
+- Make sure to keep your API keys secure and never commit them to version control
+- Each server needs to be running in a separate terminal window
+- The servers communicate via stdio, so they should be started before running your main application

@@ -1,10 +1,10 @@
 [x] 边想边搜功能
 [] 支持代码相关能力mcp
-    [] 支持get_project_info
-    [] 支持get_file_info
-    [] 支持edit_file
-        [] 支持edit_file_by_diff工具
-    [] 支持 run commond 和 禁止命令
+    [x] 支持get_project_info
+    [x] 支持get_file_info
+    [x] 支持edit_file
+        [x] 支持edit_file_by_diff工具
+    [x] 支持 run commond 和 禁止命令
 [] 支持生图 mcp
 [] 支持语音功能
 
