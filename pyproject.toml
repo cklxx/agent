@@ -29,5 +29,6 @@ dependencies = [
     "requests==2.31.0",
     "beautifulsoup4==4.12.3",
     "fastmcp",
-    "Flask"
+    "Flask",
+    "langgraph>=0.0.15"
 ]

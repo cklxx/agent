@@ -38,6 +38,12 @@ alwaysApply: true
 - 使用 package.json 管理 Node.js 依赖
 - 定期更新依赖版本
 - 锁定依赖版本号
+- uv 新增依赖的标准流程：
+  - 推荐方式：使用 `uv add 包名` 自动添加到 pyproject.toml 并安装
+  - 指定版本：使用 `uv add 包名==版本号` 添加特定版本
+  - 添加多个包：使用 `uv add 包名1 包名2` 同时添加多个依赖
+  - 添加开发依赖：使用 `uv add --dev 包名` 添加开发依赖
+  - 手动添加后同步：编辑 pyproject.toml 后运行 `uv sync` 同步安装
 
 # 配置管理规范
 - 敏感信息必须通过环境变量管理
