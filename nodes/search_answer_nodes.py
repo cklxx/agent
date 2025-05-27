@@ -1,11 +1,13 @@
 from pocketflow import Node
 from tools.tavily import tavily_search
 from utils.call_llm import call_llm, stream_llm
-from typing import List, Dict
+from typing import List, Dict, TypedDict, Annotated, Sequence
 import os
 import logging
 import json
 import re
+from langgraph.graph import StateGraph, END
+import time
 
 """ 搜索节点  暂时不用了 """
 class SearchNode(Node):
@@ -33,41 +35,62 @@ def mock_llm(messages, with_function_call=False):
     # 尝试从内容中提取当前参数
     return "模拟思考：，内容：" + content
 
-class AnswerNode(Node):
-    """只负责最终答案生成，调用LLM"""
-    def prep(self, shared: Dict) -> str:
-        # 汇总所有sequential_thoughts
-        thought = shared.get("thought", [])
-        if not thought:
-            # 没有多步思考，直接返回用户问题和工具结果
-            question = shared.get('question', '')
-            tool_result = shared.get('tool_call_results', '')
-            return f"用户问题：{question}\n工具返回结果：{tool_result}\n请基于工具结果直接回答用户问题。 /think"
-        summary = ""
-        for i, t in enumerate(thought, 1):
-            if isinstance(t, dict):
-                summary += f"【第{i}步】{t.get('thought', json.dumps(t, ensure_ascii=False))}\n"
-            else:
-                summary += f"【第{i}步】{t}\n"
-        return f"多步推理过程如下：\n{summary}\n请基于以上推理链，回答用户问题：{shared.get('question', '')}"
-    def exec(self, question: str) -> str:
-        messages = [{"role": "user", "content": question}]
-        # 调用 stream_llm 并返回生成器
-        return stream_llm(messages, with_function_call=True)
-    def post(self, shared: Dict, prep_res: str, exec_res: str) -> str:
-        # 迭代流式输出并拼接结果
-        final_answer = ""
+class AnswerNode:
+    """负责最终答案生成，调用LLM"""
+    def __call__(self, state: dict) -> dict:
+        # 准备输入
+        question = state.get('question', '')
+        
+        # 获取所有工具执行结果
+        tool_results = state.get('tool_results', [])
+        tool_results_text = "\n".join([
+            f"Step {i+1}:\n{result}" 
+            for i, result in enumerate(tool_results)
+        ]) if tool_results else "No tool results available."
+        
+        # 获取工具执行历史
+        tool_history = state.get('tool_history', [])
+        tool_history_text = "\n".join([
+            f"Execution {i+1}:\n" +
+            f"Tool: {hist.get('tool', 'Unknown')}\n" +
+            f"Parameters: {hist.get('parameters', {})}\n" +
+            f"Result: {hist.get('result', 'No result')}\n" +
+            f"Status: {hist.get('status', 'Unknown')}\n" +
+            f"Execution Time: {hist.get('execution_time', 0):.2f}s\n" +
+            f"Reason: {hist.get('reason', 'No reason provided')}"
+            for i, hist in enumerate(tool_history)
+        ]) if tool_history else "No tool execution history available."
+        
+        # 构建提示词
+        prompt = f"""用户问题：{question}
+
+工具执行结果：
+{tool_results_text}
+
+工具执行历史：
+{tool_history_text}
+
+请基于以上所有工具执行结果和历史记录，生成一个完整的答案。注意：
+1. 综合所有工具返回的信息
+2. 考虑工具执行的成功和失败情况
+3. 如果某些工具执行失败，在答案中说明这一点
+4. 确保答案完整且连贯
+"""
+        
+        # 调用 LLM
+        messages = [{"role": "user", "content": prompt}]
         try:
-            for chunk in exec_res:
-                print(chunk, end='') # Print without newline
+            # 使用流式输出
+            final_answer = ""
+            for chunk in stream_llm(messages, with_function_call=True, task_type="high_quality_content"):
+                print(chunk, end='')
                 final_answer += chunk
-                # 可选：在这里可以处理每个chunk，例如实时显示给用户
-                # logging.info(f"Stream chunk: {chunk}")
+            print()  # 换行
+            
+            # 更新状态
+            state["answer"] = final_answer.strip()
         except Exception as e:
-            logging.error(f"[AnswerNode.post] Error processing stream: {e}")
-            final_answer += f"Error processing stream: {e}"
-
-        print() # Print a newline after the stream finishes
-
-        shared["answer"] = final_answer.strip() # Strip to remove leading/trailing whitespace
-        return "default" 
+            logging.error(f"[AnswerNode] Error processing stream: {e}")
+            state["answer"] = f"Error processing stream: {e}"
+        
+        return state 

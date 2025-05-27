@@ -83,11 +83,14 @@ class Config:
 
     def get_mcp_servers(self) -> Dict:
         """Get MCP servers configuration"""
-        return self.get_mcp("servers", {})
+        return self.get_mcp("mcpServers", {})
 
     def get_mcp_tools(self) -> Dict:
         """Get MCP tools configuration"""
         return self.get_mcp("tools", {})
+
+# 工具调用相关配置
+TOOL_CALL_LIMIT = 5  # 工具调用次数上限
 
 # 创建全局配置实例
 config = Config() 

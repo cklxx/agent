@@ -8,8 +8,8 @@ You are an assistant that can use tools via Model Context Protocol (MCP). Your g
 Answer this question: "{question}"
 Thought process: "{thought}"
 
-### PREVIOUS RESULTS
-{previous_results}
+### TOOL EXECUTION HISTORY
+{tool_history}
 
 ### NEXT ACTION
 Analyze the question and decide if you need to use any tools.
@@ -20,14 +20,13 @@ thinking: |
     <your step-by-step reasoning about:
     1. What information you already have
     2. What information is still missing
-    3. Which tools can provide the missing information>
+    3. Which tools can provide the missing information
+    4. How to combine information from previous tool executions>
 actions:
     - tool: <server_name.tool_name>
       reason: <why you need this tool>
       parameters:
           <parameter_name>: <parameter_value>
-need_more_tools: <true/false>
-reason: <brief explanation>
 ```
 
 IMPORTANT:
@@ -35,4 +34,5 @@ IMPORTANT:
 2. Only use tools when necessary
 3. Explain why you need each tool
 4. Consider combining existing information
-5. Avoid redundant tool calls 
+5. Avoid redundant tool calls
+6. Review tool execution history to avoid repeating failed attempts 
