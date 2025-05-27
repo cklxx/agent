@@ -1,8 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Dict, Optional, List
-import json
-import os
 import logging
+from utils.config import config
 
 class CommandServer(BaseModel):
     command: str
@@ -19,15 +18,14 @@ class URLServer(BaseModel):
 class MCPConfigSchema(BaseModel):
     mcpServers: Dict[str, CommandServer | URLServer]
 
-def load_mcp_config(filepath: str = "mcp.json") -> Optional[MCPConfigSchema]:
-    """Loads and parses the MCP configuration from a JSON file."""
-    if not os.path.exists(filepath):
-        logging.warning(f"MCP config file not found at {filepath}")
-        return None
+def get_mcp_config() -> Optional[MCPConfigSchema]:
+    """Gets the MCP configuration from the config manager."""
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            config_data = json.load(f)
-        return MCPConfigSchema(**config_data)
+        mcp_config = config.get_mcp("mcpServers", {})
+        if not mcp_config:
+            logging.warning("No MCP servers configured")
+            return None
+        return MCPConfigSchema(mcpServers=mcp_config)
     except Exception as e:
-        logging.error(f"Error loading or parsing MCP config file {filepath}: {e}")
+        logging.error(f"Error getting MCP config: {e}")
         return None 

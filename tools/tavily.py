@@ -2,6 +2,7 @@ import os
 import httpx
 from typing import Dict, List, Optional
 import logging
+from utils.config import config
 
 class TavilySearchTool:
     """Tavily 搜索工具，结构化返回结果"""
@@ -11,7 +12,7 @@ class TavilySearchTool:
         Args:
             api_key (str, optional): Tavily API key，默认读取 TAVILY_API_KEY 环境变量
         """
-        self.api_key = api_key or os.getenv("TAVILY_API_KEY")
+        self.api_key = api_key or config.get_env("TAVILY_API_KEY")
         if not self.api_key:
             raise ValueError("Tavily API key 未配置，请设置 TAVILY_API_KEY 环境变量或传入 api_key 参数。")
 

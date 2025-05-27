@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 import json
 
 from utils.dict_object import DictObject
+from utils.config import config
 
 # 需要用户自行安装 mcp 相关依赖
 try:

@@ -50,7 +50,7 @@ def get_tools():
                     {"tool": tool, "server_name": name} 
                     for tool in server_tools
                 ])
-            except Exception as e:
+                except Exception as e:
                 logging.error(f"❌ 从服务器 '{name}' 获取工具失败: {e}")
     
     logging.info(f"✅ 发现 {len(tools)} 个工具")
@@ -61,11 +61,11 @@ def call_tool(server_name: str, tool_name: str, arguments: Dict[str, Any]):
     """调用工具。"""
     if server_name == "local_dummy":
         return call_local_tool(tool_name, arguments)
-    
+
     server = mcp_servers.get(server_name)
     if not server:
         return f"错误: 未找到服务器 '{server_name}'"
-    
+
     if isinstance(server, CommandServer):
         try:
             return mcp_call_tool(
