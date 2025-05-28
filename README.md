@@ -119,6 +119,44 @@ Currently, these scripts run `python main.py` for command-line interaction. This
     python main.py
     ```
 
+### Testing
+
+项目提供了两种一键测试脚本，用于运行测试用例：
+
+#### Python测试脚本 (跨平台)
+
+```bash
+# 运行所有测试
+python run_tests.py
+
+# 只运行 Flow 测试
+python run_tests.py flow
+
+# 只运行 API 服务器测试
+python run_tests.py api
+
+# 显示详细输出
+python run_tests.py -v
+```
+
+#### Bash测试脚本 (Linux/macOS)
+
+```bash
+# 运行所有测试
+./run_tests.sh
+
+# 只运行 Flow 测试
+./run_tests.sh flow
+
+# 只运行 API 服务器测试
+./run_tests.sh api
+
+# 显示帮助信息
+./run_tests.sh -h
+```
+
+这两个脚本会自动检查环境，确保已安装 pytest，并可以针对特定测试模块运行测试。
+
 ### Upcoming Features: API and Web UI
 
 Work is in progress to provide:
@@ -130,6 +168,7 @@ Work is in progress to provide:
 *   `main.py`: Entry point for command-line interaction.
 *   `api_server.py`: (Upcoming) Entry point for the API server.
 *   `run.sh`, `run.bat`: Startup scripts.
+*   `run_tests.py`, `run_tests.sh`: 测试脚本，用于一键运行项目测试。
 *   `flow.py`: Defines the PocketFlow workflow.
 *   `nodes/`: Contains different nodes for the workflow.
     *   `mcp_nodes.py`: Handles discovering, deciding, and executing tools using MCP.
