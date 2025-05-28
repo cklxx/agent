@@ -16,6 +16,9 @@ You have access to two types of tools:
    {% endif %}
    - **web_search_tool**: For performing web searches
    - **crawl_tool**: For reading content from URLs
+   - **search_location**: For searching locations by keyword and city
+   - **get_route**: For getting route information between two locations
+   - **get_nearby_places**: For finding places near a specified location
 
 2. **Dynamic Loaded Tools**: Additional tools that may be available depending on the configuration. These tools are loaded dynamically and will appear in your available tools list. Examples include:
    - Specialized search tools

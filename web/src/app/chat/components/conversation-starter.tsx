@@ -8,8 +8,8 @@ import { cn } from "~/lib/utils";
 import { Welcome } from "./welcome";
 
 const questions = [
-  "How many times taller is the Eiffel Tower than the tallest building in the world?",
-  "How many years does an average Tesla battery last compared to a gasoline engine?",
+  "海口3天旅游攻略，包含交通",
+  "4天去海口旅游规划，北京出发机票买好了 5月31号 13点出发去美兰机场 6月4号5点出发回北京，住在海口喜来登酒店",
   "How many liters of water are required to produce 1 kg of beef?",
   "How many times faster is the speed of light compared to the speed of sound?",
 ];

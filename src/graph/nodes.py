@@ -19,6 +19,9 @@ from src.tools import (
     get_web_search_tool,
     get_retriever_tool,
     python_repl_tool,
+    search_location,
+    get_route,
+    get_nearby_places,
 )
 
 from src.config.agents import AGENT_LLM_MAP
@@ -393,9 +396,27 @@ async def _execute_agent_step(
         recursion_limit = default_recursion_limit
 
     logger.info(f"Agent input: {agent_input}")
-    result = await agent.ainvoke(
-        input=agent_input, config={"recursion_limit": recursion_limit}
-    )
+    try:
+        result = await agent.ainvoke(
+            input=agent_input, config={"recursion_limit": recursion_limit}
+        )
+    except Exception as e:
+        # 记录详细的API错误信息
+        logger.error(f"Agent execution failed for {agent_name}: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        
+        # 如果是OpenAI API错误，记录更多详情
+        if hasattr(e, 'response'):
+            logger.error(f"API response status: {getattr(e.response, 'status_code', 'Unknown')}")
+            logger.error(f"API response headers: {dict(getattr(e.response, 'headers', {}))}")
+            logger.error(f"API response content: {getattr(e.response, 'text', 'No content')}")
+        
+        # 如果是httpx错误，也记录详情
+        if hasattr(e, 'request'):
+            logger.error(f"Request URL: {getattr(e.request, 'url', 'Unknown')}")
+            logger.error(f"Request body: {getattr(e.request, 'body', 'No body')}")
+        
+        raise e
 
     # Process the result
     response_content = result["messages"][-1].content
@@ -481,19 +502,18 @@ async def _setup_and_execute_agent_step(
 async def researcher_node(
     state: State, config: RunnableConfig
 ) -> Command[Literal["research_team"]]:
-    """Researcher node that do research"""
-    logger.info("Researcher node is researching.")
+    """Researcher node that search and collect information."""
+    logger.info("Researcher searching and collecting information.")
     configurable = Configuration.from_runnable_config(config)
-    tools = [get_web_search_tool(configurable.max_search_results), crawl_tool]
-    retriever_tool = get_retriever_tool(state.get("resources", []))
-    if retriever_tool:
-        tools.insert(0, retriever_tool)
-    logger.info(f"Researcher tools: {tools}")
+    tools = [
+        get_web_search_tool(configurable.max_search_results),
+        crawl_tool,
+        search_location,
+        get_route,
+        get_nearby_places,
+    ]
     return await _setup_and_execute_agent_step(
-        state,
-        config,
-        "researcher",
-        tools,
+        state, config, "researcher", tools
     )
 
 
