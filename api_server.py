@@ -2,7 +2,7 @@ import logging
 import io
 import os # Make sure os is imported
 from flask import Flask, request, jsonify, send_from_directory
-from flow import create_flow
+from agent.flow import create_flow
 
 # Define the absolute path to the 'ui' directory
 UI_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ui')

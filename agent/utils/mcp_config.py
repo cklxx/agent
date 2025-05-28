@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Dict, Optional, List
 import logging
-from utils.config import config
+from agent.utils.config import config
 
 class CommandServer(BaseModel):
     command: str

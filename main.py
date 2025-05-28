@@ -1,22 +1,31 @@
-import logging
-from flow import create_flow
+from agent.utils.logger import agent_logger
+from agent.flow import create_flow, AgentState
 
 def main():
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
-    # 获取用户输入问题
-    question = input("请输入你的问题：")
+    # Get user input question
+    question = input("Please enter your question: ")
     if not question:
-        logging.warning("问题不能为空")
+        agent_logger.warning("Question cannot be empty")
         return
-    shared = {
-        "question": question,
-        "search_result": None,
-        "answer": None
-    }
+    
+    # Initialize state
+    initial_state = AgentState(
+        question=question,
+        search_result=None,
+        answer=None,
+        tools=None,
+        selected_tool=None,
+        tool_result=None
+    )
+    
+    # Create and run workflow
     flow = create_flow()
-    flow.run(shared)
-    logging.info("\n【搜索结果】\n%s", shared["search_result"])
-    logging.info("\n【答案】\n%s", shared["answer"])
+    final_state = flow.invoke(initial_state)
+    
+    # Output results
+    if final_state["search_result"]:
+        agent_logger.info("\n[Search Results]\n%s", final_state["search_result"])
+    agent_logger.info("\n[Answer]\n%s", final_state["answer"])
 
 if __name__ == "__main__":
     main() 
