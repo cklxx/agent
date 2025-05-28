@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 class ColorPrint:
-    """彩色终端输出类"""
+    """Color terminal output class"""
     BLUE = '\033[94m'
     GREEN = '\033[92m'
     YELLOW = '\033[93m'
@@ -33,77 +33,77 @@ class ColorPrint:
 
 
 class SimpleRunner:
-    """简化运行器，只运行主程序"""
+    """Simplified runner, only runs the main program"""
     
     def __init__(self):
         self.project_root = Path(__file__).parent.absolute()
         
-        # 预定义问题列表
+        # Predefined question list
         self.questions = [
-            "海口3天旅游规划，住在喜来登酒店",
-            "帮我写一个Python函数，计算斐波那契数列",
-            "推荐5本科幻小说",
-            "解释量子力学的基本原理",
-            "如何做红烧肉？"
+            "3-day travel plan for Haikou, staying at Sheraton Hotel",
+            "Write a Python function to calculate Fibonacci sequence",
+            "Recommend 5 science fiction novels",
+            "Explain the basic principles of quantum mechanics",
+            "How to make braised pork (Hong Shao Rou)?"
         ]
     
     def print_header(self):
-        """打印标题"""
+        """Print header"""
         print(f"{ColorPrint.blue('=' * 40)}")
-        print(f"{ColorPrint.blue('      Agent 项目简化运行脚本       ')}")
+        print(f"{ColorPrint.blue('      Agent Project Simple Runner       ')}")
         print(f"{ColorPrint.blue('=' * 40)}")
-        print(f"{ColorPrint.blue('[*] 正在准备环境...')}")
-        print(f"{ColorPrint.blue('[*] 启动主应用程序...')}")
-        print(f"{ColorPrint.yellow('[!] 注意：此脚本不会启动任何MCP服务，请确保已手动启动所需服务')}")
+        print(f"{ColorPrint.blue('[*] Preparing environment...')}")
+        print(f"{ColorPrint.blue('[*] Starting main application...')}")
+        print(f"{ColorPrint.yellow('[!] Note: This script does not start any MCP services, please ensure required services are started manually')}")
         print(f"{ColorPrint.blue('=' * 40)}")
     
     def select_question(self):
-        """让用户选择问题"""
-        print(f"{ColorPrint.blue('可用问题列表:')}")
+        """Let user select a question"""
+        print(f"{ColorPrint.blue('Available questions:')}")
         for i, question in enumerate(self.questions, 1):
             print(f"{ColorPrint.green(f'{i}.')} {question}")
         
         print(f"{ColorPrint.blue('-' * 40)}")
-        print(f"{ColorPrint.yellow(f'请选择问题编号(1-{len(self.questions)})，或输入0自定义问题:')}")
+        print(f"{ColorPrint.yellow(f'Please select a question number (1-{len(self.questions)}), or enter 0 for custom question:')}")
         
         try:
             choice = int(input("> "))
             if choice == 0:
-                print(f"{ColorPrint.yellow('请输入您的问题:')}")
+                print(f"{ColorPrint.yellow('Please enter your question:')}")
                 custom_question = input("> ")
                 return custom_question
             elif 1 <= choice <= len(self.questions):
                 return self.questions[choice-1]
             else:
-                print(f"{ColorPrint.red('[!] 无效选择，将使用默认问题')}")
+                print(f"{ColorPrint.red('[!] Invalid selection, will use default question')}")
                 return self.questions[0]
         except ValueError:
-            print(f"{ColorPrint.red('[!] 无效输入，将使用默认问题')}")
+            print(f"{ColorPrint.red('[!] Invalid input, will use default question')}")
             return self.questions[0]
     
     def run_main_app(self, question):
-        """运行主应用并传入问题"""
-        print(f"{ColorPrint.blue('[*] 使用问题:')} {ColorPrint.green(question)}")
-        print(f"{ColorPrint.blue('[*] 开始执行...')}")
+        """Run main application with the question"""
+        print(f"{ColorPrint.blue('[*] Using question:')} {ColorPrint.green(question)}")
+        print(f"{ColorPrint.blue('[*] Starting execution...')}")
         
         try:
-            # 创建一个管道传递问题到主程序
+            # Create a pipe to pass the question to the main program
             process = subprocess.Popen(
                 ["uv", "run", "main.py"],
                 stdin=subprocess.PIPE,
                 text=True
             )
             
-            # 发送问题到程序的标准输入
+            # Send question to program's standard input
             process.communicate(input=question)
             
             return process.returncode == 0
         except Exception as e:
-            print(f"{ColorPrint.red(f'[!] 运行主程序时出错: {e}')}")
+            print(f"{ColorPrint.red(f'[!] Error running main program: {e}')}")
             return False
     
     def run(self):
-        """运行主流程"""
+        """Run main process"""
         self.print_header()
         question = self.select_question()
         self.run_main_app(question)

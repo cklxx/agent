@@ -1,14 +1,14 @@
-from utils.logger import agent_logger
-from flow import create_flow, AgentState
+from agent.utils.logger import agent_logger
+from agent.flow import create_flow, AgentState
 
 def main():
-    # 获取用户输入问题
-    question = input("请输入你的问题：")
+    # Get user input question
+    question = input("Please enter your question: ")
     if not question:
-        agent_logger.warning("问题不能为空")
+        agent_logger.warning("Question cannot be empty")
         return
     
-    # 初始化状态
+    # Initialize state
     initial_state = AgentState(
         question=question,
         search_result=None,
@@ -18,14 +18,14 @@ def main():
         tool_result=None
     )
     
-    # 创建并运行工作流
+    # Create and run workflow
     flow = create_flow()
     final_state = flow.invoke(initial_state)
     
-    # 输出结果
+    # Output results
     if final_state["search_result"]:
-        agent_logger.info("\n【搜索结果】\n%s", final_state["search_result"])
-    agent_logger.info("\n【答案】\n%s", final_state["answer"])
+        agent_logger.info("\n[Search Results]\n%s", final_state["search_result"])
+    agent_logger.info("\n[Answer]\n%s", final_state["answer"])
 
 if __name__ == "__main__":
     main() 

@@ -2,7 +2,7 @@ import os
 import httpx
 from typing import Dict, List, Optional
 import logging
-from utils.config import config
+from agent.utils.config import config
 
 class TavilySearchTool:
     """Tavily 搜索工具，结构化返回结果"""

@@ -1,7 +1,6 @@
 from typing import TypedDict, Annotated, Sequence
 from langgraph.graph import StateGraph, END
-from nodes.search_answer_nodes import AnswerNode
-from nodes.mcp import GetToolsNode, DecideToolNode, ExecuteToolNode
+from agent.nodes import AnswerNode, GetToolsNode, DecideToolNode, ExecuteToolNode
 
 class AgentState(TypedDict):
     question: str

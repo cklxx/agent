@@ -1,28 +1,28 @@
 from .base_node import BaseNode
-from utils.mcp_utils import get_tools
-from utils.logger import mcp_logger
+from agent.utils.mcp_utils import get_tools
+from agent.utils.logger import mcp_logger
 
 class GetToolsNode(BaseNode):
-    """获取可用工具"""
+    """Get available tools"""
     def __call__(self, state: dict) -> dict:
-        mcp_logger.info(f"🔍 [GetToolsNode] 开始获取工具...")
+        mcp_logger.info(f"🔍 [GetToolsNode] Starting to get tools...")
         try:
             tools = get_tools()
-            mcp_logger.info(f"🔍 [GetToolsNode] 获取到 {len(tools)} 个工具")
+            mcp_logger.info(f"🔍 [GetToolsNode] Retrieved {len(tools)} tools")
             
-            # 保持工具的完整信息
+            # Keep complete tool information
             state["tools"] = tools
             
-            # 准备工具信息用于提示
+            # Prepare tool information for prompts
             tool_info = []
             for tool in tools:
-                # 获取工具的所有必要信息
+                # Get all necessary information about the tool
                 name = tool.get("name", "Unknown Tool")
                 description = tool.get("description", "No description")
                 input_schema = tool.get("inputSchema", {})
                 server_name = tool.get("server_name", "local")
                 
-                # 格式化工具信息
+                # Format tool information
                 tool_info.append(f"- {server_name}.{name}: {description}")
                 if input_schema:
                     properties = input_schema.get("properties", {})
@@ -33,15 +33,15 @@ class GetToolsNode(BaseNode):
                         tool_info.append(f"    - {param_name} ({param_type}): {req_status}")
             
             state["tool_info_for_prompt"] = "\n".join(tool_info)
-            state["selected_tools"] = []  # 初始化选中的工具列表
-            state["tool_results"] = []    # 初始化工具执行结果列表
+            state["selected_tools"] = []  # Initialize selected tools list
+            state["tool_results"] = []    # Initialize tool execution results list
             state["need_more_tools"] = False
-            state["tool_call_count"] = 0  # 初始化工具调用次数
+            state["tool_call_count"] = 0  # Initialize tool call count
             
-            mcp_logger.debug(f"🔍 [GetToolsNode] 更新后的状态: {state}")
+            mcp_logger.debug(f"🔍 [GetToolsNode] Updated state: {state}")
             return state
         except Exception as e:
-            mcp_logger.error(f"❌ [GetToolsNode] 获取工具时出错: {e}")
+            mcp_logger.error(f"❌ [GetToolsNode] Error getting tools: {e}")
             state["tools"] = []
             state["tool_info_for_prompt"] = "No tools available."
             state["selected_tools"] = []

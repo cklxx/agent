@@ -4,27 +4,27 @@ from logging.handlers import RotatingFileHandler
 import time
 
 def setup_logger():
-    """配置日志系统"""
-    # 创建 logs 目录
+    """Configure logging system"""
+    # Create logs directory
     log_dir = "logs"
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     
-    # 生成日志文件名，包含时间戳
+    # Generate log filename with timestamp
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     log_file = os.path.join(log_dir, f"agent_{timestamp}.log")
     
-    # 配置根日志记录器
+    # Configure root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
     
-    # 创建格式化器
+    # Create formatter
     formatter = logging.Formatter(
         '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     
-    # 配置文件处理器（按大小轮转）
+    # Configure file handler (with rotation)
     file_handler = RotatingFileHandler(
         log_file,
         maxBytes=10*1024*1024,  # 10MB
@@ -34,16 +34,16 @@ def setup_logger():
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     
-    # 配置控制台处理器
+    # Configure console handler
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(formatter)
     
-    # 添加处理器到根日志记录器
+    # Add handlers to root logger
     root_logger.addHandler(file_handler)
     root_logger.addHandler(console_handler)
     
-    # 创建特定模块的日志记录器
+    # Create specific module loggers
     loggers = {
         'agent': logging.getLogger('agent'),
         'mcp': logging.getLogger('mcp'),
@@ -51,17 +51,17 @@ def setup_logger():
         'tools': logging.getLogger('tools')
     }
     
-    # 配置每个模块的日志记录器
+    # Configure each module logger
     for logger in loggers.values():
         logger.setLevel(logging.DEBUG)
-        logger.propagate = True  # 允许日志传播到根日志记录器
+        logger.propagate = True  # Allow logs to propagate to root logger
     
     return loggers
 
-# 创建日志记录器实例
+# Create logger instances
 loggers = setup_logger()
 
-# 导出各个模块的日志记录器
+# Export module loggers
 agent_logger = loggers['agent']
 mcp_logger = loggers['mcp']
 llm_logger = loggers['llm']

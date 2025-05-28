@@ -6,12 +6,11 @@ import logging
 import time
 import yaml
 # 导入新的配置模块
-from utils.mcp_config import get_mcp_config, CommandServer, URLServer
-# 导入 WebCrawler
-from tools.crawler import WebCrawler # 确保路径正确
+from agent.utils.mcp_config import get_mcp_config, CommandServer, URLServer
 
-from utils.local_tools import get_local_tool_definitions, call_local_tool
-from utils.mcp_client import mcp_get_tools, mcp_call_tool
+
+from agent.utils.local_tools import get_local_tool_definitions, call_local_tool
+from agent.utils.mcp_client import mcp_get_tools, mcp_call_tool
 
 # 添加工具缓存
 _tools_cache = None
@@ -27,16 +26,6 @@ else:
     mcp_servers = mcp_config.mcpServers
     logging.info(f"✅ 成功加载 MCP 配置，发现 {len(mcp_servers)} 个服务器")
 
-from utils.dict_object import DictObject
-
-# 需要用户自行安装 mcp 相关依赖
-try:
-    from mcp import ClientSession, StdioServerParameters, stdio_client
-    # 也需要导入HTTP客户端相关的类，如果使用官方SDK的HTTP功能
-    # from mcp.client.http import HttpClient # 如果官方SDK支持
-    MCP_AVAILABLE = True
-except ImportError:
-    MCP_AVAILABLE = False
 
 # --- Get Tools (Consolidated) ---
 def get_tools():

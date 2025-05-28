@@ -1,7 +1,7 @@
 import yaml
 from openai import OpenAI
 import logging
-from utils.config import config
+from agent.utils.config import config
 
 # 全局变量，用于存储不同的模型客户端
 _clients = {}
