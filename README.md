@@ -89,11 +89,32 @@ This project is a tool-calling agent built with the PocketFlow framework, integr
 
 ### Running the Project
 
-You can run the agent in two main ways:
+You can run the agent in several ways:
 
-#### 1. Using Startup Scripts (Recommended)
+#### 1. 一键本地测试（推荐）
 
-These scripts handle virtual environment activation and then start the application.
+使用以下脚本可以自动启动所有MCP服务器和主应用程序，省去了手动在多个终端启动服务的麻烦。
+
+*   **For Linux/macOS:**
+    ```bash
+    ./start_local.sh
+    ```
+
+*   **For Cross-Platform (Python):**
+    ```bash
+    python start_local.py
+    ```
+
+这些脚本会：
+- 自动启动所有MCP服务器（Amap Maps、Playwright、Tavily）
+- 启动主应用程序
+- 在退出时自动关闭所有进程
+
+按 `Ctrl+C` 可随时停止所有服务。
+
+#### 2. Using Startup Scripts
+
+These scripts handle virtual environment activation and then start the application, but do not start MCP servers.
 
 *   **For Linux/macOS:**
     ```bash
@@ -108,7 +129,7 @@ These scripts handle virtual environment activation and then start the applicati
 
 Currently, these scripts run `python main.py` for command-line interaction. This will be updated as the API server is developed.
 
-#### 2. Manual Execution
+#### 3. Manual Execution
 
 1.  Activate the virtual environment:
     *   Linux/macOS: `source .venv/bin/activate`
@@ -169,6 +190,7 @@ Work is in progress to provide:
 *   `api_server.py`: (Upcoming) Entry point for the API server.
 *   `run.sh`, `run.bat`: Startup scripts.
 *   `run_tests.py`, `run_tests.sh`: 测试脚本，用于一键运行项目测试。
+*   `start_local.py`, `start_local.sh`: 一键本地测试脚本，自动启动所有MCP服务器和主应用。
 *   `flow.py`: Defines the PocketFlow workflow.
 *   `nodes/`: Contains different nodes for the workflow.
     *   `mcp_nodes.py`: Handles discovering, deciding, and executing tools using MCP.
