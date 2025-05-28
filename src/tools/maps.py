@@ -72,26 +72,44 @@ def search_location(keyword: str, city: Optional[str] = None) -> List[Location]:
     params = {
         "key": api_key,
         "keywords": keyword,
-        "city": city,
         "output": "json",
-        "extensions": "all"
+        "extensions": "base"  # 使用基础信息，而不是all
     }
+    
+    # 如果指定了城市，则添加城市参数
+    if city:
+        params["city"] = city
+        params["citylimit"] = True  # 限制在指定城市内搜索
     
     response = requests.get(base_url, params=params)
     data = response.json()
     
     if data["status"] != "1":
-        raise Exception(f"API error: {data['info']}")
+        raise Exception(f"API error: {data.get('info', 'Unknown error')}")
     
     locations = []
-    for poi in data["pois"]:
-        location = Location(
-            name=poi["name"],
-            address=poi["address"],
-            latitude=float(poi["location"].split(",")[1]),
-            longitude=float(poi["location"].split(",")[0])
-        )
-        locations.append(location)
+    if "pois" in data and data["pois"]:
+        for poi in data["pois"]:
+            # 确保location字段存在且格式正确
+            if "location" in poi and poi["location"]:
+                location_parts = poi["location"].split(",")
+                if len(location_parts) == 2:
+                    # 处理可能为列表的字段
+                    name = poi.get("name", "")
+                    if isinstance(name, list):
+                        name = name[0] if name else ""
+                    
+                    address = poi.get("address", "")
+                    if isinstance(address, list):
+                        address = address[0] if address else ""
+                    
+                    location = Location(
+                        name=str(name),
+                        address=str(address),
+                        latitude=float(location_parts[1]),
+                        longitude=float(location_parts[0])
+                    )
+                    locations.append(location)
     
     return locations
 
@@ -121,8 +139,8 @@ def get_route(
     base_url = "https://restapi.amap.com/v3/direction/driving"
     
     # First get coordinates for origin and destination
-    origin_locations = search_location(origin)
-    dest_locations = search_location(destination)
+    origin_locations = search_location.invoke({"keyword": origin})
+    dest_locations = search_location.invoke({"keyword": destination})
     
     if not origin_locations or not dest_locations:
         raise Exception("Could not find coordinates for origin or destination")
@@ -142,7 +160,7 @@ def get_route(
     data = response.json()
     
     if data["status"] != "1":
-        raise Exception(f"API error: {data['info']}")
+        raise Exception(f"API error: {data.get('info', 'Unknown error')}")
     
     route_info = data["route"]
     steps = []
@@ -186,7 +204,7 @@ def get_nearby_places(
     base_url = "https://restapi.amap.com/v3/place/around"
     
     # First get coordinates for the center location
-    locations = search_location(location)
+    locations = search_location.invoke({"keyword": location})
     if not locations:
         raise Exception("Could not find coordinates for the center location")
     
@@ -197,7 +215,9 @@ def get_nearby_places(
         "location": center_coords,
         "radius": radius,
         "extensions": "all",
-        "output": "json"
+        "output": "json",
+        "offset": 20,  # 返回结果数量
+        "page": 1      # 页码
     }
     
     if types:
@@ -207,16 +227,30 @@ def get_nearby_places(
     data = response.json()
     
     if data["status"] != "1":
-        raise Exception(f"API error: {data['info']}")
+        raise Exception(f"API error: {data.get('info', 'Unknown error')}")
     
-    places = []
-    for poi in data["pois"]:
-        place = Location(
-            name=poi["name"],
-            address=poi["address"],
-            latitude=float(poi["location"].split(",")[1]),
-            longitude=float(poi["location"].split(",")[0])
-        )
-        places.append(place)
+    locations = []
+    if "pois" in data and data["pois"]:
+        for poi in data["pois"]:
+            # 确保location字段存在且格式正确
+            if "location" in poi and poi["location"]:
+                location_parts = poi["location"].split(",")
+                if len(location_parts) == 2:
+                    # 处理可能为列表的字段
+                    name = poi.get("name", "")
+                    if isinstance(name, list):
+                        name = name[0] if name else ""
+                    
+                    address = poi.get("address", "")
+                    if isinstance(address, list):
+                        address = address[0] if address else ""
+                    
+                    location = Location(
+                        name=str(name),
+                        address=str(address),
+                        latitude=float(location_parts[1]),
+                        longitude=float(location_parts[0])
+                    )
+                    locations.append(location)
     
-    return places 
+    return locations 

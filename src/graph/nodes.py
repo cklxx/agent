@@ -508,10 +508,12 @@ async def researcher_node(
     tools = [
         get_web_search_tool(configurable.max_search_results),
         crawl_tool,
-        search_location,
-        get_route,
-        get_nearby_places,
+        # search_location,
+        # get_route,
+        # get_nearby_places,
     ]
+    print("---------tools--------");
+    print(tools);
     return await _setup_and_execute_agent_step(
         state, config, "researcher", tools
     )
