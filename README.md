@@ -91,7 +91,7 @@ This project is a tool-calling agent built with the PocketFlow framework, integr
 
 You can run the agent in several ways:
 
-#### 1. 简化运行脚本（仅主程序，无服务）
+#### 1. 简化运行脚本（推荐）
 
 使用以下脚本可以直接运行主程序并选择预设问题，无需启动MCP服务：
 
@@ -112,28 +112,7 @@ You can run the agent in several ways:
 
 适用于不需要使用MCP服务的简单测试场景。
 
-#### 2. 一键本地测试（推荐）
-
-使用以下脚本可以自动启动所有MCP服务器和主应用程序，省去了手动在多个终端启动服务的麻烦。
-
-*   **For Linux/macOS:**
-    ```bash
-    ./start_local.sh
-    ```
-
-*   **For Cross-Platform (Python):**
-    ```bash
-    python start_local.py
-    ```
-
-这些脚本会：
-- 自动启动所有MCP服务器（Amap Maps、Playwright、Tavily）
-- 启动主应用程序
-- 在退出时自动关闭所有进程
-
-按 `Ctrl+C` 可随时停止所有服务。
-
-#### 3. Using Startup Scripts
+#### 2. Using Startup Scripts
 
 These scripts handle virtual environment activation and then start the application, but do not start MCP servers.
 
@@ -150,7 +129,7 @@ These scripts handle virtual environment activation and then start the applicati
 
 Currently, these scripts run `python main.py` for command-line interaction. This will be updated as the API server is developed.
 
-#### 4. Manual Execution
+#### 3. Manual Execution
 
 1.  Activate the virtual environment:
     *   Linux/macOS: `source .venv/bin/activate`
@@ -160,44 +139,6 @@ Currently, these scripts run `python main.py` for command-line interaction. This
     ```bash
     python main.py
     ```
-
-### Testing
-
-项目提供了两种一键测试脚本，用于运行测试用例：
-
-#### Python测试脚本 (跨平台)
-
-```bash
-# 运行所有测试
-python run_tests.py
-
-# 只运行 Flow 测试
-python run_tests.py flow
-
-# 只运行 API 服务器测试
-python run_tests.py api
-
-# 显示详细输出
-python run_tests.py -v
-```
-
-#### Bash测试脚本 (Linux/macOS)
-
-```bash
-# 运行所有测试
-./run_tests.sh
-
-# 只运行 Flow 测试
-./run_tests.sh flow
-
-# 只运行 API 服务器测试
-./run_tests.sh api
-
-# 显示帮助信息
-./run_tests.sh -h
-```
-
-这两个脚本会自动检查环境，确保已安装 pytest，并可以针对特定测试模块运行测试。
 
 ### Upcoming Features: API and Web UI
 
@@ -210,8 +151,6 @@ Work is in progress to provide:
 *   `main.py`: Entry point for command-line interaction.
 *   `api_server.py`: (Upcoming) Entry point for the API server.
 *   `run.sh`, `run.bat`: Startup scripts.
-*   `run_tests.py`, `run_tests.sh`: 测试脚本，用于一键运行项目测试。
-*   `start_local.py`, `start_local.sh`: 一键本地测试脚本，自动启动所有MCP服务器和主应用。
 *   `run_simple.py`, `run_simple.sh`: 简化运行脚本，仅运行主程序并选择预设问题。
 *   `flow.py`: Defines the PocketFlow workflow.
 *   `nodes/`: Contains different nodes for the workflow.
