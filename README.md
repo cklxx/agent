@@ -91,7 +91,28 @@ This project is a tool-calling agent built with the PocketFlow framework, integr
 
 You can run the agent in several ways:
 
-#### 1. 一键本地测试（推荐）
+#### 1. 简化运行脚本（仅主程序，无服务）
+
+使用以下脚本可以直接运行主程序并选择预设问题，无需启动MCP服务：
+
+*   **For Linux/macOS:**
+    ```bash
+    ./run_simple.sh
+    ```
+
+*   **For Cross-Platform (Python):**
+    ```bash
+    python run_simple.py
+    ```
+
+这些脚本会：
+- 显示预设问题列表，让您选择要使用的问题
+- 支持输入自定义问题
+- 直接运行主程序（不启动任何MCP服务）
+
+适用于不需要使用MCP服务的简单测试场景。
+
+#### 2. 一键本地测试（推荐）
 
 使用以下脚本可以自动启动所有MCP服务器和主应用程序，省去了手动在多个终端启动服务的麻烦。
 
@@ -112,7 +133,7 @@ You can run the agent in several ways:
 
 按 `Ctrl+C` 可随时停止所有服务。
 
-#### 2. Using Startup Scripts
+#### 3. Using Startup Scripts
 
 These scripts handle virtual environment activation and then start the application, but do not start MCP servers.
 
@@ -129,7 +150,7 @@ These scripts handle virtual environment activation and then start the applicati
 
 Currently, these scripts run `python main.py` for command-line interaction. This will be updated as the API server is developed.
 
-#### 3. Manual Execution
+#### 4. Manual Execution
 
 1.  Activate the virtual environment:
     *   Linux/macOS: `source .venv/bin/activate`
@@ -191,6 +212,7 @@ Work is in progress to provide:
 *   `run.sh`, `run.bat`: Startup scripts.
 *   `run_tests.py`, `run_tests.sh`: 测试脚本，用于一键运行项目测试。
 *   `start_local.py`, `start_local.sh`: 一键本地测试脚本，自动启动所有MCP服务器和主应用。
+*   `run_simple.py`, `run_simple.sh`: 简化运行脚本，仅运行主程序并选择预设问题。
 *   `flow.py`: Defines the PocketFlow workflow.
 *   `nodes/`: Contains different nodes for the workflow.
     *   `mcp_nodes.py`: Handles discovering, deciding, and executing tools using MCP.
