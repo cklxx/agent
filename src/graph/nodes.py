@@ -13,6 +13,7 @@ from langgraph.types import Command, interrupt
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
 from src.agents import create_agent
+from src.tools.maps import search_location_in_city
 from src.tools.search import LoggedTavilySearch
 from src.tools import (
     crawl_tool,
@@ -508,12 +509,12 @@ async def researcher_node(
     tools = [
         get_web_search_tool(configurable.max_search_results),
         crawl_tool,
-        # search_location,
-        # get_route,
-        # get_nearby_places,
+        search_location,
+        search_location_in_city,
+        get_route,
+        get_nearby_places,
     ]
-    print("---------tools--------");
-    print(tools);
+
     return await _setup_and_execute_agent_step(
         state, config, "researcher", tools
     )

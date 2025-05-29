@@ -50,21 +50,20 @@ class Route(BaseModel):
 
 
 @tool
-def search_location(keyword: str, city: Optional[str] = None) -> List[Location]:
-    """Search for locations, places, landmarks, or addresses using keywords. 
-    Use this tool when you need to find specific locations, tourist attractions, restaurants, hotels, or any places.
+def search_location(keyword: str) -> List[Location]:
+    """Search for locations, places, landmarks, or addresses using keywords globally. 
+    Use this tool when you need to find specific locations, tourist attractions, restaurants, hotels, or any places without city restriction.
     
     Args:
         keyword: The search keyword (e.g., "故宫", "天安门", "北京大学", "餐厅", "酒店")
-        city: Optional city name to limit the search scope (e.g., "北京", "上海", "广州")
         
     Returns:
         List of locations with names, addresses, and coordinates matching the search criteria
         
     Examples:
-        - search_location("故宫", "北京") - Find the Forbidden City in Beijing
-        - search_location("海滩", "海口") - Find beaches in Haikou
+        - search_location("故宫") - Find the Forbidden City
         - search_location("美食街") - Find food streets
+        - search_location("机场") - Find airports
     """
     api_key = get_api_key()
     base_url = "https://restapi.amap.com/v3/place/text"
@@ -76,10 +75,67 @@ def search_location(keyword: str, city: Optional[str] = None) -> List[Location]:
         "extensions": "base"  # 使用基础信息，而不是all
     }
     
-    # 如果指定了城市，则添加城市参数
-    if city:
-        params["city"] = city
-        params["citylimit"] = True  # 限制在指定城市内搜索
+    response = requests.get(base_url, params=params)
+    data = response.json()
+    
+    if data["status"] != "1":
+        raise Exception(f"API error: {data.get('info', 'Unknown error')}")
+    
+    locations = []
+    if "pois" in data and data["pois"]:
+        for poi in data["pois"]:
+            # 确保location字段存在且格式正确
+            if "location" in poi and poi["location"]:
+                location_parts = poi["location"].split(",")
+                if len(location_parts) == 2:
+                    # 处理可能为列表的字段
+                    name = poi.get("name", "")
+                    if isinstance(name, list):
+                        name = name[0] if name else ""
+                    
+                    address = poi.get("address", "")
+                    if isinstance(address, list):
+                        address = address[0] if address else ""
+                    
+                    location = Location(
+                        name=str(name),
+                        address=str(address),
+                        latitude=float(location_parts[1]),
+                        longitude=float(location_parts[0])
+                    )
+                    locations.append(location)
+    
+    return locations
+
+
+@tool
+def search_location_in_city(keyword: str, city: str) -> List[Location]:
+    """Search for locations, places, landmarks, or addresses using keywords within a specific city. 
+    Use this tool when you need to find specific locations within a particular city to get more precise results.
+    
+    Args:
+        keyword: The search keyword (e.g., "故宫", "天安门", "北京大学", "餐厅", "酒店")
+        city: City name to limit the search scope (e.g., "北京", "上海", "广州")
+        
+    Returns:
+        List of locations with names, addresses, and coordinates matching the search criteria within the specified city
+        
+    Examples:
+        - search_location_in_city("故宫", "北京") - Find the Forbidden City in Beijing
+        - search_location_in_city("海滩", "海口") - Find beaches in Haikou
+        - search_location_in_city("大学", "上海") - Find universities in Shanghai
+    """
+    api_key = get_api_key()
+    base_url = "https://restapi.amap.com/v3/place/text"
+    
+    params = {
+        "key": api_key,
+        "keywords": keyword,
+        "city": city,
+        "citylimit": True,  # 限制在指定城市内搜索
+        "output": "json",
+        "extensions": "base"  # 使用基础信息，而不是all
+    }
     
     response = requests.get(base_url, params=params)
     data = response.json()
@@ -182,7 +238,7 @@ def get_route(
 def get_nearby_places(
     location: str,
     radius: int = 1000,
-    types: Optional[str] = None
+    types: str = None
 ) -> List[Location]:
     """Search for places and points of interest near a specific location.
     Use this tool when you need to find nearby restaurants, hotels, attractions, services, or facilities around a location.
