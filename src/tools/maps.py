@@ -67,7 +67,9 @@ def search_location(keyword: str) -> List[Location]:
     """
     api_key = get_api_key()
     base_url = "https://restapi.amap.com/v3/place/text"
-    
+    # log
+    print("---------search_location--------");
+    print(keyword);
     params = {
         "key": api_key,
         "keywords": keyword,
@@ -127,7 +129,10 @@ def search_location_in_city(keyword: str, city: str) -> List[Location]:
     """
     api_key = get_api_key()
     base_url = "https://restapi.amap.com/v3/place/text"
-    
+     # log
+    print("---------search_location_in_city--------");
+    print(keyword);
+    print(city);
     params = {
         "key": api_key,
         "keywords": keyword,
@@ -197,7 +202,10 @@ def get_route(
     # First get coordinates for origin and destination
     origin_locations = search_location.invoke({"keyword": origin})
     dest_locations = search_location.invoke({"keyword": destination})
-    
+     # log
+    print("---------get_route--------");
+    print(origin);
+    print(destination);
     if not origin_locations or not dest_locations:
         raise Exception("Could not find coordinates for origin or destination")
     
@@ -258,7 +266,11 @@ def get_nearby_places(
     """
     api_key = get_api_key()
     base_url = "https://restapi.amap.com/v3/place/around"
-    
+     # log
+    print("---------get_nearby_places--------");
+    print(location);
+    print(radius);
+    print(types);
     # First get coordinates for the center location
     locations = search_location.invoke({"keyword": location})
     if not locations:
