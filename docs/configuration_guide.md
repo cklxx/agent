@@ -5,7 +5,7 @@
 Copy the `conf.yaml.example` file to `conf.yaml` and modify the configurations to match your specific settings and requirements.
 
 ```bash
-cd deer-flow
+cd agent
 cp conf.yaml.example conf.yaml
 ```
 

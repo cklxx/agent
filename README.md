@@ -32,8 +32,8 @@ Make sure your system meets the following minimum requirements:
 
 ```bash
 # Clone the repository
-git clone https://github.com/bytedance/deer-flow.git
-cd deer-flow
+git clone https://github.com/bytedance/agent.git
+cd agent
 
 # Install dependencies, uv will take care of the python interpreter and venv creation, and install the required packages
 uv sync
@@ -58,7 +58,7 @@ brew install marp-cli
 Optionally, install web UI dependencies via [pnpm](https://pnpm.io/installation):
 
 ```bash
-cd deer-flow/web
+cd agent/web
 pnpm install
 ```
 
@@ -344,17 +344,17 @@ First, you need read the [configuration](docs/configuration_guide.md) below. Mak
 Second, to build a Docker image of your own web server:
 
 ```bash
-docker build -t deer-flow-api .
+docker build -t agent-api .
 ```
 
 Final, start up a docker container running the web server:
 
 ```bash
-# Replace deer-flow-api-app with your preferred container name
-docker run -d -t -p 8000:8000 --env-file .env --name deer-flow-api-app deer-flow-api
+# Replace agent-api-app with your preferred container name
+docker run -d -t -p 8000:8000 --env-file .env --name agent-api-app agent-api
 
 # stop the server
-docker stop deer-flow-api-app
+docker stop agent-api-app
 ```
 
 ### Docker Compose (include both backend and frontend)

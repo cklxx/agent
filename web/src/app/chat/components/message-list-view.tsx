@@ -6,15 +6,15 @@ import { motion } from "framer-motion";
 import { Download, Headphones } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
-import { LoadingAnimation } from "~/components/deer-flow/loading-animation";
-import { Markdown } from "~/components/deer-flow/markdown";
-import { RainbowText } from "~/components/deer-flow/rainbow-text";
-import { RollingText } from "~/components/deer-flow/rolling-text";
+import { LoadingAnimation } from "~/components/agent/loading-animation";
+import { Markdown } from "~/components/agent/markdown";
+import { RainbowText } from "~/components/agent/rainbow-text";
+import { RollingText } from "~/components/agent/rolling-text";
 import {
   ScrollContainer,
   type ScrollContainerRef,
-} from "~/components/deer-flow/scroll-container";
-import { Tooltip } from "~/components/deer-flow/tooltip";
+} from "~/components/agent/scroll-container";
+import { Tooltip } from "~/components/agent/tooltip";
 import { Button } from "~/components/ui/button";
 import {
   Card,

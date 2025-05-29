@@ -30,7 +30,7 @@ export async function SiteHeader() {
             asChild
             className="group relative z-10"
           >
-            <Link href="https://github.com/bytedance/deer-flow" target="_blank">
+            <Link href="https://github.com/bytedance/agent" target="_blank">
               <GitHubLogoIcon className="size-4" />
               Star on GitHub
               {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY &&
@@ -49,7 +49,7 @@ export async function StarCounter() {
 
   try {
     const response = await fetch(
-      "https://api.github.com/repos/bytedance/deer-flow",
+      "https://api.github.com/repos/bytedance/agent",
       {
         headers: env.GITHUB_OAUTH_TOKEN
           ? {

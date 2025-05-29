@@ -7,10 +7,10 @@ import { type Metadata } from "next";
 import { Geist } from "next/font/google";
 import Script from "next/script";
 
-import { ThemeProviderWrapper } from "~/components/deer-flow/theme-provider-wrapper";
+import { ThemeProviderWrapper } from "~/components/agent/theme-provider-wrapper";
 import { env } from "~/env";
 
-import { Toaster } from "../components/deer-flow/toaster";
+import { Toaster } from "../components/agent/toaster";
 
 export const metadata: Metadata = {
   title: "🦌 DeerFlow",

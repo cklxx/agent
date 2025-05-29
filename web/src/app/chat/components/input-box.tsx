@@ -5,11 +5,11 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUp, X } from "lucide-react";
 import { useCallback, useRef } from "react";
 
-import { Detective } from "~/components/deer-flow/icons/detective";
+import { Detective } from "~/components/agent/icons/detective";
 import MessageInput, {
   type MessageInputRef,
-} from "~/components/deer-flow/message-input";
-import { Tooltip } from "~/components/deer-flow/tooltip";
+} from "~/components/agent/message-input";
+import { Tooltip } from "~/components/agent/tooltip";
 import { Button } from "~/components/ui/button";
 import type { Option, Resource } from "~/core/messages";
 import {
