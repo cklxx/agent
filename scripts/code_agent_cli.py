@@ -5,6 +5,7 @@
 Simplified Code Agent CLI - 智能编程助手命令行工具
 
 简化版本，专注于核心功能，避免复杂的事件循环和兼容性问题。
+支持指定工作目录运行。
 """
 
 import argparse
@@ -32,13 +33,54 @@ except ImportError as e:
 class SimpleCodeAgentCLI:
     """Simplified Code Agent CLI"""
     
-    def __init__(self, debug: bool = False):
+    def __init__(self, debug: bool = False, working_directory: Optional[str] = None):
         """初始化CLI"""
         self.debug = debug
+        self.working_directory = working_directory
         
-        print("🔧 DEBUG: Initializing CLI...")
+        print("🔧 DEBUG: Initializing Code Agent CLI...")
+        print(f"🔧 DEBUG: Debug mode: {'ON' if debug else 'OFF'}")
+        
+        # 如果指定了工作目录，检查并切换到该目录
+        if self.working_directory:
+            print(f"🔧 DEBUG: Working directory specified: {self.working_directory}")
+            
+            if not os.path.exists(self.working_directory):
+                print(f"❌ 错误: 工作目录不存在: {self.working_directory}")
+                sys.exit(1)
+            if not os.path.isdir(self.working_directory):
+                print(f"❌ 错误: 不是一个有效的目录: {self.working_directory}")
+                sys.exit(1)
+            
+            # 转换为绝对路径
+            original_path = self.working_directory
+            self.working_directory = os.path.abspath(self.working_directory)
+            print(f"🔧 DEBUG: 转换工作目录路径: {original_path} -> {self.working_directory}")
+            
+            # 显示当前目录和目标目录
+            current_dir = os.getcwd()
+            print(f"🔧 DEBUG: 当前目录: {current_dir}")
+            print(f"🔧 DEBUG: 目标目录: {self.working_directory}")
+            
+            # 切换当前工作目录
+            os.chdir(self.working_directory)
+            new_current_dir = os.getcwd()
+            print(f"🔧 DEBUG: 成功切换到工作目录: {new_current_dir}")
+            
+            # 验证目录权限
+            try:
+                test_file = os.path.join(self.working_directory, '.agent_test')
+                with open(test_file, 'w') as f:
+                    f.write('test')
+                os.remove(test_file)
+                print(f"🔧 DEBUG: 工作目录权限检查: ✅ 可读写")
+            except Exception as e:
+                print(f"🔧 DEBUG: 工作目录权限检查: ⚠️ 权限限制 - {e}")
+        else:
+            print(f"🔧 DEBUG: 使用当前目录: {os.getcwd()}")
         
         # 设置工具
+        print("🔧 DEBUG: 初始化工具集...")
         self.tools = [
             execute_terminal_command,
             get_current_directory,
@@ -52,27 +94,79 @@ class SimpleCodeAgentCLI:
             generate_file_diff,
         ]
         
-        print(f"🔧 DEBUG: Configured {len(self.tools)} tools")
+        print(f"🔧 DEBUG: 已配置 {len(self.tools)} 个工具:")
+        for i, tool in enumerate(self.tools, 1):
+            tool_name = getattr(tool, 'name', 'Unknown')
+            print(f"🔧 DEBUG:   {i}. {tool_name}")
         
         # 创建agent
+        print("🔧 DEBUG: 正在创建 AI Agent...")
         try:
             self.agent = create_code_agent(self.tools)
-            print("✅ DEBUG: Agent created successfully")
+            print("✅ DEBUG: AI Agent 创建成功")
+            
+            # 显示agent配置信息
+            if self.debug:
+                print(f"🔧 DEBUG: Agent 类型: {type(self.agent)}")
+                if hasattr(self.agent, 'nodes'):
+                    print(f"🔧 DEBUG: Agent 节点数: {len(self.agent.nodes)}")
+                if hasattr(self.agent, 'edges'):
+                    print(f"🔧 DEBUG: Agent 边数: {len(self.agent.edges)}")
+                    
         except Exception as e:
-            print(f"❌ DEBUG: Failed to create agent: {e}")
+            print(f"❌ DEBUG: AI Agent 创建失败: {e}")
             if debug:
                 import traceback
+                print("🔧 DEBUG: 完整错误信息:")
                 traceback.print_exc()
             raise
+        
+        print("🔧 DEBUG: CLI 初始化完成")
+        print("-" * 50)
     
     def print_banner(self):
         """显示欢迎信息"""
         print("\n🤖 Simplified Code Agent CLI")
-        print("=" * 50)
+        print("=" * 60)
         print("✨ AI-powered programming automation tool")
-        print(f"📍 Current directory: {os.getcwd()}")
+        
+        # 环境信息
+        current_dir = os.getcwd()
+        print(f"📍 Current working directory: {current_dir}")
+        if self.working_directory and current_dir != self.working_directory:
+            print(f"🎯 Target working directory: {self.working_directory}")
+        
+        # 系统信息
+        import sys
+        import platform
+        print(f"🐍 Python version: {sys.version.split()[0]}")
+        print(f"💻 System: {platform.system()} {platform.release()}")
+        
+        # 工具信息
         print(f"🔧 Available tools: {len(self.tools)}")
-        print("=" * 50)
+        if self.debug:
+            print("🛠️  Tool list:")
+            for i, tool in enumerate(self.tools, 1):
+                tool_name = getattr(tool, 'name', 'Unknown')
+                tool_desc = getattr(tool, 'description', 'No description')
+                print(f"   {i}. {tool_name}")
+                if tool_desc and len(tool_desc) < 80:
+                    print(f"      └─ {tool_desc}")
+        
+        # 配置信息
+        print(f"🔍 Debug mode: {'ON' if self.debug else 'OFF'}")
+        
+        # 目录权限状态
+        try:
+            import tempfile
+            with tempfile.NamedTemporaryFile(dir=current_dir, delete=True):
+                pass
+            permission_status = "✅ 可读写"
+        except:
+            permission_status = "⚠️ 权限受限"
+        print(f"📝 Directory permissions: {permission_status}")
+        
+        print("=" * 60)
     
     async def execute_task(self, task_description: str) -> dict:
         """执行编程任务"""
@@ -103,80 +197,175 @@ If you need to create or modify files, please use the appropriate tools.
                 "locale": "en-US"
             }
             
-            print("🔄 Starting agent execution with streaming output...")
-            print("📝 Agent thinking process:")
-            print("-" * 40)
+            print("🔄 Starting agent execution with enhanced logging...")
+            print("📝 Agent execution flow:")
+            print("-" * 60)
             
-            # 使用流式调用来获取实时输出
+            # 使用简化的监控方式
             step_counter = 1
-            tool_calls_found = False
+            all_messages = []
             
             try:
-                # 调用agent并监控流式输出
-                async for chunk in self.agent.astream(state, {"configurable": {"thread_id": "demo"}}):
-                    if self.debug:
-                        print(f"🔍 DEBUG: Received chunk: {type(chunk)}")
+                print("🤖 AI Agent is analyzing the task...")
+                
+                # 使用标准调用但添加自定义监控
+                final_result = await self.agent.ainvoke(state, {"configurable": {"thread_id": "demo"}})
+                
+                # 立即分析结果并显示执行过程
+                if "messages" in final_result and len(final_result["messages"]) > 0:
+                    print("\n🔍 Reconstructing agent execution flow...")
+                    print("=" * 50)
                     
-                    # 检查chunk中的消息
-                    if isinstance(chunk, dict) and "messages" in chunk:
-                        messages = chunk["messages"]
-                        if messages:
-                            last_msg = messages[-1]
+                    messages = final_result["messages"]
+                    current_step = 1
+                    
+                    for i, msg in enumerate(messages):
+                        msg_type = getattr(msg, 'type', 'unknown')
+                        
+                        if msg_type == "ai":
+                            print(f"\n🤖 AI Agent - Step {current_step}")
+                            print("─" * 50)
                             
-                            # 检查是否是AI消息
-                            if hasattr(last_msg, 'type') and last_msg.type == "ai":
-                                # 检查工具调用
-                                if hasattr(last_msg, 'tool_calls') and last_msg.tool_calls:
-                                    tool_calls_found = True
-                                    print(f"\n🔧 Step {step_counter}: Agent is calling tools...")
-                                    for i, tool_call in enumerate(last_msg.tool_calls):
-                                        tool_name = tool_call.get('name', 'unknown')
-                                        tool_args = tool_call.get('args', {})
-                                        print(f"  🛠️  Tool {i+1}: {tool_name}")
-                                        print(f"      Arguments: {tool_args}")
-                                    step_counter += 1
-                                
-                                # 显示AI的思考内容
-                                if hasattr(last_msg, 'content') and last_msg.content:
-                                    content = last_msg.content.strip()
-                                    if content and not content.startswith('['):  # 过滤掉系统消息
-                                        print(f"\n💭 Agent thinking:")
-                                        print(f"   {content[:200]}{'...' if len(content) > 200 else ''}")
+                            # 显示AI的思考内容
+                            if hasattr(msg, 'content') and msg.content:
+                                content = msg.content.strip()
+                                if content:
+                                    print(f"💭 Agent Reasoning:")
+                                    lines = content.split('\n')
+                                    for line in lines:
+                                        if line.strip():
+                                            # 智能高亮关键信息
+                                            if any(keyword in line.lower() for keyword in ['step', 'plan', 'first', 'then', 'next']):
+                                                print(f"📋 {line}")
+                                            elif line.strip().startswith('-') or line.strip().startswith('*'):
+                                                print(f"   • {line.strip()[1:].strip()}")
+                                            elif '```' in line:
+                                                print(f"💻 {line}")
+                                            else:
+                                                print(f"   {line}")
                             
-                            # 检查工具执行结果
-                            elif hasattr(last_msg, 'type') and last_msg.type == "tool":
-                                tool_result = getattr(last_msg, 'content', 'No result')
-                                print(f"\n✅ Tool execution result:")
-                                print(f"   {tool_result}")
+                            # 显示工具调用
+                            if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                                print(f"\n🎯 Planned Actions:")
+                                for j, tool_call in enumerate(msg.tool_calls):
+                                    tool_name = tool_call.get('name', 'unknown')
+                                    tool_args = tool_call.get('args', {})
+                                    
+                                    if tool_name == "list_directory_contents":
+                                        path = tool_args.get('path', '.')
+                                        print(f"   {j+1}. 📂 Explore directory: {path}")
+                                    elif tool_name == "read_file":
+                                        file_path = tool_args.get('file_path', 'unknown')
+                                        print(f"   {j+1}. 📖 Read file: {file_path}")
+                                    elif tool_name in ["write_file", "create_new_file"]:
+                                        file_path = tool_args.get('file_path', 'unknown')
+                                        print(f"   {j+1}. ✍️ Create/Write file: {file_path}")
+                                    elif tool_name == "execute_terminal_command":
+                                        command = tool_args.get('command', 'unknown')
+                                        print(f"   {j+1}. 💻 Execute: {command}")
+                                    elif tool_name == "get_current_directory":
+                                        print(f"   {j+1}. 📍 Get working directory")
+                                    else:
+                                        print(f"   {j+1}. 🔧 Use tool: {tool_name}")
+                            
+                            current_step += 1
+                        
+                        elif msg_type == "tool":
+                            tool_name = getattr(msg, 'name', 'unknown')
+                            tool_result = getattr(msg, 'content', 'No result')
+                            
+                            print(f"\n✅ Action Completed: {tool_name}")
+                            print("─" * 30)
+                            
+                            # 格式化显示结果
+                            if tool_name == "list_directory_contents":
+                                print("📁 Found items:")
+                                result_lines = tool_result.split('\n')
+                                for line in result_lines:
+                                    if '[DIR]' in line:
+                                        print(f"   📁 {line.replace('[DIR]', '').strip()}")
+                                    elif '[FILE]' in line:
+                                        print(f"   📄 {line.replace('[FILE]', '').strip()}")
+                                    elif line.strip() and '目录' in line:
+                                        print(f"   {line}")
+                            
+                            elif tool_name == "read_file":
+                                print("📖 File content:")
+                                if "文件:" in tool_result:
+                                    # 解析中文格式的输出
+                                    sections = tool_result.split('\n\n')
+                                    for section in sections:
+                                        if section.strip():
+                                            if section.startswith('文件:') or section.startswith('大小:') or section.startswith('行数:'):
+                                                print(f"   ℹ️ {section}")
+                                            elif section.startswith('内容:'):
+                                                print(f"   📄 Content preview:")
+                                                content_lines = section.replace('内容:', '').split('\n')[:5]
+                                                for line in content_lines:
+                                                    if line.strip():
+                                                        print(f"      {line}")
+                                                break
+                                else:
+                                    # 简单文本输出
+                                    result_lines = tool_result.split('\n')[:6]
+                                    for line in result_lines:
+                                        if line.strip():
+                                            print(f"   {line}")
+                            
+                            elif tool_name in ["write_file", "create_new_file"]:
+                                if "成功" in tool_result or "successfully" in tool_result.lower():
+                                    print("   ✅ File operation successful")
+                                else:
+                                    print(f"   📝 {tool_result}")
+                            
+                            elif tool_name == "execute_terminal_command":
+                                print("💻 Command output:")
+                                result_lines = tool_result.split('\n')[:8]
+                                for line in result_lines:
+                                    if line.strip():
+                                        print(f"   {line}")
+                            
+                            else:
+                                if isinstance(tool_result, str) and len(tool_result) > 200:
+                                    print(f"   📄 {tool_result[:200]}...")
+                                else:
+                                    print(f"   📄 {tool_result}")
                 
-                # 获取最终结果
-                final_result = await self.agent.ainvoke(state)
+                print(f"\n🏁 All steps completed. Preparing final summary...")
                 
-            except Exception as streaming_error:
-                print(f"⚠️  Streaming failed, using standard invoke: {streaming_error}")
-                # 如果流式调用失败，使用标准调用
+            except Exception as execution_error:
+                print(f"⚠️ Execution issue: {execution_error}")
+                if self.debug:
+                    import traceback
+                    print("🔍 DEBUG: Execution error details:")
+                    traceback.print_exc()
+                
+                # 尝试获取结果
                 final_result = await self.agent.ainvoke(state)
             
-            print("\n" + "-" * 40)
-            print("✅ DEBUG: Agent execution completed")
+            print("\n" + "=" * 60)
+            print("🏁 Agent execution completed - Analyzing results...")
+            print("=" * 60)
             
             if self.debug:
-                print(f"🔍 DEBUG: Agent result type: {type(final_result)}")
+                print(f"🔍 DEBUG: Final result type: {type(final_result)}")
                 print(f"🔍 DEBUG: Result keys: {list(final_result.keys()) if isinstance(final_result, dict) else 'Not a dict'}")
                 if "messages" in final_result:
-                    print(f"🔍 DEBUG: Total messages: {len(final_result['messages'])}")
+                    print(f"🔍 DEBUG: Total messages in final result: {len(final_result['messages'])}")
             
             # 详细分析最终结果
-            print("\n🔍 DEBUG: Detailed result analysis...")
+            print("\n📊 Task Execution Summary:")
+            print("-" * 40)
             
             if "messages" in final_result and len(final_result["messages"]) > 0:
-                print("🔍 DEBUG: Analyzing all messages for comprehensive view...")
-                
                 # 统计不同类型的消息
                 human_msgs = []
                 ai_msgs = []
                 tool_msgs = []
                 total_tool_calls = 0
+                actions_taken = []
+                
+                print("🔍 Analyzing execution flow...")
                 
                 for i, msg in enumerate(final_result["messages"]):
                     msg_type = getattr(msg, 'type', 'unknown')
@@ -187,19 +376,38 @@ If you need to create or modify files, please use the appropriate tools.
                         ai_msgs.append(msg)
                         if hasattr(msg, 'tool_calls') and msg.tool_calls:
                             total_tool_calls += len(msg.tool_calls)
-                            if self.debug:
-                                print(f"🔍 DEBUG: AI message {i} has {len(msg.tool_calls)} tool calls")
+                            # 收集执行的动作
+                            for tc in msg.tool_calls:
+                                tool_name = tc.get('name', 'unknown')
+                                if tool_name == "list_directory_contents":
+                                    actions_taken.append("📂 探索目录结构")
+                                elif tool_name == "read_file":
+                                    file_path = tc.get('args', {}).get('file_path', 'unknown')
+                                    actions_taken.append(f"📖 读取文件: {file_path}")
+                                elif tool_name in ["write_file", "create_new_file"]:
+                                    file_path = tc.get('args', {}).get('file_path', 'unknown')
+                                    actions_taken.append(f"✍️ 创建/编辑文件: {file_path}")
+                                elif tool_name == "execute_terminal_command":
+                                    command = tc.get('args', {}).get('command', 'unknown')
+                                    actions_taken.append(f"💻 执行命令: {command}")
+                                elif tool_name == "get_current_directory":
+                                    actions_taken.append("📍 获取工作目录")
+                                else:
+                                    actions_taken.append(f"🔧 执行工具: {tool_name}")
                     elif msg_type == "tool":
                         tool_msgs.append(msg)
-                        if self.debug:
-                            tool_content = getattr(msg, 'content', 'No content')
-                            print(f"🔍 DEBUG: Tool message {i}: {tool_content[:100]}...")
                 
-                print(f"\n📊 Execution Summary:")
-                print(f"   👤 Human messages: {len(human_msgs)}")
-                print(f"   🤖 AI messages: {len(ai_msgs)}")
-                print(f"   🛠️  Tool messages: {len(tool_msgs)}")
-                print(f"   🔧 Total tool calls: {total_tool_calls}")
+                print(f"\n📈 Execution Statistics:")
+                print(f"   💬 Total interactions: {len(final_result['messages'])}")
+                print(f"   🤖 AI reasoning steps: {len(ai_msgs)}")
+                print(f"   🛠️ Actions executed: {total_tool_calls}")
+                print(f"   📊 Tool responses: {len(tool_msgs)}")
+                
+                # 显示主要执行的动作
+                if actions_taken:
+                    print(f"\n🎯 Main Actions Performed:")
+                    for i, action in enumerate(actions_taken, 1):
+                        print(f"   {i}. {action}")
                 
                 # 获取最终AI回复
                 if ai_msgs:
@@ -208,18 +416,60 @@ If you need to create or modify files, please use the appropriate tools.
                         final_output = last_ai_msg.content
                         
                         print("\n" + "=" * 60)
-                        print("✅ Task execution completed!")
+                        print("🎉 TASK COMPLETED SUCCESSFULLY!")
                         print("=" * 60)
-                        print(f"🔧 Tool calls made: {total_tool_calls > 0}")
-                        print(f"🛠️  Total tool calls: {total_tool_calls}")
-                        print("\n📄 Final agent response:")
-                        print(final_output)
+                        
+                        # 分析最终输出的关键信息
+                        output_lower = final_output.lower()
+                        if any(word in output_lower for word in ['created', 'generated', 'built']):
+                            print("✅ Status: Files/Content Created")
+                        elif any(word in output_lower for word in ['found', 'discovered', 'located']):
+                            print("✅ Status: Information Retrieved")
+                        elif any(word in output_lower for word in ['completed', 'finished', 'done']):
+                            print("✅ Status: Task Completed")
+                        elif any(word in output_lower for word in ['exists', 'already']):
+                            print("ℹ️ Status: Resources Already Available")
+                        else:
+                            print("✅ Status: Task Processed")
+                        
+                        print(f"🔧 Tools Used: {total_tool_calls > 0}")
+                        print(f"🛠️ Total Actions: {total_tool_calls}")
+                        print(f"💭 Reasoning Steps: {len(ai_msgs)}")
+                        
+                        print("\n📋 Final Result:")
+                        print("-" * 40)
+                        
+                        # 智能格式化最终输出
+                        lines = final_output.split('\n')
+                        in_code_block = False
+                        
+                        for line in lines:
+                            if line.strip().startswith('```'):
+                                in_code_block = not in_code_block
+                                print(f"💻 {line}")
+                            elif in_code_block:
+                                print(f"   {line}")
+                            elif line.strip().startswith('#'):
+                                print(f"📌 {line}")
+                            elif line.strip().startswith('-') or line.strip().startswith('*'):
+                                print(f"   • {line.strip()[1:].strip()}")
+                            elif line.strip().startswith('1.') or line.strip().startswith('2.') or line.strip().startswith('3.'):
+                                print(f"   🔢 {line.strip()}")
+                            elif line.strip() and not line.startswith(' '):
+                                print(f"{line}")
+                            elif line.strip():
+                                print(f"   {line}")
+                            else:
+                                print()
+                        
+                        print("-" * 40)
                         
                         return {
                             "success": True,
                             "output": final_output,
                             "tool_calls_made": total_tool_calls > 0,
                             "total_tool_calls": total_tool_calls,
+                            "actions_taken": actions_taken,
                             "message_stats": {
                                 "human": len(human_msgs),
                                 "ai": len(ai_msgs),
@@ -229,13 +479,17 @@ If you need to create or modify files, please use the appropriate tools.
                         }
                 
                 # 如果没有AI消息，显示调试信息
-                print("⚠️  No AI messages found in final result")
+                print("⚠️ WARNING: No AI messages found in final result")
                 if self.debug:
-                    print("🔍 DEBUG: All messages:")
+                    print("🔍 DEBUG: Dumping all messages for analysis:")
                     for i, msg in enumerate(final_result["messages"]):
-                        print(f"  Message {i}: type={getattr(msg, 'type', 'unknown')}, content={str(msg)[:100]}...")
+                        msg_type = getattr(msg, 'type', 'unknown')
+                        msg_content = str(getattr(msg, 'content', ''))[:150]
+                        print(f"  Message {i}: type={msg_type}")
+                        print(f"    Content: {msg_content}...")
+                        print(f"    Full object: {type(msg)}")
             
-            print(f"\n❌ Task execution failed: No valid AI response")
+            print(f"\n❌ TASK EXECUTION FAILED: No valid AI response found")
             return {
                 "success": False,
                 "error": "No valid AI response",
@@ -244,12 +498,14 @@ If you need to create or modify files, please use the appropriate tools.
             
         except Exception as e:
             error_msg = f"Task execution exception: {str(e)}"
-            print(f"\n❌ {error_msg}")
+            print(f"\n💥 EXECUTION ERROR: {error_msg}")
             
             if self.debug:
                 import traceback
-                print("🔍 DEBUG: Full traceback:")
+                print("\n🔍 DEBUG: Complete error traceback:")
+                print("=" * 50)
                 traceback.print_exc()
+                print("=" * 50)
             
             return {
                 "success": False,
@@ -288,13 +544,19 @@ Usage examples:
         version="Simplified Code Agent CLI v1.0.0"
     )
     
+    parser.add_argument(
+        "--working-directory", "-w",
+        type=str,
+        help="Specify the working directory for the task"
+    )
+    
     args = parser.parse_args()
     
     print("🚀 Starting Simplified Code Agent CLI...")
     
     try:
         # 创建CLI实例
-        cli = SimpleCodeAgentCLI(debug=args.debug)
+        cli = SimpleCodeAgentCLI(debug=args.debug, working_directory=args.working_directory)
         cli.print_banner()
         
         # 执行任务
