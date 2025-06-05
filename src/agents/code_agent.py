@@ -9,6 +9,7 @@ from typing import List, Dict, Any, Optional
 from langgraph.prebuilt import create_react_agent
 from src.llms.llm import get_llm_by_type
 from src.config.agents import AGENT_LLM_MAP
+from src.prompts import apply_prompt_template
 
 
 class CodeTaskPlanner:
@@ -93,30 +94,9 @@ def create_code_agent(tools: List[Any]) -> Any:
     Returns:
         Configured code agent
     """
-    prompt_template = """
-    你是一个专业的代码助手，具备以下能力：
-    1. 代码任务规划和拆解
-    2. 文件读取和写入
-    3. 命令行执行
-    4. 代码diff和增量更新
-    
-    请根据用户的需求，合理使用提供的工具来完成任务。
-    在执行任务前，请先制定详细的执行计划。
-    
-    当前任务：{input}
-    
-    可用工具：{tools}
-    
-    请按照以下步骤执行：
-    1. 分析任务需求
-    2. 制定执行计划
-    3. 按步骤执行
-    4. 验证结果
-    """
-    
     return create_react_agent(
         name="code_agent",
-        model=get_llm_by_type(AGENT_LLM_MAP.get("researcher", "anthropic_claude_3_5_sonnet")),
+        model=get_llm_by_type(AGENT_LLM_MAP.get("researcher", "reasoning")),
         tools=tools,
-        prompt=prompt_template,
+        prompt=lambda state: apply_prompt_template("code_agent", state),
     ) 

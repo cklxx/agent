@@ -33,6 +33,7 @@ dependencies = [
     "mcp>=1.6.0",
     "langchain-mcp-adapters>=0.0.9",
     "tenacity>=9.0.0",
+    "langchain-core>=0.3.43",
 ]
 
 [project.optional-dependencies]

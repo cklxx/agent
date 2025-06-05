@@ -126,23 +126,38 @@ class CodeAgentWorkflow:
     async def _execute_agent_step(self, agent_input: Dict[str, Any]) -> Dict[str, Any]:
         """执行单个agent步骤"""
         try:
-            # 这里需要根据实际的agent接口来调用
-            # 由于create_react_agent返回的是一个图，我们需要适配调用方式
+            # 构建符合LangGraph AgentState的状态
+            state = {
+                "messages": [
+                    {
+                        "role": "user", 
+                        "content": agent_input["input"]
+                    }
+                ],
+                "locale": "zh-CN",  # 默认中文
+                **agent_input
+            }
             
-            # 简化版本：直接返回成功结果
-            # 在实际实现中，这里应该调用agent.invoke或类似方法
+            # 调用agent执行
+            result = await self.agent.ainvoke(state)
             
             step_info = agent_input.get("task_step", {})
-            step_type = step_info.get("type", "unknown")
             
-            # 模拟执行结果
+            # 解析agent的响应
+            if "messages" in result and len(result["messages"]) > 1:
+                last_message = result["messages"][-1]
+                output = last_message.get("content", "No output")
+            else:
+                output = "Agent执行完成，但没有返回具体输出"
+            
             return {
                 "success": True,
-                "step_type": step_type,
+                "step_type": step_info.get("type", "unknown"),
                 "description": step_info.get("description", ""),
                 "tools_used": step_info.get("tools", []),
                 "iteration": agent_input.get("iteration", 0),
-                "output": f"模拟执行了 {step_type} 类型的步骤"
+                "output": output,
+                "agent_result": result
             }
             
         except Exception as e:
