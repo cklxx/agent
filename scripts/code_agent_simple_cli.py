@@ -370,5 +370,22 @@ async def main():
         await cli.run_interactive_mode()
 
 
+def run_main():
+    """运行主函数，处理事件循环兼容性"""
+    try:
+        # 尝试获取当前事件循环
+        loop = asyncio.get_running_loop()
+        print("⚠️  检测到运行中的事件循环，请在新的终端中运行此脚本")
+        return
+    except RuntimeError:
+        # 没有运行的事件循环，可以安全使用 asyncio.run()
+        pass
+    
+    # 设置事件循环策略（Windows兼容性）
+    if sys.platform.startswith('win'):
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    
+    asyncio.run(main())
+
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    run_main() 
