@@ -4,7 +4,7 @@
 # 这个脚本提供了一个便捷的方式来启动Code Agent CLI工具
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CLI_SCRIPT="$SCRIPT_DIR/scripts/code_agent_simple_cli.py"
+CLI_SCRIPT="$SCRIPT_DIR/scripts/code_agent_cli.py"
 
 # 检查CLI脚本是否存在
 if [ ! -f "$CLI_SCRIPT" ]; then
@@ -21,19 +21,18 @@ fi
 
 # 显示使用说明
 show_help() {
-    echo "🤖 Code Agent CLI - 智能编程助手"
+    echo "🤖 Simplified Code Agent CLI - 智能编程助手"
     echo ""
     echo "用法:"
-    echo "  ./code_agent                           # 启动交互式界面"
-    echo "  ./code_agent --task \"任务描述\"        # 直接执行任务"
-    echo "  ./code_agent --debug                   # 启用调试模式"
+    echo "  ./code_agent --task \"任务描述\"        # 执行编程任务"
+    echo "  ./code_agent --task \"...\" --debug    # 启用调试模式"
     echo "  ./code_agent --help                    # 显示帮助信息"
     echo ""
     echo "示例:"
-    echo "  ./code_agent --task \"创建一个Python计算器\""
-    echo "  ./code_agent --task \"分析main.py文件\""
+    echo "  ./code_agent --task \"Create a Python calculator\""
+    echo "  ./code_agent --task \"List current directory contents\" --debug"
     echo ""
-    echo "更多信息请查看: scripts/code_agent_simple_cli.py --help"
+    echo "更多信息请查看: scripts/code_agent_cli.py --help"
 }
 
 # 如果请求帮助

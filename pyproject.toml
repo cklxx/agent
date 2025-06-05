@@ -34,6 +34,7 @@ dependencies = [
     "langchain-mcp-adapters>=0.0.9",
     "tenacity>=9.0.0",
     "langchain-core>=0.3.43",
+    "nest-asyncio>=1.6.0",
 ]
 
 [project.optional-dependencies]
