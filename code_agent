@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# Code Agent CLI 启动脚本
+# 这个脚本提供了一个便捷的方式来启动Code Agent CLI工具
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CLI_SCRIPT="$SCRIPT_DIR/scripts/code_agent_simple_cli.py"
+
+# 检查CLI脚本是否存在
+if [ ! -f "$CLI_SCRIPT" ]; then
+    echo "❌ 错误: 找不到CLI脚本: $CLI_SCRIPT"
+    exit 1
+fi
+
+# 检查是否安装了uv
+if ! command -v uv &> /dev/null; then
+    echo "❌ 错误: 需要安装uv包管理器"
+    echo "请访问 https://github.com/astral-sh/uv 获取安装说明"
+    exit 1
+fi
+
+# 显示使用说明
+show_help() {
+    echo "🤖 Code Agent CLI - 智能编程助手"
+    echo ""
+    echo "用法:"
+    echo "  ./code_agent                           # 启动交互式界面"
+    echo "  ./code_agent --task \"任务描述\"        # 直接执行任务"
+    echo "  ./code_agent --debug                   # 启用调试模式"
+    echo "  ./code_agent --help                    # 显示帮助信息"
+    echo ""
+    echo "示例:"
+    echo "  ./code_agent --task \"创建一个Python计算器\""
+    echo "  ./code_agent --task \"分析main.py文件\""
+    echo ""
+    echo "更多信息请查看: scripts/code_agent_simple_cli.py --help"
+}
+
+# 如果请求帮助
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    show_help
+    exit 0
+fi
+
+# 启动CLI工具
+echo "🚀 启动 Code Agent CLI..."
+cd "$SCRIPT_DIR"
+uv run python "$CLI_SCRIPT" "$@" 

@@ -96,7 +96,7 @@ def create_code_agent(tools: List[Any]) -> Any:
     """
     return create_react_agent(
         name="code_agent",
-        model=get_llm_by_type(AGENT_LLM_MAP.get("researcher", "reasoning")),
+        model=get_llm_by_type("reasoning"),
         tools=tools,
         prompt=lambda state: apply_prompt_template("code_agent", state),
     ) 

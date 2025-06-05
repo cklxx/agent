@@ -37,7 +37,10 @@ async def test_basic_functionality():
     for i, step in enumerate(plan, 1):
         print(f"  {i}. {step['description']} (类型: {step['type']})")
     
-    return True
+    # 断言检查
+    assert len(tools) > 0, "应该有可用的工具"
+    assert len(plan) > 0, "应该能生成执行计划"
+    assert isinstance(plan, list), "计划应该是一个列表"
 
 
 async def test_simple_task():
@@ -59,10 +62,14 @@ async def test_simple_task():
         else:
             print("❌ 任务执行失败")
             
+        # 断言检查
+        assert 'summary' in result, "结果应该包含 summary"
+        assert 'success' in result, "结果应该包含 success 字段"
+            
     except Exception as e:
         print(f"❌ 任务执行出错: {str(e)}")
-    
-    return True
+        # 如果有异常，测试应该失败
+        assert False, f"任务执行不应该抛出异常: {str(e)}"
 
 
 def test_tools_individually():
@@ -87,15 +94,21 @@ def test_tools_individually():
     
     print("\n💻 测试命令行工具:")
     try:
-        cwd = get_current_directory()
+        # LangChain 工具需要通过工具调用的方式来使用
+        cwd = get_current_directory.invoke({})
         print(f"  - 当前目录: {cwd}")
         
-        contents = list_directory_contents(".")
+        contents = list_directory_contents.invoke({"path": "."})
         print(f"  - 目录内容获取成功")
+        
+        # 断言检查
+        assert isinstance(cwd, str), "当前目录应该是字符串"
+        assert isinstance(contents, str), "目录内容应该是字符串"
+        
     except Exception as e:
         print(f"  - 命令行工具测试失败: {e}")
-    
-    return True
+        # 工具测试失败时应该让测试失败
+        assert False, f"工具测试不应该失败: {e}"
 
 
 async def main():
