@@ -103,76 +103,143 @@ If you need to create or modify files, please use the appropriate tools.
                 "locale": "en-US"
             }
             
-            print("🔄 Calling agent...")
+            print("🔄 Starting agent execution with streaming output...")
+            print("📝 Agent thinking process:")
+            print("-" * 40)
             
-            # 调用agent
-            result = await self.agent.ainvoke(state)
+            # 使用流式调用来获取实时输出
+            step_counter = 1
+            tool_calls_found = False
             
+            try:
+                # 调用agent并监控流式输出
+                async for chunk in self.agent.astream(state, {"configurable": {"thread_id": "demo"}}):
+                    if self.debug:
+                        print(f"🔍 DEBUG: Received chunk: {type(chunk)}")
+                    
+                    # 检查chunk中的消息
+                    if isinstance(chunk, dict) and "messages" in chunk:
+                        messages = chunk["messages"]
+                        if messages:
+                            last_msg = messages[-1]
+                            
+                            # 检查是否是AI消息
+                            if hasattr(last_msg, 'type') and last_msg.type == "ai":
+                                # 检查工具调用
+                                if hasattr(last_msg, 'tool_calls') and last_msg.tool_calls:
+                                    tool_calls_found = True
+                                    print(f"\n🔧 Step {step_counter}: Agent is calling tools...")
+                                    for i, tool_call in enumerate(last_msg.tool_calls):
+                                        tool_name = tool_call.get('name', 'unknown')
+                                        tool_args = tool_call.get('args', {})
+                                        print(f"  🛠️  Tool {i+1}: {tool_name}")
+                                        print(f"      Arguments: {tool_args}")
+                                    step_counter += 1
+                                
+                                # 显示AI的思考内容
+                                if hasattr(last_msg, 'content') and last_msg.content:
+                                    content = last_msg.content.strip()
+                                    if content and not content.startswith('['):  # 过滤掉系统消息
+                                        print(f"\n💭 Agent thinking:")
+                                        print(f"   {content[:200]}{'...' if len(content) > 200 else ''}")
+                            
+                            # 检查工具执行结果
+                            elif hasattr(last_msg, 'type') and last_msg.type == "tool":
+                                tool_result = getattr(last_msg, 'content', 'No result')
+                                print(f"\n✅ Tool execution result:")
+                                print(f"   {tool_result}")
+                
+                # 获取最终结果
+                final_result = await self.agent.ainvoke(state)
+                
+            except Exception as streaming_error:
+                print(f"⚠️  Streaming failed, using standard invoke: {streaming_error}")
+                # 如果流式调用失败，使用标准调用
+                final_result = await self.agent.ainvoke(state)
+            
+            print("\n" + "-" * 40)
             print("✅ DEBUG: Agent execution completed")
             
             if self.debug:
-                print(f"🔍 DEBUG: Agent result type: {type(result)}")
-                print(f"🔍 DEBUG: Result keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
-                if "messages" in result:
-                    print(f"🔍 DEBUG: Messages count: {len(result['messages'])}")
+                print(f"🔍 DEBUG: Agent result type: {type(final_result)}")
+                print(f"🔍 DEBUG: Result keys: {list(final_result.keys()) if isinstance(final_result, dict) else 'Not a dict'}")
+                if "messages" in final_result:
+                    print(f"🔍 DEBUG: Total messages: {len(final_result['messages'])}")
             
-            # 解析结果
-            final_output = "Agent execution completed"
-            tool_calls_found = False
+            # 详细分析最终结果
+            print("\n🔍 DEBUG: Detailed result analysis...")
             
-            if "messages" in result and len(result["messages"]) > 0:
-                print("🔍 DEBUG: Analyzing messages for tool calls and responses...")
+            if "messages" in final_result and len(final_result["messages"]) > 0:
+                print("🔍 DEBUG: Analyzing all messages for comprehensive view...")
                 
-                # 检查所有消息，包括工具调用
-                for i, msg in enumerate(result["messages"]):
-                    if self.debug:
-                        print(f"🔍 DEBUG: Message {i}: type={getattr(msg, 'type', 'unknown')}")
+                # 统计不同类型的消息
+                human_msgs = []
+                ai_msgs = []
+                tool_msgs = []
+                total_tool_calls = 0
+                
+                for i, msg in enumerate(final_result["messages"]):
+                    msg_type = getattr(msg, 'type', 'unknown')
+                    
+                    if msg_type == "human":
+                        human_msgs.append(msg)
+                    elif msg_type == "ai":
+                        ai_msgs.append(msg)
                         if hasattr(msg, 'tool_calls') and msg.tool_calls:
-                            print(f"🔍 DEBUG: Found tool calls in message {i}: {len(msg.tool_calls)} calls")
-                            tool_calls_found = True
-                            for j, tool_call in enumerate(msg.tool_calls):
-                                print(f"  Tool call {j}: {tool_call.get('name', 'unknown')} with args: {tool_call.get('args', {})}")
-                        
-                        if hasattr(msg, 'content') and msg.content:
-                            content_preview = str(msg.content)[:200] + "..." if len(str(msg.content)) > 200 else str(msg.content)
-                            print(f"🔍 DEBUG: Message {i} content preview: {content_preview}")
+                            total_tool_calls += len(msg.tool_calls)
+                            if self.debug:
+                                print(f"🔍 DEBUG: AI message {i} has {len(msg.tool_calls)} tool calls")
+                    elif msg_type == "tool":
+                        tool_msgs.append(msg)
+                        if self.debug:
+                            tool_content = getattr(msg, 'content', 'No content')
+                            print(f"🔍 DEBUG: Tool message {i}: {tool_content[:100]}...")
                 
-                # 查找AI消息
-                ai_messages = []
-                for msg in result["messages"]:
-                    if hasattr(msg, 'type') and msg.type in ["ai", "assistant"]:
-                        ai_messages.append(msg)
+                print(f"\n📊 Execution Summary:")
+                print(f"   👤 Human messages: {len(human_msgs)}")
+                print(f"   🤖 AI messages: {len(ai_msgs)}")
+                print(f"   🛠️  Tool messages: {len(tool_msgs)}")
+                print(f"   🔧 Total tool calls: {total_tool_calls}")
                 
-                if ai_messages:
-                    # 获取最后一个AI消息
-                    last_ai_msg = ai_messages[-1]
+                # 获取最终AI回复
+                if ai_msgs:
+                    last_ai_msg = ai_msgs[-1]
                     if hasattr(last_ai_msg, 'content'):
                         final_output = last_ai_msg.content
                         
                         print("\n" + "=" * 60)
                         print("✅ Task execution completed!")
                         print("=" * 60)
-                        print(f"🔧 Tool calls detected: {tool_calls_found}")
+                        print(f"🔧 Tool calls made: {total_tool_calls > 0}")
+                        print(f"🛠️  Total tool calls: {total_tool_calls}")
+                        print("\n📄 Final agent response:")
                         print(final_output)
                         
                         return {
                             "success": True,
                             "output": final_output,
-                            "tool_calls_made": tool_calls_found,
-                            "full_result": result
+                            "tool_calls_made": total_tool_calls > 0,
+                            "total_tool_calls": total_tool_calls,
+                            "message_stats": {
+                                "human": len(human_msgs),
+                                "ai": len(ai_msgs),
+                                "tool": len(tool_msgs)
+                            },
+                            "full_result": final_result
                         }
                 
-                # 如果没有AI消息，显示所有消息用于调试
+                # 如果没有AI消息，显示调试信息
+                print("⚠️  No AI messages found in final result")
                 if self.debug:
-                    print("🔍 DEBUG: All messages (no AI messages found):")
-                    for i, msg in enumerate(result["messages"]):
-                        print(f"  Message {i}: {msg}")
+                    print("🔍 DEBUG: All messages:")
+                    for i, msg in enumerate(final_result["messages"]):
+                        print(f"  Message {i}: type={getattr(msg, 'type', 'unknown')}, content={str(msg)[:100]}...")
             
             print(f"\n❌ Task execution failed: No valid AI response")
             return {
                 "success": False,
                 "error": "No valid AI response",
-                "full_result": result
+                "full_result": final_result
             }
             
         except Exception as e:
