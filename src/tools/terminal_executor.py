@@ -715,7 +715,7 @@ class TerminalExecutor:
             
         return {"verified": False, "reason": f"端口{port}不响应"}
 
-    def execute_command(self, command: str, working_dir: Optional[str] = None, force_background: bool = None) -> Dict[str, Any]:
+    def execute_command(self, command: str, working_dir: Optional[str] = None, force_background: bool = None, auto_terminate_after_verification: bool = True) -> Dict[str, Any]:
         """
         执行命令并返回结果
         
@@ -723,6 +723,7 @@ class TerminalExecutor:
             command: 要执行的命令
             working_dir: 工作目录
             force_background: 强制后台执行，None=自动判断
+            auto_terminate_after_verification: 验证成功后是否自动终止后台任务
             
         Returns:
             包含执行结果的字典
@@ -758,8 +759,20 @@ class TerminalExecutor:
                 # 验证服务状态（如果是服务命令）
                 verification = self._verify_service_status(command, bg_result["task_id"], working_dir or os.getcwd())
                 verification_info = ""
+                task_terminated = False
+                
                 if verification["verified"]:
                     verification_info = f"\n\n🎉 服务验证成功!\n✅ 服务地址: {verification['url']}\n📊 HTTP状态: {verification['status_code']}"
+                    
+                    # 如果启用自动终止且验证成功，则终止后台任务
+                    if auto_terminate_after_verification:
+                        logger.info(f"🛑 验证成功，自动终止后台任务: {bg_result['task_id']}")
+                        terminate_result = self.terminate_task(bg_result["task_id"])
+                        if terminate_result["success"]:
+                            verification_info += f"\n🛑 后台任务已自动终止"
+                            task_terminated = True
+                        else:
+                            verification_info += f"\n⚠️ 自动终止失败: {terminate_result['error']}"
                 elif verification["reason"] != "不是服务启动命令":
                     verification_info = f"\n\n⚠️ 服务验证失败: {verification['reason']}"
                 
@@ -774,7 +787,8 @@ class TerminalExecutor:
                     "execution_time": 2.0,
                     "background": True,
                     "task_id": bg_result["task_id"],
-                    "verification": verification
+                    "verification": verification,
+                    "task_terminated": task_terminated
                 }
             else:
                 return {
@@ -957,6 +971,40 @@ def execute_terminal_command(command: str, working_directory: str = None) -> str
             output_info = f"\n📤 输出内容:\n{result['output']}"
         
         return f"{warning_info}❌ 命令执行失败 (耗时: {execution_time:.2f}s){error_info}{output_info}\n\n返回码: {result['return_code']}"
+
+
+@tool
+def test_service_command(command: str, working_directory: str = None) -> str:
+    """
+    测试服务命令：启动服务→验证可用性→自动终止
+    专用于测试服务是否能正常启动和响应，验证后自动清理
+    
+    Args:
+        command: 要测试的服务命令
+        working_directory: 工作目录路径（可选）
+    
+    Returns:
+        服务测试结果
+    """
+    logger.info(f"[Tool] 测试服务命令: {command}")
+    
+    result = terminal_executor.execute_command(command, working_directory, force_background=True, auto_terminate_after_verification=True)
+    
+    if result["success"]:
+        verification = result.get("verification", {})
+        task_terminated = result.get("task_terminated", False)
+        
+        if verification.get("verified"):
+            status = "✅ 服务测试成功" if task_terminated else "✅ 服务测试成功（任务仍在运行）"
+            logger.info(f"[Tool] 服务测试完成: {verification.get('url')}")
+        else:
+            status = "⚠️ 服务启动但验证失败"
+            logger.warning(f"[Tool] 服务验证失败: {verification.get('reason')}")
+        
+        return f"{status}\n{result['output']}"
+    else:
+        logger.error(f"[Tool] 服务测试失败: {result['error']}")
+        return f"❌ 服务测试失败:\n{result['error']}"
 
 
 @tool
