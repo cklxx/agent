@@ -112,7 +112,7 @@ Explore more details in the [`web`](./web/) directory.
 
 ## Supported Search Engines
 
-DeerFlow supports multiple search engines that can be configured in your `.env` file using the `SEARCH_API` variable:
+DeepTool supports multiple search engines that can be configured in your `.env` file using the `SEARCH_API` variable:
 
 - **Tavily** (default): A specialized search API for AI applications
 
@@ -194,11 +194,11 @@ SEARCH_API=tavily
 
 ## Architecture
 
-DeerFlow implements a modular multi-agent system architecture designed for automated research and code analysis. The system is built on LangGraph, enabling a flexible state-based workflow where components communicate through a well-defined message passing system.
+DeepTool implements a modular multi-agent system architecture designed for automated research and code analysis. The system is built on LangGraph, enabling a flexible state-based workflow where components communicate through a well-defined message passing system.
 
 ![Architecture Diagram](./assets/architecture.png)
 
-> See it live at [deerflow.tech](https://deerflow.tech/#multi-agent-architecture)
+> See it live at [DeepTool.tech](https://DeepTool.tech/#multi-agent-architecture)
 
 The system employs a streamlined workflow with the following components:
 
@@ -227,7 +227,7 @@ The system employs a streamlined workflow with the following components:
 
 ## Text-to-Speech Integration
 
-DeerFlow now includes a Text-to-Speech (TTS) feature that allows you to convert research reports to speech. This feature uses the volcengine TTS API to generate high-quality audio from text. Features like speed, volume, and pitch are also customizable.
+DeepTool now includes a Text-to-Speech (TTS) feature that allows you to convert research reports to speech. This feature uses the volcengine TTS API to generate high-quality audio from text. Features like speed, volume, and pitch are also customizable.
 
 ### Using the TTS API
 
@@ -275,11 +275,11 @@ make format
 
 ### Debugging with LangGraph Studio
 
-DeerFlow uses LangGraph for its workflow architecture. You can use LangGraph Studio to debug and visualize the workflow in real-time.
+DeepTool uses LangGraph for its workflow architecture. You can use LangGraph Studio to debug and visualize the workflow in real-time.
 
 #### Running LangGraph Studio Locally
 
-DeerFlow includes a `langgraph.json` configuration file that defines the graph structure and dependencies for the LangGraph Studio. This file points to the workflow graphs defined in the project and automatically loads environment variables from the `.env` file.
+DeepTool includes a `langgraph.json` configuration file that defines the graph structure and dependencies for the LangGraph Studio. This file points to the workflow graphs defined in the project and automatically loads environment variables from the `.env` file.
 
 ##### Mac
 
@@ -329,7 +329,7 @@ When you submit a research topic in the Studio UI, you'll be able to see the ent
 
 ### Enabling LangSmith Tracing
 
-DeerFlow supports LangSmith tracing to help you debug and monitor your workflows. To enable LangSmith tracing:
+DeepTool supports LangSmith tracing to help you debug and monitor your workflows. To enable LangSmith tracing:
 
 1. Make sure your `.env` file has the following configurations (see `.env.example`):
 
@@ -371,7 +371,7 @@ docker stop agent-api-app
 
 ### Docker Compose (include both backend and frontend)
 
-DeerFlow provides a docker-compose setup to easily run both the backend and frontend together:
+DeepTool provides a docker-compose setup to easily run both the backend and frontend together:
 
 ```bash
 # building docker image
