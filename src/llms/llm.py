@@ -13,15 +13,6 @@ from src.config.agents import LLMType
 
 # 设置日志
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-# 如果没有handler，添加一个console handler
-if not logger.handlers:
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    formatter = logging.Formatter('🧠 [LLM] %(asctime)s - %(levelname)s - %(message)s', datefmt='%H:%M:%S')
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
 
 # Cache for LLM instances
 _llm_cache: dict[LLMType, ChatOpenAI] = {}

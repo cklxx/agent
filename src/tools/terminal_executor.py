@@ -19,17 +19,11 @@ import uuid
 from datetime import datetime
 from collections import defaultdict
 
-# 设置日志
+# 设置日志 - 使用统一的日志配置
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-# 如果没有handler，添加一个console handler
-if not logger.handlers:
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    formatter = logging.Formatter('🔧 [Terminal] %(asctime)s - %(levelname)s - %(message)s', datefmt='%H:%M:%S')
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
+# 创建专门的Terminal执行日志器
+from src.config.logging_config import get_terminal_logger
+terminal_logger = get_terminal_logger()
 
 
 class BackgroundTask:
@@ -189,7 +183,7 @@ class TerminalExecutor:
             '/home/', '/Users/', '~/', './.*', '../'
         ]
         
-        logger.info(f"初始化终端执行器，禁止 {len(self.forbidden_commands)} 个命令，警告 {len(self.warning_commands)} 个命令")
+        logger.debug(f"初始化终端执行器，禁止 {len(self.forbidden_commands)} 个命令，警告 {len(self.warning_commands)} 个命令")
     
     def _is_dangerous_path(self, path_in_command: str) -> tuple[bool, str]:
         """
@@ -385,10 +379,10 @@ class TerminalExecutor:
     
     def execute_command_background(self, command: str, working_dir: Optional[str] = None) -> Dict[str, Any]:
         """在后台执行命令"""
-        logger.info(f"🚀 准备在后台执行命令: {command}")
+        terminal_logger.info(f"🔄 后台启动: {command}")
         
         if not self.is_command_safe(command):
-            logger.error(f"命令安全检查失败: {command}")
+            terminal_logger.error("❌ 命令安全检查失败")
             return {
                 "success": False,
                 "error": f"命令不安全或不被允许: {command}",
@@ -398,12 +392,12 @@ class TerminalExecutor:
         try:
             # 设置工作目录
             cwd = working_dir or os.getcwd()
-            logger.info(f"🌐 后台执行环境: {cwd}")
+            logger.debug(f"后台执行环境: {cwd}")
             
             # 增强命令以支持虚拟环境
             enhanced_command = self._enhance_command_for_venv(command, cwd)
             if enhanced_command != command:
-                logger.info(f"🔄 后台命令已增强虚拟环境支持")
+                logger.debug("后台命令已增强虚拟环境支持")
             
             # 生成任务ID
             task_id = f"task_{uuid.uuid4().hex[:8]}"
@@ -429,7 +423,7 @@ class TerminalExecutor:
             # 启动输出读取线程
             self._read_process_output(task)
             
-            logger.info(f"✅ 后台任务已启动: {task_id} (PID: {process.pid})")
+            terminal_logger.info(f"✅ 后台任务已启动: {task_id}")
             
             return {
                 "success": True,
@@ -441,7 +435,7 @@ class TerminalExecutor:
             }
             
         except Exception as e:
-            logger.error(f"❌ 启动后台命令时发生异常: {str(e)}")
+            terminal_logger.error(f"❌ 后台启动失败: {str(e)[:30]}{'...' if len(str(e)) > 30 else ''}")
             return {
                 "success": False,
                 "error": f"启动后台命令时发生错误: {str(e)}",
@@ -539,7 +533,7 @@ class TerminalExecutor:
         
         for venv_python in possible_venv_paths:
             if os.path.exists(venv_python):
-                logger.info(f"🐍 检测到虚拟环境: {venv_python}")
+                logger.debug(f"检测到虚拟环境: {venv_python}")
                 return venv_python
         return None
     
@@ -561,15 +555,15 @@ class TerminalExecutor:
         enhanced_command = command
         if command.startswith('python '):
             enhanced_command = command.replace('python ', f'{venv_python} ', 1)
-            logger.info(f"🔄 使用虚拟环境Python: {venv_python}")
+            logger.debug(f"使用虚拟环境Python: {venv_python}")
         elif command.startswith('pip '):
             pip_path = os.path.join(venv_dir, 'pip')
             enhanced_command = command.replace('pip ', f'{pip_path} ', 1)
-            logger.info(f"🔄 使用虚拟环境pip: {pip_path}")
+            logger.debug(f"使用虚拟环境pip: {pip_path}")
         elif 'python' in command:
             # 对于更复杂的命令，设置虚拟环境PATH
             enhanced_command = f'export PATH="{venv_dir}:$PATH" && {command}'
-            logger.info(f"🔄 设置虚拟环境PATH: {venv_dir}")
+            logger.debug(f"设置虚拟环境PATH: {venv_dir}")
             
         return enhanced_command
     
@@ -801,20 +795,20 @@ class TerminalExecutor:
         try:
             # 前台执行
             cwd = working_dir or os.getcwd()
-            logger.info(f"执行环境: {cwd}")
+            logger.debug(f"执行环境: {cwd}")
             
             # 增强命令以支持虚拟环境
             enhanced_command = self._enhance_command_for_venv(command, cwd)
             if enhanced_command != command:
-                logger.info(f"🔄 命令已增强虚拟环境支持")
+                logger.debug("命令已增强虚拟环境支持")
             
             timeout = 10 if is_long_running else 30  # 长时间运行的命令使用较短超时
             
             if is_long_running:
-                logger.warning(f"检测到可能长时间运行的命令，使用 {timeout} 秒超时: {enhanced_command}")
+                logger.debug(f"检测到长时间运行命令，使用 {timeout} 秒超时")
             
-            # 执行命令
-            logger.info(f"开始执行命令 (超时: {timeout}s)...")
+            # 执行命令 - 使用专用的Terminal日志器
+            terminal_logger.info(f"⚡ 执行: {command}")
             start_time = __import__('time').time()
             
             result = subprocess.run(
@@ -827,33 +821,21 @@ class TerminalExecutor:
             )
             
             execution_time = __import__('time').time() - start_time
-            logger.info(f"命令执行完成，耗时: {execution_time:.2f}s")
             
-            # 详细记录执行结果
+            # 精简的执行结果记录
             if result.returncode == 0:
-                logger.info(f"✅ 命令执行成功，返回码: {result.returncode}")
-                if result.stdout:
-                    logger.info(f"📤 标准输出 ({len(result.stdout)} 字符):")
-                    # 显示输出内容的前几行
+                if result.stdout and result.stdout.strip():
+                    # 只显示输出摘要
                     output_lines = result.stdout.strip().split('\n')
-                    for i, line in enumerate(output_lines[:5]):  # 最多显示前5行
-                        logger.info(f"  │ {line}")
-                    if len(output_lines) > 5:
-                        logger.info(f"  │ ... ({len(output_lines)-5} 行更多内容)")
+                    if len(output_lines) <= 3:
+                        terminal_logger.info(f"✅ 完成 ({execution_time:.1f}s): {result.stdout.strip()}")
+                    else:
+                        terminal_logger.info(f"✅ 完成 ({execution_time:.1f}s): {len(output_lines)} 行输出")
                 else:
-                    logger.info("📤 无标准输出")
+                    terminal_logger.info(f"✅ 完成 ({execution_time:.1f}s)")
             else:
-                logger.warning(f"❌ 命令执行失败，返回码: {result.returncode}")
-                if result.stderr:
-                    logger.warning(f"📥 错误输出:")
-                    error_lines = result.stderr.strip().split('\n')
-                    for line in error_lines[:3]:  # 显示前3行错误
-                        logger.warning(f"  │ {line}")
-                if result.stdout:
-                    logger.info(f"📤 标准输出:")
-                    output_lines = result.stdout.strip().split('\n')
-                    for line in output_lines[:3]:  # 显示前3行输出
-                        logger.info(f"  │ {line}")
+                error_preview = result.stderr.strip().split('\n')[0] if result.stderr else "未知错误"
+                terminal_logger.warning(f"❌ 失败 ({execution_time:.1f}s): {error_preview[:50]}{'...' if len(error_preview) > 50 else ''}")
             
             return {
                 "success": result.returncode == 0,
@@ -868,7 +850,7 @@ class TerminalExecutor:
         except subprocess.TimeoutExpired:
             execution_time = __import__('time').time() - start_time
             if is_long_running:
-                logger.warning(f"⏰ 长时间运行命令超时 ({timeout}s)，可能正在后台运行: {command}")
+                terminal_logger.warning(f"⏰ 超时 ({timeout}s)，可能在后台运行")
                 return {
                     "success": True,  # 对于服务类命令，超时可能是正常的
                     "output": f"命令可能正在后台运行 (超时 {timeout}s)",
@@ -880,7 +862,7 @@ class TerminalExecutor:
                     "timeout": True
                 }
             else:
-                logger.error(f"❌ 命令执行超时 ({timeout}s): {command}")
+                terminal_logger.error(f"❌ 超时 ({timeout}s)")
                 return {
                     "success": False,
                     "error": f"命令执行超时 ({timeout}s)",
@@ -891,7 +873,7 @@ class TerminalExecutor:
                     "execution_time": execution_time
                 }
         except Exception as e:
-            logger.error(f"❌ 执行命令时发生异常: {str(e)}")
+            terminal_logger.error(f"❌ 异常: {str(e)[:50]}{'...' if len(str(e)) > 50 else ''}")
             return {
                 "success": False,
                 "error": f"执行命令时发生错误: {str(e)}",
@@ -917,32 +899,31 @@ def execute_terminal_command(command: str, working_directory: str = None) -> str
     Returns:
         命令执行结果
     """
-    logger.info(f"[Tool] 执行终端命令: {command}")
+    # 使用专用的Terminal日志器记录工具调用
+    terminal_logger.debug(f"[Tool] 执行命令: {command}")
     
     # 检查命令安全性并提供详细信息
     is_allowed, safety_level, safety_message = terminal_executor.check_command_safety(command)
     
     if not is_allowed:
-        logger.error(f"[Tool] 命令被拒绝: {safety_message}")
+        terminal_logger.warning(f"[Tool] 命令被拒绝: {safety_message[:30]}{'...' if len(safety_message) > 30 else ''}")
         return f"❌ 命令被拒绝:\n{safety_message}\n\n建议：请使用更安全的替代命令或联系管理员。"
     
     # 如果有安全警告，先显示警告信息
     warning_info = ""
     if safety_level == 'warning':
         warning_info = f"⚠️  安全提醒: {safety_message}\n\n"
-        logger.warning(f"[Tool] {safety_message}")
+        terminal_logger.debug(f"[Tool] 安全警告: {safety_message}")
     
     result = terminal_executor.execute_command(command, working_directory)
     
-    # 构建详细的执行结果报告
+    # 构建精简的执行结果报告
     execution_time = result.get('execution_time', 0)
     timeout_info = ""
     if result.get('timeout'):
         timeout_info = f"\n⏰ 注意：命令可能仍在后台运行"
     
     if result["success"]:
-        logger.info(f"[Tool] 命令执行成功 (耗时: {execution_time:.2f}s)")
-        
         # 构建输出信息
         output_info = ""
         if result['output']:
@@ -957,10 +938,8 @@ def execute_terminal_command(command: str, working_directory: str = None) -> str
         else:
             output_info = "\n📤 无输出内容"
         
-        return f"{warning_info}✅ 命令执行成功 (耗时: {execution_time:.2f}s){output_info}{timeout_info}\n\n返回码: {result['return_code']}"
+        return f"{warning_info}✅ 命令执行成功 (耗时: {execution_time:.1f}s){output_info}{timeout_info}\n\n返回码: {result['return_code']}"
     else:
-        logger.warning(f"[Tool] 命令执行失败: {result['error']}")
-        
         # 构建错误信息
         error_info = ""
         if result['error']:
@@ -970,7 +949,7 @@ def execute_terminal_command(command: str, working_directory: str = None) -> str
         if result['output']:
             output_info = f"\n📤 输出内容:\n{result['output']}"
         
-        return f"{warning_info}❌ 命令执行失败 (耗时: {execution_time:.2f}s){error_info}{output_info}\n\n返回码: {result['return_code']}"
+        return f"{warning_info}❌ 命令执行失败 (耗时: {execution_time:.1f}s){error_info}{output_info}\n\n返回码: {result['return_code']}"
 
 
 @tool
@@ -986,7 +965,7 @@ def test_service_command(command: str, working_directory: str = None) -> str:
     Returns:
         服务测试结果
     """
-    logger.info(f"[Tool] 测试服务命令: {command}")
+    terminal_logger.debug(f"[Tool] 测试服务: {command}")
     
     result = terminal_executor.execute_command(command, working_directory, force_background=True, auto_terminate_after_verification=True)
     
@@ -996,14 +975,11 @@ def test_service_command(command: str, working_directory: str = None) -> str:
         
         if verification.get("verified"):
             status = "✅ 服务测试成功" if task_terminated else "✅ 服务测试成功（任务仍在运行）"
-            logger.info(f"[Tool] 服务测试完成: {verification.get('url')}")
         else:
             status = "⚠️ 服务启动但验证失败"
-            logger.warning(f"[Tool] 服务验证失败: {verification.get('reason')}")
         
         return f"{status}\n{result['output']}"
     else:
-        logger.error(f"[Tool] 服务测试失败: {result['error']}")
         return f"❌ 服务测试失败:\n{result['error']}"
 
 
@@ -1019,15 +995,13 @@ def execute_command_background(command: str, working_directory: str = None) -> s
     Returns:
         后台任务启动结果和任务ID
     """
-    logger.info(f"[Tool] 后台执行命令: {command}")
+    terminal_logger.debug(f"[Tool] 后台执行: {command}")
     
     result = terminal_executor.execute_command_background(command, working_directory)
     
     if result["success"]:
-        logger.info(f"[Tool] 后台任务启动成功: {result['task_id']}")
         return f"✅ 后台任务启动成功!\n任务ID: {result['task_id']}\nPID: {result['pid']}\n命令: {result['command']}\n工作目录: {result['working_dir']}\n\n{result['message']}"
     else:
-        logger.error(f"[Tool] 后台任务启动失败: {result['error']}")
         return f"❌ 后台任务启动失败:\n{result['error']}"
 
 
@@ -1042,7 +1016,7 @@ def get_background_tasks_status(task_id: str = None) -> str:
     Returns:
         任务状态信息
     """
-    logger.info(f"[Tool] 查询后台任务状态: {task_id or '全部'}")
+    terminal_logger.debug(f"[Tool] 查询任务状态: {task_id or '全部'}")
     
     result = terminal_executor.get_task_status(task_id)
     

@@ -17,27 +17,7 @@ from src.tools import (
 
 # 设置日志
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-# 如果没有handler，添加一个console handler
-if not logger.handlers:
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    formatter = logging.Formatter('🚀 [Workflow] %(asctime)s - %(levelname)s - %(message)s', datefmt='%H:%M:%S')
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-# 设置LLM Agent日志
 llm_agent_logger = logging.getLogger("code_agent_llm_execution")
-llm_agent_logger.setLevel(logging.INFO)
-
-# 如果没有handler，添加一个console handler
-if not llm_agent_logger.handlers:
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    formatter = logging.Formatter('🧠 [LLM] %(asctime)s - %(levelname)s - %(message)s', datefmt='%H:%M:%S')
-    console_handler.setFormatter(formatter)
-    llm_agent_logger.addHandler(console_handler)
 
 
 class CodeAgentWorkflow:
@@ -80,86 +60,289 @@ class CodeAgentWorkflow:
     
     async def execute_task(self, task_description: str, max_iterations: int = 5) -> Dict[str, Any]:
         """
-        执行代码任务
+        执行代码任务，支持三阶段执行模式：
+        1. 前置信息收集阶段
+        2. 任务实施阶段  
+        3. 验证确认阶段
         
         Args:
             task_description: 任务描述
-            max_iterations: 最大迭代次数
+            max_iterations: 最大执行轮次
             
         Returns:
-            执行结果字典
+            任务执行结果
         """
-        logger.info(f"开始执行代码任务: {task_description[:100]}{'...' if len(task_description) > 100 else ''}")
+        logger.info(f"🚀 开始执行代码任务")
+        logger.info(f"📋 任务描述: {task_description[:100]}{'...' if len(task_description) > 100 else ''}")
         
-        # 1. 任务规划
-        logger.info("开始任务规划")
+        # 1. 任务规划阶段
+        logger.info("📋 阶段1: 任务规划...")
         plan = self.task_planner.plan_task(task_description)
         
         if not plan:
-            logger.error("任务规划失败")
-            return {"success": False, "error": "无法生成任务计划"}
+            return {"success": False, "error": "任务规划失败", "results": []}
         
-        logger.info(f"任务规划完成，生成 {len(plan)} 个执行步骤")
-        for i, step in enumerate(plan, 1):
-            logger.debug(f"步骤 {i}: {step['description']} (类型: {step['type']})")
+        # 按阶段组织步骤
+        phases = {}
+        for step in plan:
+            phase = step.get('phase', 'unknown')
+            if phase not in phases:
+                phases[phase] = []
+            phases[phase].append(step)
         
-        # 2. 逐步执行
+        logger.info(f"📊 规划完成: {len(phases)} 个阶段，共 {len(plan)} 个步骤")
+        for phase_name, phase_steps in phases.items():
+            logger.info(f"  🔹 {phase_name}: {len(phase_steps)} 个步骤")
+        
+        # 2. 分阶段执行
         results = []
-        for iteration in range(max_iterations):
-            logger.info(f"开始执行轮次 {iteration + 1}/{max_iterations}")
+        overall_success = True
+        phase_results = {}
+        
+        # 执行前置信息收集阶段
+        if 'pre_analysis' in phases:
+            logger.info("\n🔍 阶段2: 前置信息收集...")
+            phase_result = await self._execute_phase("pre_analysis", phases['pre_analysis'], task_description)
+            phase_results['pre_analysis'] = phase_result
+            results.extend(phase_result['step_results'])
             
-            # 获取下一步
-            next_step = self.task_planner.get_next_step()
-            if not next_step:
-                logger.info("所有步骤已完成")
-                break
+            if not phase_result['success']:
+                logger.error("❌ 前置信息收集失败，终止执行")
+                overall_success = False
+                return self._build_final_result(results, overall_success, "前置信息收集失败")
             
-            logger.info(f"执行步骤: {next_step['description']}")
+            logger.info(f"✅ 前置信息收集完成: {phase_result['success_count']}/{phase_result['total_steps']} 步骤成功")
+        
+        # 执行任务实施阶段
+        if 'implementation' in phases and overall_success:
+            logger.info("\n⚙️ 阶段3: 任务实施...")
+            phase_result = await self._execute_phase("implementation", phases['implementation'], task_description)
+            phase_results['implementation'] = phase_result
+            results.extend(phase_result['step_results'])
             
-            # 构建agent输入
-            agent_input = {
-                "input": f"任务: {task_description}\n当前步骤: {next_step['description']}\n可用工具: {next_step['tools']}",
-                "task_step": next_step,
-                "iteration": iteration + 1
-            }
+            if not phase_result['success']:
+                logger.warning("⚠️ 任务实施阶段有问题，但继续验证阶段")
+                overall_success = False
+            else:
+                logger.info(f"✅ 任务实施完成: {phase_result['success_count']}/{phase_result['total_steps']} 步骤成功")
+        
+        # 执行验证确认阶段
+        if 'verification' in phases:
+            logger.info("\n🔬 阶段4: 验证确认...")
+            phase_result = await self._execute_phase("verification", phases['verification'], task_description)
+            phase_results['verification'] = phase_result
+            results.extend(phase_result['step_results'])
             
-            try:
-                # 执行agent
-                logger.debug("调用Agent执行步骤")
-                result = await self._execute_agent_step(agent_input)
-                results.append(result)
-                
-                # 标记步骤完成
-                step_id = self.task_planner.current_step - 1
-                self.task_planner.mark_step_completed(step_id, result)
-                
-                if result.get("success", False):
-                    logger.info(f"步骤执行成功: {next_step['description']}")
-                else:
-                    logger.warning(f"步骤执行失败: {result.get('error', 'Unknown error')}")
-                
-            except Exception as e:
-                error_msg = f"步骤执行失败: {str(e)}"
-                logger.error(error_msg)
-                results.append({"success": False, "error": error_msg})
-                break
+            if not phase_result['success']:
+                logger.error("❌ 验证阶段失败")
+                overall_success = False
+            else:
+                logger.info(f"✅ 验证确认完成: {phase_result['success_count']}/{phase_result['total_steps']} 步骤成功")
         
         # 3. 汇总结果
+        final_result = self._build_final_result(results, overall_success, "任务执行完成")
+        final_result['phase_results'] = phase_results
+        final_result['phases_executed'] = list(phases.keys())
+        
+        # 记录最终状态
         success_count = sum(1 for r in results if r.get("success", False))
         total_steps = len(results)
         
-        final_result = {
-            "success": success_count == total_steps and total_steps > 0,
-            "task_description": task_description,
-            "total_steps": total_steps,
-            "completed_steps": success_count,
-            "plan": plan,
-            "results": results,
-            "summary": f"完成了 {success_count}/{total_steps} 个步骤"
+        if overall_success:
+            logger.info(f"🎉 任务执行成功完成!")
+        else:
+            logger.warning(f"⚠️ 任务执行部分成功")
+            
+        logger.info(f"📈 执行统计: {success_count}/{total_steps} 步骤成功")
+        logger.info(f"🔹 执行阶段: {', '.join(phases.keys())}")
+        
+        return final_result
+    
+    async def _execute_phase(self, phase_name: str, phase_steps: List[Dict[str, Any]], task_description: str) -> Dict[str, Any]:
+        """
+        执行特定阶段的所有步骤
+        
+        Args:
+            phase_name: 阶段名称
+            phase_steps: 阶段包含的步骤列表
+            task_description: 原始任务描述
+            
+        Returns:
+            阶段执行结果
+        """
+        logger.debug(f"开始执行阶段: {phase_name}")
+        step_results = []
+        success_count = 0
+        phase_success = True
+        
+        for i, step in enumerate(phase_steps, 1):
+            step_id = step.get('id', i)
+            step_title = step.get('title', '未命名步骤')
+            step_desc = step.get('description', '')
+            verification_criteria = step.get('verification_criteria', [])
+            
+            logger.info(f"📋 步骤 {step_id}: {step_title}")
+            if verification_criteria:
+                logger.debug(f"   ✅ 验证标准: {', '.join(verification_criteria)}")
+            
+            # 构建agent输入，包含阶段上下文
+            agent_input = {
+                "input": f"""任务: {task_description}
+
+当前阶段: {phase_name} - {step.get('phase_description', '')}
+当前步骤: {step_title}
+步骤描述: {step_desc}
+可用工具: {step.get('tools', [])}
+验证标准: {verification_criteria}
+
+请按照以下要求执行:
+1. 明确说明你正在执行哪个阶段的哪个步骤
+2. 使用合适的工具完成步骤目标
+3. 根据验证标准检查执行结果
+4. 如果是验证阶段，详细报告验证结果""",
+                "task_step": step,
+                "phase": phase_name,
+                "step_number": f"{step_id}/{len(phase_steps)}",
+                "verification_criteria": verification_criteria
+            }
+            
+            try:
+                # 执行agent步骤
+                result = await self._execute_agent_step(agent_input)
+                step_results.append(result)
+                
+                # 检查步骤执行结果
+                if result.get("success", False):
+                    success_count += 1
+                    logger.info(f"  ✅ 步骤 {step_id} 完成")
+                    
+                    # 对于验证阶段，进行额外的验证检查
+                    if phase_name == "verification":
+                        verification_passed = await self._validate_step_result(step, result)
+                        if not verification_passed:
+                            logger.warning(f"  ⚠️ 步骤 {step_id} 验证未完全通过")
+                            result['verification_warning'] = True
+                else:
+                    logger.warning(f"  ❌ 步骤 {step_id} 失败: {result.get('error', 'Unknown error')[:50]}{'...' if len(result.get('error', '')) > 50 else ''}")
+                    phase_success = False
+                
+                # 标记步骤完成
+                self.task_planner.mark_step_completed(step_id - 1, result)
+                
+            except Exception as e:
+                error_msg = f"步骤 {step_id} 执行异常: {str(e)}"
+                logger.error(f"  ❌ {error_msg}")
+                step_results.append({
+                    "success": False, 
+                    "error": error_msg,
+                    "step_id": step_id,
+                    "step_title": step_title,
+                    "phase": phase_name
+                })
+                phase_success = False
+        
+        phase_result = {
+            "phase": phase_name,
+            "success": phase_success,
+            "success_count": success_count,
+            "total_steps": len(phase_steps),
+            "step_results": step_results
         }
         
-        logger.info(f"任务执行完成: {final_result['summary']}")
-        return final_result
+        logger.debug(f"阶段 {phase_name} 执行完成: {success_count}/{len(phase_steps)} 步骤成功")
+        return phase_result
+    
+    async def _validate_step_result(self, step: Dict[str, Any], result: Dict[str, Any]) -> bool:
+        """
+        验证步骤执行结果是否符合预期
+        
+        Args:
+            step: 步骤信息
+            result: 执行结果
+            
+        Returns:
+            验证是否通过
+        """
+        verification_criteria = step.get('verification_criteria', [])
+        if not verification_criteria:
+            return True  # 没有验证标准则认为通过
+        
+        step_type = step.get('type', '')
+        logger.debug(f"验证步骤类型: {step_type}")
+        
+        # 基于步骤类型进行特定验证
+        try:
+            if step_type == "file_verification":
+                # 验证文件相关操作
+                return await self._validate_file_operations(result)
+            elif step_type == "functional_testing":
+                # 验证功能测试结果
+                return await self._validate_functional_tests(result)
+            elif step_type == "integration_verification":
+                # 验证集成测试结果
+                return await self._validate_integration_tests(result)
+            else:
+                # 通用验证：检查是否有明显的错误信息
+                output = result.get('output', '')
+                return 'error' not in output.lower() and 'failed' not in output.lower()
+                
+        except Exception as e:
+            logger.debug(f"验证过程异常: {e}")
+            return False
+    
+    async def _validate_file_operations(self, result: Dict[str, Any]) -> bool:
+        """验证文件操作结果"""
+        # 检查agent输出中是否包含文件操作成功的标志
+        output = result.get('output', '').lower()
+        success_indicators = ['文件创建成功', '文件修改成功', '文件存在', 'successfully', 'created', 'modified']
+        error_indicators = ['文件不存在', '权限不足', 'permission denied', 'file not found', 'failed']
+        
+        has_success = any(indicator in output for indicator in success_indicators)
+        has_error = any(indicator in output for indicator in error_indicators)
+        
+        return has_success and not has_error
+    
+    async def _validate_functional_tests(self, result: Dict[str, Any]) -> bool:
+        """验证功能测试结果"""
+        output = result.get('output', '').lower()
+        success_indicators = ['测试通过', '功能正常', 'test passed', 'ok', 'success']
+        error_indicators = ['测试失败', '错误', 'test failed', 'error', 'exception']
+        
+        has_success = any(indicator in output for indicator in success_indicators)
+        has_error = any(indicator in output for indicator in error_indicators)
+        
+        return has_success and not has_error
+    
+    async def _validate_integration_tests(self, result: Dict[str, Any]) -> bool:
+        """验证集成测试结果"""
+        output = result.get('output', '').lower()
+        success_indicators = ['集成成功', '兼容', 'integration successful', 'compatible']
+        error_indicators = ['冲突', '不兼容', 'conflict', 'incompatible']
+        
+        has_success = any(indicator in output for indicator in success_indicators)
+        has_error = any(indicator in output for indicator in error_indicators)
+        
+        return has_success and not has_error
+    
+    def _build_final_result(self, results: List[Dict[str, Any]], success: bool, message: str) -> Dict[str, Any]:
+        """构建最终执行结果"""
+        success_count = sum(1 for r in results if r.get("success", False))
+        total_steps = len(results)
+        
+        return {
+            "success": success,
+            "message": message,
+            "total_steps": total_steps,
+            "successful_steps": success_count,
+            "failed_steps": total_steps - success_count,
+            "success_rate": f"{success_count}/{total_steps}" if total_steps > 0 else "0/0",
+            "results": results,
+            "summary": {
+                "task_completed": success,
+                "all_phases_executed": True,
+                "verification_performed": any(r.get('step_type') == 'verification' for r in results)
+            }
+        }
     
     async def _execute_agent_step(self, agent_input: Dict[str, Any]) -> Dict[str, Any]:
         """执行单个agent步骤"""
@@ -168,13 +351,7 @@ class CodeAgentWorkflow:
         step_title = step_info.get("title", "未命名步骤")
         
         logger.debug(f"开始执行Agent步骤: {step_type}")
-        llm_agent_logger.info("=" * 60)
-        llm_agent_logger.info(f"🤖 开始执行Agent步骤: {step_title}")
-        llm_agent_logger.info("=" * 60)
-        llm_agent_logger.info(f"📋 步骤类型: {step_type}")
-        llm_agent_logger.info(f"📝 步骤描述: {step_info.get('description', '无描述')}")
-        llm_agent_logger.info(f"🔧 预期工具: {', '.join(step_info.get('tools', []))}")
-        llm_agent_logger.info(f"⏱️ 预估时间: {step_info.get('estimated_time', '未知')}")
+        llm_agent_logger.info(f"🤖 执行: {step_title}")
         
         try:
             # 构建符合LangGraph AgentState的状态
@@ -189,50 +366,19 @@ class CodeAgentWorkflow:
                 **agent_input
             }
             
-            logger.debug("构建Agent状态完成，开始调用Agent")
-            llm_agent_logger.info("🧠 开始调用LLM Agent...")
-            llm_agent_logger.info(f"💬 用户输入: {agent_input['input'][:150]}{'...' if len(agent_input['input']) > 150 else ''}")
+            logger.debug("调用LLM Agent...")
             
             # 调用agent执行
             result = await self.agent.ainvoke(state)
             
-            logger.debug("Agent调用完成，解析结果")
-            llm_agent_logger.info("✅ LLM Agent响应完成，开始解析结果...")
+            logger.debug("Agent响应完成，解析结果...")
             
             # 统计消息数量
             message_count = len(result.get("messages", []))
-            llm_agent_logger.info(f"📨 消息总数: {message_count}")
+            logger.debug(f"消息总数: {message_count}")
             
             # 解析agent的响应
             if "messages" in result and len(result["messages"]) > 1:
-                # 分析所有消息的思考过程
-                llm_agent_logger.info("🧭 Agent思考过程分析:")
-                
-                for i, message in enumerate(result["messages"]):
-                    message_type = message.get("type", "unknown")
-                    message_name = getattr(message, 'name', None) or message.get("name", "unknown")
-                    
-                    if message_type == "human":
-                        llm_agent_logger.info(f"  {i+1}. [用户] {message_name}: {message.get('content', '')[:100]}{'...' if len(message.get('content', '')) > 100 else ''}")
-                    elif message_type == "ai":
-                        content = message.get('content', '')
-                        tool_calls = getattr(message, 'tool_calls', []) or message.get('tool_calls', [])
-                        
-                        llm_agent_logger.info(f"  {i+1}. [AI] {message_name}:")
-                        if content:
-                            llm_agent_logger.info(f"     💭 思考: {content[:200]}{'...' if len(content) > 200 else ''}")
-                        
-                        if tool_calls:
-                            llm_agent_logger.info(f"     🔧 工具调用: {len(tool_calls)} 个")
-                            for j, tool_call in enumerate(tool_calls):
-                                tool_name = tool_call.get('name', 'unknown')
-                                tool_args = tool_call.get('args', {})
-                                llm_agent_logger.info(f"        {j+1}. {tool_name}: {str(tool_args)[:100]}{'...' if len(str(tool_args)) > 100 else ''}")
-                    elif message_type == "tool":
-                        tool_name = message_name
-                        tool_content = message.get('content', '')
-                        llm_agent_logger.info(f"  {i+1}. [工具] {tool_name}: {tool_content[:150]}{'...' if len(tool_content) > 150 else ''}")
-                
                 # 获取最后的AI响应
                 last_message = result["messages"][-1]
                 output = last_message.get("content", "No output")
@@ -240,25 +386,18 @@ class CodeAgentWorkflow:
                 # 检查是否有工具调用
                 tool_calls = getattr(last_message, 'tool_calls', []) or last_message.get('tool_calls', [])
                 if tool_calls:
-                    logger.info(f"Agent调用了 {len(tool_calls)} 个工具")
-                    llm_agent_logger.info(f"🛠️ 最终工具调用统计: {len(tool_calls)} 个工具")
-                    
-                    for i, tool_call in enumerate(tool_calls):
-                        tool_name = tool_call.get('name', 'unknown')
-                        logger.debug(f"工具调用 {i+1}: {tool_name}")
-                        llm_agent_logger.info(f"   {i+1}. {tool_name}")
+                    tool_names = [tool_call.get('name', 'unknown') for tool_call in tool_calls]
+                    logger.info(f"  🔧 使用工具: {', '.join(tool_names)}")
                 else:
-                    logger.debug("Agent没有调用工具")
-                    llm_agent_logger.info("🛠️ 未调用任何工具")
+                    logger.debug("未调用工具")
                 
-                # 记录最终输出
-                llm_agent_logger.info("📋 最终输出:")
-                llm_agent_logger.info(f"   {output[:300]}{'...' if len(output) > 300 else ''}")
+                # 简化的最终输出记录
+                if output and len(output.strip()) > 0:
+                    logger.debug(f"Agent输出: {output[:100]}{'...' if len(output) > 100 else ''}")
                     
             else:
                 output = "Agent执行完成，但没有返回具体输出"
                 logger.warning("Agent返回的消息格式异常")
-                llm_agent_logger.warning("⚠️ Agent返回的消息格式异常")
             
             
             result_data = {
@@ -271,16 +410,13 @@ class CodeAgentWorkflow:
                 "agent_result": result
             }
             
-            logger.info(f"Agent步骤执行成功: {step_type}")
-            llm_agent_logger.info(f"✅ Agent步骤 '{step_title}' 执行成功")
-            llm_agent_logger.info("=" * 60)
+            logger.debug(f"Agent步骤执行成功: {step_type}")
             
             return result_data
             
         except Exception as e:
             logger.error(f"Agent步骤执行失败: {str(e)}")
-            llm_agent_logger.error(f"❌ Agent步骤 '{step_title}' 执行失败: {str(e)}")
-            llm_agent_logger.info("=" * 60)
+            llm_agent_logger.error(f"❌ 步骤失败: {str(e)[:50]}{'...' if len(str(e)) > 50 else ''}")
             
             return {
                 "success": False,

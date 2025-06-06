@@ -13,8 +13,12 @@ import os
 import sys
 from typing import Dict, Any
 
-# 添加父目录到Python路径，以便导入src模块
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# 获取脚本所在目录和项目根目录，但保持当前工作目录不变
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(script_dir)
+
+# 添加项目根目录到Python路径，以便导入src模块
+sys.path.insert(0, project_root)
 
 from InquirerPy import inquirer
 from InquirerPy.base.control import Choice
