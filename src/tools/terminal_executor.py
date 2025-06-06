@@ -252,6 +252,23 @@ class TerminalExecutor:
         
         return is_allowed
     
+    def _is_long_running_command(self, command: str) -> bool:
+        """检查是否是可能长时间运行的命令"""
+        long_running_patterns = [
+            # Web服务器
+            'python app.py', 'python main.py', 'python server.py',
+            'flask run', 'django runserver', 'uvicorn', 'gunicorn',
+            'python manage.py runserver',
+            # 其他服务
+            'npm start', 'yarn start', 'node server', 'node app',
+            'jupyter notebook', 'jupyter lab',
+            # 监控和持续任务
+            'tail -f', 'watch', 'ping', 'nc -l'
+        ]
+        
+        command_lower = command.lower()
+        return any(pattern in command_lower for pattern in long_running_patterns)
+
     def execute_command(self, command: str, working_dir: Optional[str] = None) -> Dict[str, Any]:
         """
         执行命令并返回结果
@@ -277,26 +294,56 @@ class TerminalExecutor:
         try:
             # 设置工作目录
             cwd = working_dir or os.getcwd()
-            logger.debug(f"工作目录: {cwd}")
+            logger.info(f"执行环境: {cwd}")
+            
+            # 检查是否是长时间运行的命令
+            is_long_running = self._is_long_running_command(command)
+            timeout = 10 if is_long_running else 30  # 长时间运行的命令使用较短超时
+            
+            if is_long_running:
+                logger.warning(f"检测到可能长时间运行的命令，使用 {timeout} 秒超时: {command}")
             
             # 执行命令
-            logger.debug("开始执行命令...")
+            logger.info(f"开始执行命令 (超时: {timeout}s)...")
+            start_time = __import__('time').time()
+            
             result = subprocess.run(
                 command,
                 shell=True,
                 capture_output=True,
                 text=True,
                 cwd=cwd,
-                timeout=30  # 30秒超时
+                timeout=timeout
             )
             
+            execution_time = __import__('time').time() - start_time
+            logger.info(f"命令执行完成，耗时: {execution_time:.2f}s")
+            
+            # 详细记录执行结果
             if result.returncode == 0:
-                logger.info(f"命令执行成功，返回码: {result.returncode}")
-                logger.debug(f"输出长度: {len(result.stdout)} 字符")
+                logger.info(f"✅ 命令执行成功，返回码: {result.returncode}")
+                if result.stdout:
+                    logger.info(f"📤 标准输出 ({len(result.stdout)} 字符):")
+                    # 显示输出内容的前几行
+                    output_lines = result.stdout.strip().split('\n')
+                    for i, line in enumerate(output_lines[:5]):  # 最多显示前5行
+                        logger.info(f"  │ {line}")
+                    if len(output_lines) > 5:
+                        logger.info(f"  │ ... ({len(output_lines)-5} 行更多内容)")
+                else:
+                    logger.info("📤 无标准输出")
             else:
-                logger.warning(f"命令执行失败，返回码: {result.returncode}")
+                logger.warning(f"❌ 命令执行失败，返回码: {result.returncode}")
                 if result.stderr:
-                    logger.warning(f"错误信息: {result.stderr[:200]}...")
+                    logger.warning(f"📥 错误输出:")
+                    error_lines = result.stderr.strip().split('\n')
+                    for line in error_lines[:3]:  # 显示前3行错误
+                        logger.warning(f"  │ {line}")
+                if result.stdout:
+                    logger.info(f"📤 标准输出:")
+                    output_lines = result.stdout.strip().split('\n')
+                    for line in output_lines[:3]:  # 显示前3行输出
+                        logger.info(f"  │ {line}")
             
             return {
                 "success": result.returncode == 0,
@@ -304,20 +351,37 @@ class TerminalExecutor:
                 "error": result.stderr,
                 "return_code": result.returncode,
                 "command": command,
-                "working_dir": cwd
+                "working_dir": cwd,
+                "execution_time": execution_time
             }
             
         except subprocess.TimeoutExpired:
-            logger.error(f"命令执行超时: {command}")
-            return {
-                "success": False,
-                "error": "命令执行超时",
-                "output": "",
-                "return_code": -1,
-                "command": command
-            }
+            execution_time = __import__('time').time() - start_time
+            if is_long_running:
+                logger.warning(f"⏰ 长时间运行命令超时 ({timeout}s)，可能正在后台运行: {command}")
+                return {
+                    "success": True,  # 对于服务类命令，超时可能是正常的
+                    "output": f"命令可能正在后台运行 (超时 {timeout}s)",
+                    "error": f"命令在 {timeout} 秒后超时，但可能仍在运行",
+                    "return_code": 0,
+                    "command": command,
+                    "working_dir": cwd,
+                    "execution_time": execution_time,
+                    "timeout": True
+                }
+            else:
+                logger.error(f"❌ 命令执行超时 ({timeout}s): {command}")
+                return {
+                    "success": False,
+                    "error": f"命令执行超时 ({timeout}s)",
+                    "output": "",
+                    "return_code": -1,
+                    "command": command,
+                    "working_dir": cwd,
+                    "execution_time": execution_time
+                }
         except Exception as e:
-            logger.error(f"执行命令时发生异常: {str(e)}")
+            logger.error(f"❌ 执行命令时发生异常: {str(e)}")
             return {
                 "success": False,
                 "error": f"执行命令时发生错误: {str(e)}",
@@ -360,12 +424,43 @@ def execute_terminal_command(command: str, working_directory: str = None) -> str
     
     result = terminal_executor.execute_command(command, working_directory)
     
+    # 构建详细的执行结果报告
+    execution_time = result.get('execution_time', 0)
+    timeout_info = ""
+    if result.get('timeout'):
+        timeout_info = f"\n⏰ 注意：命令可能仍在后台运行"
+    
     if result["success"]:
-        logger.info(f"[Tool] 命令执行成功")
-        return f"{warning_info}✅ 命令执行成功:\n输出: {result['output']}\n返回码: {result['return_code']}"
+        logger.info(f"[Tool] 命令执行成功 (耗时: {execution_time:.2f}s)")
+        
+        # 构建输出信息
+        output_info = ""
+        if result['output']:
+            output_lines = result['output'].strip().split('\n')
+            if len(output_lines) <= 10:
+                output_info = f"\n📤 输出内容:\n{result['output']}"
+            else:
+                # 如果输出太长，显示前5行和后3行
+                first_lines = '\n'.join(output_lines[:5])
+                last_lines = '\n'.join(output_lines[-3:])
+                output_info = f"\n📤 输出内容 (共{len(output_lines)}行):\n{first_lines}\n... ({len(output_lines)-8} 行省略) ...\n{last_lines}"
+        else:
+            output_info = "\n📤 无输出内容"
+        
+        return f"{warning_info}✅ 命令执行成功 (耗时: {execution_time:.2f}s){output_info}{timeout_info}\n\n返回码: {result['return_code']}"
     else:
         logger.warning(f"[Tool] 命令执行失败: {result['error']}")
-        return f"{warning_info}❌ 命令执行失败:\n错误: {result['error']}\n返回码: {result['return_code']}"
+        
+        # 构建错误信息
+        error_info = ""
+        if result['error']:
+            error_info = f"\n📥 错误信息:\n{result['error']}"
+        
+        output_info = ""
+        if result['output']:
+            output_info = f"\n📤 输出内容:\n{result['output']}"
+        
+        return f"{warning_info}❌ 命令执行失败 (耗时: {execution_time:.2f}s){error_info}{output_info}\n\n返回码: {result['return_code']}"
 
 
 @tool  
