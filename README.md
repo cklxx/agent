@@ -74,9 +74,21 @@ Please refer to the [Configuration Guide](docs/configuration_guide.md) for more 
 The quickest way to run the project is to use the console UI.
 
 ```bash
-# Run the project in a bash-like shell
+# Run the project in a bash-like shell (simplified logging mode)
 uv run main.py
+
+# Run with debug logging for detailed output
+uv run main.py --debug
 ```
+
+#### 📋 Logging Modes
+
+The project supports two logging modes to balance clarity and detail:
+
+- **Simplified Mode (Default)**: Clean output focusing on LLM planning and agent execution progress
+- **Debug Mode**: Detailed logging for troubleshooting and development
+
+See [docs/logging_guide.md](docs/logging_guide.md) for more details.
 
 ### Web UI
 
