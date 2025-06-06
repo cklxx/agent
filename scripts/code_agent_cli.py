@@ -206,132 +206,81 @@ If you need to create or modify files, please use the appropriate tools.
             all_messages = []
             
             try:
-                print("🤖 AI Agent is analyzing the task...")
+                # 调用agent并监控流式输出
+                processed_messages = set()  # 跟踪已处理的消息
                 
-                # 使用标准调用但添加自定义监控
-                final_result = await self.agent.ainvoke(state, {"configurable": {"thread_id": "demo"}})
-                
-                # 立即分析结果并显示执行过程
-                if "messages" in final_result and len(final_result["messages"]) > 0:
-                    print("\n🔍 Reconstructing agent execution flow...")
-                    print("=" * 50)
+                async for chunk in self.agent.astream(state, {"configurable": {"thread_id": "demo"}}):
+                    if self.debug:
+                        print(f"🔍 DEBUG: Received chunk: {type(chunk)}")
+                        if hasattr(chunk, 'keys'):
+                            print(f"🔍 DEBUG: Chunk keys: {list(chunk.keys())}")
                     
-                    messages = final_result["messages"]
-                    current_step = 1
-                    
-                    for i, msg in enumerate(messages):
-                        msg_type = getattr(msg, 'type', 'unknown')
+                    # 检查chunk中的消息
+                    if isinstance(chunk, dict) and "messages" in chunk:
+                        messages = chunk["messages"]
                         
-                        if msg_type == "ai":
-                            print(f"\n🤖 AI Agent - Step {current_step}")
-                            print("─" * 50)
+                        # 处理所有新消息
+                        for msg_idx, msg in enumerate(messages):
+                            msg_id = f"{msg_idx}_{getattr(msg, 'type', 'unknown')}_{id(msg)}"
                             
-                            # 显示AI的思考内容
-                            if hasattr(msg, 'content') and msg.content:
-                                content = msg.content.strip()
-                                if content:
-                                    print(f"💭 Agent Reasoning:")
-                                    lines = content.split('\n')
-                                    for line in lines:
-                                        if line.strip():
-                                            # 智能高亮关键信息
-                                            if any(keyword in line.lower() for keyword in ['step', 'plan', 'first', 'then', 'next']):
-                                                print(f"📋 {line}")
-                                            elif line.strip().startswith('-') or line.strip().startswith('*'):
-                                                print(f"   • {line.strip()[1:].strip()}")
-                                            elif '```' in line:
-                                                print(f"💻 {line}")
-                                            else:
-                                                print(f"   {line}")
-                            
-                            # 显示工具调用
-                            if hasattr(msg, 'tool_calls') and msg.tool_calls:
-                                print(f"\n🎯 Planned Actions:")
-                                for j, tool_call in enumerate(msg.tool_calls):
-                                    tool_name = tool_call.get('name', 'unknown')
-                                    tool_args = tool_call.get('args', {})
+                            if msg_id not in processed_messages:
+                                processed_messages.add(msg_id)
+                                msg_type = getattr(msg, 'type', 'unknown')
+                                
+                                # 检查是否是AI消息
+                                if msg_type == "ai":
+                                    # 检查工具调用
+                                    if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                                        tool_calls_found = True
+                                        print(f"\n🔧 Step {step_counter}: Agent is calling tools...")
+                                        for i, tool_call in enumerate(msg.tool_calls):
+                                            tool_name = tool_call.get('name', 'unknown')
+                                            tool_args = tool_call.get('args', {})
+                                            print(f"  🛠️  Tool {i+1}: {tool_name}")
+                                            # 显示参数，但限制长度
+                                            if tool_args:
+                                                for key, value in tool_args.items():
+                                                    if isinstance(value, str) and len(value) > 100:
+                                                        display_value = value[:100] + "..."
+                                                    else:
+                                                        display_value = value
+                                                    print(f"      {key}: {display_value}")
+                                        step_counter += 1
                                     
-                                    if tool_name == "list_directory_contents":
-                                        path = tool_args.get('path', '.')
-                                        print(f"   {j+1}. 📂 Explore directory: {path}")
-                                    elif tool_name == "read_file":
-                                        file_path = tool_args.get('file_path', 'unknown')
-                                        print(f"   {j+1}. 📖 Read file: {file_path}")
-                                    elif tool_name in ["write_file", "create_new_file"]:
-                                        file_path = tool_args.get('file_path', 'unknown')
-                                        print(f"   {j+1}. ✍️ Create/Write file: {file_path}")
-                                    elif tool_name == "execute_terminal_command":
-                                        command = tool_args.get('command', 'unknown')
-                                        print(f"   {j+1}. 💻 Execute: {command}")
-                                    elif tool_name == "get_current_directory":
-                                        print(f"   {j+1}. 📍 Get working directory")
-                                    else:
-                                        print(f"   {j+1}. 🔧 Use tool: {tool_name}")
-                            
-                            current_step += 1
-                        
-                        elif msg_type == "tool":
-                            tool_name = getattr(msg, 'name', 'unknown')
-                            tool_result = getattr(msg, 'content', 'No result')
-                            
-                            print(f"\n✅ Action Completed: {tool_name}")
-                            print("─" * 30)
-                            
-                            # 格式化显示结果
-                            if tool_name == "list_directory_contents":
-                                print("📁 Found items:")
-                                result_lines = tool_result.split('\n')
-                                for line in result_lines:
-                                    if '[DIR]' in line:
-                                        print(f"   📁 {line.replace('[DIR]', '').strip()}")
-                                    elif '[FILE]' in line:
-                                        print(f"   📄 {line.replace('[FILE]', '').strip()}")
-                                    elif line.strip() and '目录' in line:
+                                    # 显示AI的思考内容
+                                    elif hasattr(msg, 'content') and msg.content:
+                                        content = msg.content.strip()
+                                        if content and not content.startswith('['):  # 过滤掉系统消息
+                                            print(f"\n💭 Agent thinking:")
+                                            # 分段显示长内容
+                                            lines = content.split('\n')
+                                            for line in lines[:5]:  # 只显示前5行
+                                                if line.strip():
+                                                    print(f"   {line[:150]}{'...' if len(line) > 150 else ''}")
+                                            if len(lines) > 5:
+                                                print(f"   ... ({len(lines) - 5} more lines)")
+                                
+                                # 检查工具执行结果
+                                elif msg_type == "tool":
+                                    tool_result = getattr(msg, 'content', 'No result')
+                                    print(f"\n✅ Tool execution result:")
+                                    # 显示工具执行结果，限制长度
+                                    result_lines = str(tool_result).split('\n')
+                                    for line in result_lines[:3]:  # 只显示前3行
                                         print(f"   {line}")
-                            
-                            elif tool_name == "read_file":
-                                print("📖 File content:")
-                                if "文件:" in tool_result:
-                                    # 解析中文格式的输出
-                                    sections = tool_result.split('\n\n')
-                                    for section in sections:
-                                        if section.strip():
-                                            if section.startswith('文件:') or section.startswith('大小:') or section.startswith('行数:'):
-                                                print(f"   ℹ️ {section}")
-                                            elif section.startswith('内容:'):
-                                                print(f"   📄 Content preview:")
-                                                content_lines = section.replace('内容:', '').split('\n')[:5]
-                                                for line in content_lines:
-                                                    if line.strip():
-                                                        print(f"      {line}")
-                                                break
-                                else:
-                                    # 简单文本输出
-                                    result_lines = tool_result.split('\n')[:6]
-                                    for line in result_lines:
-                                        if line.strip():
-                                            print(f"   {line}")
-                            
-                            elif tool_name in ["write_file", "create_new_file"]:
-                                if "成功" in tool_result or "successfully" in tool_result.lower():
-                                    print("   ✅ File operation successful")
-                                else:
-                                    print(f"   📝 {tool_result}")
-                            
-                            elif tool_name == "execute_terminal_command":
-                                print("💻 Command output:")
-                                result_lines = tool_result.split('\n')[:8]
-                                for line in result_lines:
-                                    if line.strip():
-                                        print(f"   {line}")
-                            
-                            else:
-                                if isinstance(tool_result, str) and len(tool_result) > 200:
-                                    print(f"   📄 {tool_result[:200]}...")
-                                else:
-                                    print(f"   📄 {tool_result}")
+                                    if len(result_lines) > 3:
+                                        print(f"   ... ({len(result_lines) - 3} more lines)")
+                                
+                                # 显示人类消息（用户输入）
+                                elif msg_type == "human" and self.debug:
+                                    print(f"🔍 DEBUG: Human message processed")
+                    
+                    # 检查其他类型的chunk
+                    elif self.debug:
+                        print(f"🔍 DEBUG: Non-message chunk: {chunk}")
                 
-                print(f"\n🏁 All steps completed. Preparing final summary...")
+                # 获取最终结果
+                final_result = await self.agent.ainvoke(state)
                 
             except Exception as execution_error:
                 print(f"⚠️ Execution issue: {execution_error}")

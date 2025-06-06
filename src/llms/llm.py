@@ -4,11 +4,24 @@
 from pathlib import Path
 from typing import Any, Dict
 import os
+import logging
 
 from langchain_openai import ChatOpenAI
 
 from src.config import load_yaml_config
 from src.config.agents import LLMType
+
+# 设置日志
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# 如果没有handler，添加一个console handler
+if not logger.handlers:
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('🧠 [LLM] %(asctime)s - %(levelname)s - %(message)s', datefmt='%H:%M:%S')
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
 
 # Cache for LLM instances
 _llm_cache: dict[LLMType, ChatOpenAI] = {}
@@ -26,10 +39,16 @@ def _get_env_llm_conf(llm_type: str) -> Dict[str, Any]:
         if key.startswith(prefix):
             conf_key = key[len(prefix) :].lower()
             conf[conf_key] = value
+    
+    if conf:
+        logger.debug(f"从环境变量加载配置: {llm_type}, 配置项: {list(conf.keys())}")
+    
     return conf
 
 
 def _create_llm_use_conf(llm_type: LLMType, conf: Dict[str, Any]) -> ChatOpenAI:
+    logger.info(f"创建LLM实例: {llm_type}")
+    
     llm_type_map = {
         "reasoning": conf.get("REASONING_MODEL", {}),
         "basic": conf.get("BASIC_MODEL", {}),
@@ -37,7 +56,9 @@ def _create_llm_use_conf(llm_type: LLMType, conf: Dict[str, Any]) -> ChatOpenAI:
     }
     llm_conf = llm_type_map.get(llm_type)
     if not isinstance(llm_conf, dict):
+        logger.error(f"无效的LLM配置: {llm_type}")
         raise ValueError(f"Invalid LLM Conf: {llm_type}")
+    
     # Get configuration from environment variables
     env_conf = _get_env_llm_conf(llm_type)
 
@@ -45,9 +66,26 @@ def _create_llm_use_conf(llm_type: LLMType, conf: Dict[str, Any]) -> ChatOpenAI:
     merged_conf = {**llm_conf, **env_conf}
 
     if not merged_conf:
+        logger.error(f"未找到LLM配置: {llm_type}")
         raise ValueError(f"Unknown LLM Conf: {llm_type}")
-
-    return ChatOpenAI(**merged_conf)
+    
+    # 记录关键配置信息（隐藏敏感信息）
+    safe_conf = {}
+    for key, value in merged_conf.items():
+        if key == 'api_key':
+            safe_conf[key] = f"{value[:8]}...{value[-4:]}" if len(value) > 12 else "***"
+        else:
+            safe_conf[key] = value
+    
+    logger.info(f"LLM配置: {safe_conf}")
+    
+    try:
+        llm = ChatOpenAI(**merged_conf)
+        logger.info(f"LLM实例创建成功: {llm_type}")
+        return llm
+    except Exception as e:
+        logger.error(f"创建LLM实例失败: {str(e)}")
+        raise
 
 
 def get_llm_by_type(
@@ -57,14 +95,26 @@ def get_llm_by_type(
     Get LLM instance by type. Returns cached instance if available.
     """
     if llm_type in _llm_cache:
+        logger.debug(f"使用缓存的LLM实例: {llm_type}")
         return _llm_cache[llm_type]
 
-    conf = load_yaml_config(
-        str((Path(__file__).parent.parent.parent / "conf.yaml").resolve())
-    )
-    llm = _create_llm_use_conf(llm_type, conf)
-    _llm_cache[llm_type] = llm
-    return llm
+    logger.info(f"首次创建LLM实例: {llm_type}")
+    
+    try:
+        conf = load_yaml_config(
+            str((Path(__file__).parent.parent.parent / "conf.yaml").resolve())
+        )
+        logger.debug("配置文件加载成功")
+        
+        llm = _create_llm_use_conf(llm_type, conf)
+        _llm_cache[llm_type] = llm
+        
+        logger.info(f"LLM实例已缓存: {llm_type}")
+        return llm
+        
+    except Exception as e:
+        logger.error(f"获取LLM实例失败: {str(e)}")
+        raise
 
 
 # In the future, we will use reasoning_llm and vl_llm for different purposes
