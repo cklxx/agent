@@ -55,28 +55,32 @@ def handoff_to_planner(
 def background_investigation_node(
     state: State, config: RunnableConfig
 ) -> Command[Literal["planner"]]:
-    """Background investigation node that gather background context."""
-    logger.info("Background investigation starting.")
+    logger.info("background investigation node is running.")
     configurable = Configuration.from_runnable_config(config)
-    messages = apply_prompt_template("background_investigator", state)
-    response = get_llm_by_type(AGENT_LLM_MAP["researcher"]).invoke(messages)
-
-    background_investigation_results = response.content
-    # limit the investigation context to 1000 words
-    if len(background_investigation_results.split()) > 1000:
-        logger.warning(
-            "Background investigation result is too long, truncating to 1000 words"
-        )
-        words = background_investigation_results.split()[:1000]
-        background_investigation_results = " ".join(words)
-
-    logger.info(
-        f"Background investigation results: {background_investigation_results[:200]}..."
-    )
-
+    query = state["messages"][-1].content
+    if SELECTED_SEARCH_ENGINE == SearchEngine.TAVILY.value:
+        searched_content = LoggedTavilySearch(
+            max_results=configurable.max_search_results
+        ).invoke(query)
+        background_investigation_results = None
+        if isinstance(searched_content, list):
+            background_investigation_results = [
+                {"title": elem["title"], "content": elem["content"]}
+                for elem in searched_content
+            ]
+        else:
+            logger.error(
+                f"Tavily search returned malformed response: {searched_content}"
+            )
+    else:
+        background_investigation_results = get_web_search_tool(
+            configurable.max_search_results
+        ).invoke(query)
     return Command(
         update={
-            "background_investigation_results": background_investigation_results,
+            "background_investigation_results": json.dumps(
+                background_investigation_results, ensure_ascii=False
+            )
         },
         goto="planner",
     )
