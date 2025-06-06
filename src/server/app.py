@@ -41,7 +41,7 @@ from src.tools import VolcengineTTS
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="DeerFlow API",
+    title="DeepTool API",
     description="API for Deer",
     version="0.1.0",
 )
