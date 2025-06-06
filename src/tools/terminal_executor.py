@@ -28,36 +28,37 @@ if not logger.handlers:
 class TerminalExecutor:
     """安全的命令行执行器"""
     
-    def __init__(self, additional_forbidden_commands: Optional[List[str]] = None):
+    def __init__(self, additional_forbidden_commands: Optional[List[str]] = None, additional_warning_commands: Optional[List[str]] = None):
         """
         初始化终端执行器
         
         Args:
-            additional_forbidden_commands: 额外的禁止命令列表，会添加到默认黑名单中
+            additional_forbidden_commands: 额外的禁止命令列表
+            additional_warning_commands: 额外的警告命令列表
         """
-        # 默认黑名单 - 包含危险和破坏性命令
+        # 完全禁止的命令 - 危险且通常不必要
         default_forbidden = [
-            # 文件删除和格式化
-            'rm', 'rmdir', 'del', 'format', 'fdisk', 'mkfs', 'dd',
+            # 系统级危险操作
+            'format', 'fdisk', 'mkfs', 'dd',
+            'shutdown', 'reboot', 'halt', 'poweroff', 'init',
             
-            # 系统控制
-            'shutdown', 'reboot', 'halt', 'poweroff', 'init', 'systemctl',
+            # 进程管理的危险操作
+            'killall', 'pkill', 'killpg',
             
-            # 进程管理
-            'kill', 'killall', 'pkill', 'killpg',
+            # 用户和权限的危险操作
+            'passwd', 'sudo', 'su', 'usermod', 'userdel',
             
-            # 用户和权限
-            'passwd', 'sudo', 'su', 'chmod', 'chown', 'chgrp', 'usermod', 'userdel',
+            # 网络和防火墙
+            'iptables', 'firewall-cmd', 'ufw',
             
-            # 网络和系统服务
-            'iptables', 'firewall-cmd', 'ufw', 'service',
-            
-            # 包管理器的危险操作
-            'apt-get remove', 'apt-get purge', 'yum remove', 'dnf remove',
-            'pip uninstall', 'npm uninstall -g',
+            # 系统服务
+            'systemctl', 'service',
             
             # 系统配置
             'crontab', 'at', 'mount', 'umount', 'sysctl',
+            
+            # 危险的包管理操作
+            'apt-get remove', 'apt-get purge', 'yum remove', 'dnf remove',
             
             # 危险的编辑器操作
             'vi /etc', 'vim /etc', 'nano /etc', 'emacs /etc',
@@ -66,9 +67,36 @@ class TerminalExecutor:
             'history -c', 'history -w', 'exec', 'eval', 'source /dev'
         ]
         
-        # 合并额外的禁止命令
-        additional = additional_forbidden_commands or []
-        self.forbidden_commands = default_forbidden + additional
+        # 警告但允许的命令 - 有风险但在开发中必要
+        default_warning = [
+            # 文件操作 - 可能删除重要文件但开发中常用
+            'rm', 'rmdir', 'del',
+            
+            # 权限操作 - 有风险但开发中需要
+            'chmod', 'chown', 'chgrp',
+            
+            # 进程管理 - 特定场景下需要
+            'kill',
+            
+            # 包管理 - 开发中需要卸载包
+            'pip uninstall', 'npm uninstall', 'yarn remove',
+            
+            # Git操作 - 有些操作有风险但必要
+            'git reset --hard', 'git clean -fd', 'git push --force',
+            
+            # 网络操作 - 可能暴露信息但开发需要
+            'curl', 'wget', 'ssh',
+            
+            # Docker操作 - 有些操作有风险
+            'docker rm', 'docker rmi', 'docker system prune',
+        ]
+        
+        # 合并额外的命令
+        additional_forbidden = additional_forbidden_commands or []
+        additional_warning = additional_warning_commands or []
+        
+        self.forbidden_commands = default_forbidden + additional_forbidden
+        self.warning_commands = default_warning + additional_warning
         
         # 危险路径模式
         self.forbidden_paths = [
@@ -78,49 +106,60 @@ class TerminalExecutor:
             'C:\\System32\\', 'C:\\Users\\Administrator\\'
         ]
         
-        logger.info(f"初始化终端执行器，黑名单包含 {len(self.forbidden_commands)} 个危险命令")
+        # 警告路径模式 - 有风险但可能需要访问
+        self.warning_paths = [
+            '/home/', '/Users/', '~/', './.*', '../'
+        ]
+        
+        logger.info(f"初始化终端执行器，禁止 {len(self.forbidden_commands)} 个命令，警告 {len(self.warning_commands)} 个命令")
     
-    def is_command_safe(self, command: str) -> bool:
-        """检查命令是否安全可执行"""
+    def check_command_safety(self, command: str) -> tuple[bool, str, str]:
+        """
+        检查命令安全性
+        
+        Args:
+            command: 要检查的命令
+            
+        Returns:
+            (is_allowed, safety_level, message)
+            is_allowed: 是否允许执行
+            safety_level: 'safe', 'warning', 'forbidden'
+            message: 相关消息
+        """
         # 分离命令和参数
         cmd_parts = command.strip().split()
         if not cmd_parts:
-            logger.warning("空命令，拒绝执行")
-            return False
+            return False, 'forbidden', "空命令"
         
         base_command = cmd_parts[0]
         full_command = command.lower()
         
-        # 检查基础命令是否在黑名单中
+        # 检查是否在完全禁止列表中
         if base_command in self.forbidden_commands:
-            logger.warning(f"命令在黑名单中: {base_command}")
-            return False
+            return False, 'forbidden', f"命令在禁止列表中: {base_command}"
         
-        # 检查完整命令是否包含黑名单中的危险组合
+        # 检查完整命令是否包含禁止的危险组合
         for forbidden in self.forbidden_commands:
             if ' ' in forbidden and forbidden in full_command:
-                logger.warning(f"命令包含危险操作: {forbidden}")
-                return False
+                return False, 'forbidden', f"命令包含禁止的危险操作: {forbidden}"
         
-        # 检查是否操作危险路径
+        # 检查是否操作禁止的危险路径
         for path in self.forbidden_paths:
             if path.lower() in full_command:
-                logger.warning(f"命令尝试操作危险路径: {path}")
-                return False
+                return False, 'forbidden', f"命令尝试操作禁止的危险路径: {path}"
         
-        # 检查是否包含危险的特殊字符和操作
-        dangerous_patterns = [
+        # 检查是否包含禁止的危险模式
+        forbidden_patterns = [
             '$(', '`', '&&', '||', ';', 
             '>/dev/', '<(/dev/', 
             'curl|sh', 'wget|sh', 'bash <(',
             '>/etc/', '>>/etc/'
         ]
-        for pattern in dangerous_patterns:
+        for pattern in forbidden_patterns:
             if pattern in command:
-                logger.warning(f"命令包含危险模式 '{pattern}': {command}")
-                return False
+                return False, 'forbidden', f"命令包含禁止的危险模式: {pattern}"
         
-        # 检查重定向到重要文件
+        # 检查重定向到禁止路径
         redirect_patterns = ['>', '>>']
         for pattern in redirect_patterns:
             if pattern in command:
@@ -129,11 +168,44 @@ class TerminalExecutor:
                     target = parts[-1].strip()
                     for dangerous_path in self.forbidden_paths:
                         if target.startswith(dangerous_path):
-                            logger.warning(f"命令尝试重定向到危险路径: {target}")
-                            return False
+                            return False, 'forbidden', f"命令尝试重定向到禁止路径: {target}"
         
-        logger.debug(f"命令安全检查通过: {base_command}")
-        return True
+        # 检查是否在警告列表中
+        if base_command in self.warning_commands:
+            return True, 'warning', f"警告：{base_command} 命令有潜在风险，请谨慎使用"
+        
+        # 检查完整命令是否包含警告的操作
+        for warning in self.warning_commands:
+            if ' ' in warning and warning in full_command:
+                return True, 'warning', f"警告：命令包含潜在风险操作: {warning}"
+        
+        # 检查是否操作警告路径
+        for path in self.warning_paths:
+            if path in full_command:
+                return True, 'warning', f"警告：命令操作敏感路径: {path}"
+        
+        # 检查其他警告模式
+        warning_patterns = [
+            '--force', '-f', '--hard', '--delete', 'rm -rf'
+        ]
+        for pattern in warning_patterns:
+            if pattern in command:
+                return True, 'warning', f"警告：命令使用了潜在危险选项: {pattern}"
+        
+        return True, 'safe', "命令安全"
+    
+    def is_command_safe(self, command: str) -> bool:
+        """检查命令是否安全可执行（向后兼容）"""
+        is_allowed, safety_level, message = self.check_command_safety(command)
+        
+        if safety_level == 'forbidden':
+            logger.warning(f"🚫 {message}")
+        elif safety_level == 'warning':
+            logger.warning(f"⚠️  {message}")
+        else:
+            logger.debug(f"✅ {message}: {command.split()[0]}")
+        
+        return is_allowed
     
     def execute_command(self, command: str, working_dir: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -227,14 +299,28 @@ def execute_terminal_command(command: str, working_directory: str = None) -> str
         命令执行结果
     """
     logger.info(f"[Tool] 执行终端命令: {command}")
+    
+    # 检查命令安全性并提供详细信息
+    is_allowed, safety_level, safety_message = terminal_executor.check_command_safety(command)
+    
+    if not is_allowed:
+        logger.error(f"[Tool] 命令被拒绝: {safety_message}")
+        return f"❌ 命令被拒绝:\n{safety_message}\n\n建议：请使用更安全的替代命令或联系管理员。"
+    
+    # 如果有安全警告，先显示警告信息
+    warning_info = ""
+    if safety_level == 'warning':
+        warning_info = f"⚠️  安全提醒: {safety_message}\n\n"
+        logger.warning(f"[Tool] {safety_message}")
+    
     result = terminal_executor.execute_command(command, working_directory)
     
     if result["success"]:
         logger.info(f"[Tool] 命令执行成功")
-        return f"命令执行成功:\n输出: {result['output']}\n返回码: {result['return_code']}"
+        return f"{warning_info}✅ 命令执行成功:\n输出: {result['output']}\n返回码: {result['return_code']}"
     else:
         logger.warning(f"[Tool] 命令执行失败: {result['error']}")
-        return f"命令执行失败:\n错误: {result['error']}\n返回码: {result['return_code']}"
+        return f"{warning_info}❌ 命令执行失败:\n错误: {result['error']}\n返回码: {result['return_code']}"
 
 
 @tool  
