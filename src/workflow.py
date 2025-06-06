@@ -6,7 +6,6 @@ import logging
 from src.graph import build_graph
 from src.config.logging_config import setup_simplified_logging, setup_debug_logging
 
-
 # 日志配置函数已迁移到 src/config/logging_config.py
 
 

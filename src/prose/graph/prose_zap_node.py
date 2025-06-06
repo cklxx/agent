@@ -16,19 +16,21 @@ logger = logging.getLogger(__name__)
 def prose_zap_node(state: ProseState):
     logger.info("Generating prose zap content...")
     model = get_llm_by_type(AGENT_LLM_MAP["prose_writer"])
-    
+
     # 构建状态用于apply_prompt_template
     prompt_state = {
-        "messages": [HumanMessage(
-            content=f"For this text: {state['content']}.\nYou have to respect the command: {state['command']}"
-        )],
+        "messages": [
+            HumanMessage(
+                content=f"For this text: {state['content']}.\nYou have to respect the command: {state['command']}"
+            )
+        ],
         "content": state["content"],
-        "command": state["command"]
+        "command": state["command"],
     }
-    
+
     # 使用apply_prompt_template统一管理prompt
     messages = apply_prompt_template("prose/prose_zap", prompt_state)
     prose_content = model.invoke(messages)
-    
+
     logger.info(f"prose_content: {prose_content}")
     return {"output": prose_content.content}

@@ -87,7 +87,7 @@ def planner_node(
 ) -> Command[Literal["human_feedback", "reporter"]]:
     """Planner node that generate the full plan."""
     logger.info("🧠 Planner generating plan")
-    
+
     configurable = Configuration.from_runnable_config(config)
     plan_iterations = state["plan_iterations"] if state.get("plan_iterations", 0) else 0
     messages = apply_prompt_template("planner", state, configurable)
@@ -95,8 +95,10 @@ def planner_node(
     # 记录规划相关的输入信息
     if state.get("messages"):
         user_query = state["messages"][-1].content if state["messages"] else "未知查询"
-        llm_logger.info(f"📝 用户查询: {user_query[:80]}{'...' if len(user_query) > 80 else ''}")
-    
+        llm_logger.info(
+            f"📝 用户查询: {user_query[:80]}{'...' if len(user_query) > 80 else ''}"
+        )
+
     logger.debug(f"规划迭代次数: {plan_iterations}")
 
     if (
@@ -130,7 +132,7 @@ def planner_node(
         return Command(goto="reporter")
 
     llm_logger.info("🧠 LLM规划中...")
-    
+
     full_response = ""
     if AGENT_LLM_MAP["planner"] == "basic":
         response = llm.invoke(messages)
@@ -139,41 +141,47 @@ def planner_node(
         response = llm.stream(messages)
         for chunk in response:
             full_response += chunk.content
-    
+
     logger.debug(f"Current state messages: {state['messages']}")
-    logger.debug(f"Planner response: {full_response[:200]}{'...' if len(full_response) > 200 else ''}")
-    
+    logger.debug(
+        f"Planner response: {full_response[:200]}{'...' if len(full_response) > 200 else ''}"
+    )
+
     try:
         curr_plan = json.loads(repair_json_output(full_response))
-        
+
         # 记录规划的核心信息
-        steps = curr_plan.get('steps', [])
+        steps = curr_plan.get("steps", [])
         llm_logger.info(f"✅ 生成 {len(steps)} 个执行步骤")
-        
+
         # 只在debug模式下显示详细信息
         if steps:
             logger.debug("规划步骤详情:")
             for i, step in enumerate(steps, 1):
-                step_type = step.get('step_type', '未知')
-                title = step.get('title', '未设置标题')
-                description = step.get('description', '未设置描述')
-                
+                step_type = step.get("step_type", "未知")
+                title = step.get("title", "未设置标题")
+                description = step.get("description", "未设置描述")
+
                 logger.debug(f"  {i}. [{step_type.upper()}] {title}")
-                logger.debug(f"     📖 {description[:60]}{'...' if len(description) > 60 else ''}")
-        
+                logger.debug(
+                    f"     📖 {description[:60]}{'...' if len(description) > 60 else ''}"
+                )
+
         # 记录完整的JSON结构（仅在调试模式下）
         logger.debug("完整规划JSON:")
         logger.debug(json.dumps(curr_plan, indent=2, ensure_ascii=False))
-        
+
     except json.JSONDecodeError:
         logger.warning("⚠️ 规划输出解析失败：JSON格式错误")
-        logger.debug(f"原始输出: {full_response[:200]}{'...' if len(full_response) > 200 else ''}")
-        
+        logger.debug(
+            f"原始输出: {full_response[:200]}{'...' if len(full_response) > 200 else ''}"
+        )
+
         if plan_iterations > 0:
             return Command(goto="reporter")
         else:
             return Command(goto="__end__")
-    
+
     if curr_plan.get("has_enough_context"):
         logger.info("Planner response has enough context.")
         llm_logger.info("✅ 上下文充足，直接跳转到reporter生成最终报告")
@@ -185,7 +193,7 @@ def planner_node(
             },
             goto="reporter",
         )
-    
+
     llm_logger.info("ℹ️ 上下文不足，需要人工反馈或进一步调研")
     return Command(
         update={
@@ -443,18 +451,24 @@ async def _execute_agent_step(
         # 记录详细的API错误信息
         logger.error(f"Agent execution failed for {agent_name}: {str(e)}")
         logger.error(f"Error type: {type(e).__name__}")
-        
+
         # 如果是OpenAI API错误，记录更多详情
-        if hasattr(e, 'response'):
-            logger.error(f"API response status: {getattr(e.response, 'status_code', 'Unknown')}")
-            logger.error(f"API response headers: {dict(getattr(e.response, 'headers', {}))}")
-            logger.error(f"API response content: {getattr(e.response, 'text', 'No content')}")
-        
+        if hasattr(e, "response"):
+            logger.error(
+                f"API response status: {getattr(e.response, 'status_code', 'Unknown')}"
+            )
+            logger.error(
+                f"API response headers: {dict(getattr(e.response, 'headers', {}))}"
+            )
+            logger.error(
+                f"API response content: {getattr(e.response, 'text', 'No content')}"
+            )
+
         # 如果是httpx错误，也记录详情
-        if hasattr(e, 'request'):
+        if hasattr(e, "request"):
             logger.error(f"Request URL: {getattr(e.request, 'url', 'Unknown')}")
             logger.error(f"Request body: {getattr(e.request, 'body', 'No body')}")
-        
+
         raise e
 
     # Process the result
@@ -553,9 +567,7 @@ async def researcher_node(
         get_nearby_places,
     ]
 
-    return await _setup_and_execute_agent_step(
-        state, config, "researcher", tools
-    )
+    return await _setup_and_execute_agent_step(state, config, "researcher", tools)
 
 
 async def coder_node(

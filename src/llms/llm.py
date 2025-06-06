@@ -30,16 +30,16 @@ def _get_env_llm_conf(llm_type: str) -> Dict[str, Any]:
         if key.startswith(prefix):
             conf_key = key[len(prefix) :].lower()
             conf[conf_key] = value
-    
+
     if conf:
         logger.debug(f"从环境变量加载配置: {llm_type}, 配置项: {list(conf.keys())}")
-    
+
     return conf
 
 
 def _create_llm_use_conf(llm_type: LLMType, conf: Dict[str, Any]) -> ChatOpenAI:
     logger.info(f"创建LLM实例: {llm_type}")
-    
+
     llm_type_map = {
         "reasoning": conf.get("REASONING_MODEL", {}),
         "basic": conf.get("BASIC_MODEL", {}),
@@ -49,7 +49,7 @@ def _create_llm_use_conf(llm_type: LLMType, conf: Dict[str, Any]) -> ChatOpenAI:
     if not isinstance(llm_conf, dict):
         logger.error(f"无效的LLM配置: {llm_type}")
         raise ValueError(f"Invalid LLM Conf: {llm_type}")
-    
+
     # Get configuration from environment variables
     env_conf = _get_env_llm_conf(llm_type)
 
@@ -59,17 +59,17 @@ def _create_llm_use_conf(llm_type: LLMType, conf: Dict[str, Any]) -> ChatOpenAI:
     if not merged_conf:
         logger.error(f"未找到LLM配置: {llm_type}")
         raise ValueError(f"Unknown LLM Conf: {llm_type}")
-    
+
     # 记录关键配置信息（隐藏敏感信息）
     safe_conf = {}
     for key, value in merged_conf.items():
-        if key == 'api_key':
+        if key == "api_key":
             safe_conf[key] = f"{value[:8]}...{value[-4:]}" if len(value) > 12 else "***"
         else:
             safe_conf[key] = value
-    
+
     logger.info(f"LLM配置: {safe_conf}")
-    
+
     try:
         llm = ChatOpenAI(**merged_conf)
         logger.info(f"LLM实例创建成功: {llm_type}")
@@ -90,19 +90,19 @@ def get_llm_by_type(
         return _llm_cache[llm_type]
 
     logger.info(f"首次创建LLM实例: {llm_type}")
-    
+
     try:
         conf = load_yaml_config(
             str((Path(__file__).parent.parent.parent / "conf.yaml").resolve())
         )
         logger.debug("配置文件加载成功")
-        
+
         llm = _create_llm_use_conf(llm_type, conf)
         _llm_cache[llm_type] = llm
-        
+
         logger.info(f"LLM实例已缓存: {llm_type}")
         return llm
-        
+
     except Exception as e:
         logger.error(f"获取LLM实例失败: {str(e)}")
         raise

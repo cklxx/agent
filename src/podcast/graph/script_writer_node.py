@@ -20,16 +20,16 @@ def script_writer_node(state: PodcastState):
     model = get_llm_by_type(
         AGENT_LLM_MAP["podcast_script_writer"]
     ).with_structured_output(Script, method="json_mode")
-    
+
     # 构建状态用于apply_prompt_template
     prompt_state = {
         "messages": [HumanMessage(content=state["input"])],
-        "input": state["input"]
+        "input": state["input"],
     }
-    
+
     # 使用apply_prompt_template统一管理prompt
     messages = apply_prompt_template("podcast/podcast_script_writer", prompt_state)
     script = model.invoke(messages)
-    
+
     print(script)
     return {"script": script, "audio_chunks": []}
