@@ -27,6 +27,18 @@ if not logger.handlers:
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
 
+# 设置LLM Agent日志
+llm_agent_logger = logging.getLogger("code_agent_llm_execution")
+llm_agent_logger.setLevel(logging.INFO)
+
+# 如果没有handler，添加一个console handler
+if not llm_agent_logger.handlers:
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('🧠 [LLM] %(asctime)s - %(levelname)s - %(message)s', datefmt='%H:%M:%S')
+    console_handler.setFormatter(formatter)
+    llm_agent_logger.addHandler(console_handler)
+
 
 class CodeAgentWorkflow:
     """代码代理工作流"""
@@ -153,8 +165,16 @@ class CodeAgentWorkflow:
         """执行单个agent步骤"""
         step_info = agent_input.get("task_step", {})
         step_type = step_info.get("type", "unknown")
+        step_title = step_info.get("title", "未命名步骤")
         
         logger.debug(f"开始执行Agent步骤: {step_type}")
+        llm_agent_logger.info("=" * 60)
+        llm_agent_logger.info(f"🤖 开始执行Agent步骤: {step_title}")
+        llm_agent_logger.info("=" * 60)
+        llm_agent_logger.info(f"📋 步骤类型: {step_type}")
+        llm_agent_logger.info(f"📝 步骤描述: {step_info.get('description', '无描述')}")
+        llm_agent_logger.info(f"🔧 预期工具: {', '.join(step_info.get('tools', []))}")
+        llm_agent_logger.info(f"⏱️ 预估时间: {step_info.get('estimated_time', '未知')}")
         
         try:
             # 构建符合LangGraph AgentState的状态
@@ -170,34 +190,76 @@ class CodeAgentWorkflow:
             }
             
             logger.debug("构建Agent状态完成，开始调用Agent")
+            llm_agent_logger.info("🧠 开始调用LLM Agent...")
+            llm_agent_logger.info(f"💬 用户输入: {agent_input['input'][:150]}{'...' if len(agent_input['input']) > 150 else ''}")
             
             # 调用agent执行
             result = await self.agent.ainvoke(state)
             
             logger.debug("Agent调用完成，解析结果")
+            llm_agent_logger.info("✅ LLM Agent响应完成，开始解析结果...")
+            
+            # 统计消息数量
+            message_count = len(result.get("messages", []))
+            llm_agent_logger.info(f"📨 消息总数: {message_count}")
             
             # 解析agent的响应
             if "messages" in result and len(result["messages"]) > 1:
+                # 分析所有消息的思考过程
+                llm_agent_logger.info("🧭 Agent思考过程分析:")
+                
+                for i, message in enumerate(result["messages"]):
+                    message_type = message.get("type", "unknown")
+                    message_name = getattr(message, 'name', None) or message.get("name", "unknown")
+                    
+                    if message_type == "human":
+                        llm_agent_logger.info(f"  {i+1}. [用户] {message_name}: {message.get('content', '')[:100]}{'...' if len(message.get('content', '')) > 100 else ''}")
+                    elif message_type == "ai":
+                        content = message.get('content', '')
+                        tool_calls = getattr(message, 'tool_calls', []) or message.get('tool_calls', [])
+                        
+                        llm_agent_logger.info(f"  {i+1}. [AI] {message_name}:")
+                        if content:
+                            llm_agent_logger.info(f"     💭 思考: {content[:200]}{'...' if len(content) > 200 else ''}")
+                        
+                        if tool_calls:
+                            llm_agent_logger.info(f"     🔧 工具调用: {len(tool_calls)} 个")
+                            for j, tool_call in enumerate(tool_calls):
+                                tool_name = tool_call.get('name', 'unknown')
+                                tool_args = tool_call.get('args', {})
+                                llm_agent_logger.info(f"        {j+1}. {tool_name}: {str(tool_args)[:100]}{'...' if len(str(tool_args)) > 100 else ''}")
+                    elif message_type == "tool":
+                        tool_name = message_name
+                        tool_content = message.get('content', '')
+                        llm_agent_logger.info(f"  {i+1}. [工具] {tool_name}: {tool_content[:150]}{'...' if len(tool_content) > 150 else ''}")
+                
+                # 获取最后的AI响应
                 last_message = result["messages"][-1]
                 output = last_message.get("content", "No output")
                 
                 # 检查是否有工具调用
-                tool_calls = getattr(last_message, 'tool_calls', [])
+                tool_calls = getattr(last_message, 'tool_calls', []) or last_message.get('tool_calls', [])
                 if tool_calls:
                     logger.info(f"Agent调用了 {len(tool_calls)} 个工具")
+                    llm_agent_logger.info(f"🛠️ 最终工具调用统计: {len(tool_calls)} 个工具")
+                    
                     for i, tool_call in enumerate(tool_calls):
                         tool_name = tool_call.get('name', 'unknown')
                         logger.debug(f"工具调用 {i+1}: {tool_name}")
+                        llm_agent_logger.info(f"   {i+1}. {tool_name}")
                 else:
                     logger.debug("Agent没有调用工具")
+                    llm_agent_logger.info("🛠️ 未调用任何工具")
+                
+                # 记录最终输出
+                llm_agent_logger.info("📋 最终输出:")
+                llm_agent_logger.info(f"   {output[:300]}{'...' if len(output) > 300 else ''}")
                     
             else:
                 output = "Agent执行完成，但没有返回具体输出"
                 logger.warning("Agent返回的消息格式异常")
+                llm_agent_logger.warning("⚠️ Agent返回的消息格式异常")
             
-            # 统计消息数量
-            message_count = len(result.get("messages", []))
-            logger.debug(f"Agent返回 {message_count} 条消息")
             
             result_data = {
                 "success": True,
@@ -210,10 +272,16 @@ class CodeAgentWorkflow:
             }
             
             logger.info(f"Agent步骤执行成功: {step_type}")
+            llm_agent_logger.info(f"✅ Agent步骤 '{step_title}' 执行成功")
+            llm_agent_logger.info("=" * 60)
+            
             return result_data
             
         except Exception as e:
             logger.error(f"Agent步骤执行失败: {str(e)}")
+            llm_agent_logger.error(f"❌ Agent步骤 '{step_title}' 执行失败: {str(e)}")
+            llm_agent_logger.info("=" * 60)
+            
             return {
                 "success": False,
                 "error": str(e),

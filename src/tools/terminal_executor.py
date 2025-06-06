@@ -113,6 +113,51 @@ class TerminalExecutor:
         
         logger.info(f"初始化终端执行器，禁止 {len(self.forbidden_commands)} 个命令，警告 {len(self.warning_commands)} 个命令")
     
+    def _is_dangerous_path(self, path_in_command: str) -> tuple[bool, str]:
+        """
+        智能检测路径是否危险
+        
+        Args:
+            path_in_command: 命令中的路径字符串
+            
+        Returns:
+            (is_dangerous, reason)
+        """
+        # 定义安全的项目路径模式（优先检查）
+        safe_project_patterns = [
+            # 虚拟环境路径
+            '.venv', 'venv/', './venv', 'env/', '.env/', 
+            'virtualenv/', '.virtualenv/', 'conda/', '.conda/',
+            # 包管理器相关路径  
+            'node_modules/.bin/', './.bin/', './node_modules/',
+            # 项目目录相对路径
+            './bin/', '../bin/', './env/', '../env/',
+            # 用户主目录下的开发环境
+            '~/venv', '~/.local/', '~/anaconda', '~/miniconda'
+        ]
+        
+        # 首先检查是否是安全的项目路径
+        for safe_pattern in safe_project_patterns:
+            if safe_pattern in path_in_command:
+                return False, f"安全的项目路径: {safe_pattern}"
+        
+        # 定义真正危险的系统路径模式（绝对路径）
+        dangerous_system_paths = [
+            '/etc/', '/bin/', '/sbin/', '/usr/bin/', '/usr/sbin/', '/boot/',
+            '/dev/', '/proc/', '/sys/', '/root/', '/var/log/'
+        ]
+        
+        # 检查是否是危险的系统路径
+        lower_command = path_in_command.lower()
+        for dangerous_path in dangerous_system_paths:
+            # 检查各种可能的危险路径模式
+            if (lower_command.startswith(dangerous_path.lower()) or  # 命令以危险路径开头
+                f" {dangerous_path.lower()}" in lower_command or     # 危险路径作为参数
+                f" {dangerous_path.lower().rstrip('/')}" in lower_command):  # 去掉尾部斜杠的路径
+                return True, f"危险的系统路径: {dangerous_path}"
+        
+        return False, "普通路径"
+
     def check_command_safety(self, command: str) -> tuple[bool, str, str]:
         """
         检查命令安全性
@@ -130,23 +175,23 @@ class TerminalExecutor:
         cmd_parts = command.strip().split()
         if not cmd_parts:
             return False, 'forbidden', "空命令"
-        
+
         base_command = cmd_parts[0]
         full_command = command.lower()
-        
+
         # 检查是否在完全禁止列表中
         if base_command in self.forbidden_commands:
             return False, 'forbidden', f"命令在禁止列表中: {base_command}"
-        
+
         # 检查完整命令是否包含禁止的危险组合
         for forbidden in self.forbidden_commands:
             if ' ' in forbidden and forbidden in full_command:
                 return False, 'forbidden', f"命令包含禁止的危险操作: {forbidden}"
-        
-        # 检查是否操作禁止的危险路径
-        for path in self.forbidden_paths:
-            if path.lower() in full_command:
-                return False, 'forbidden', f"命令尝试操作禁止的危险路径: {path}"
+
+        # 使用智能路径检测
+        is_dangerous_path, path_reason = self._is_dangerous_path(command)
+        if is_dangerous_path:
+            return False, 'forbidden', f"命令尝试操作禁止的危险路径: {path_reason}"
         
         # 检查是否包含禁止的危险模式
         forbidden_patterns = [

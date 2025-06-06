@@ -5,7 +5,7 @@
 echo "🎯 Code Agent CLI - 指定目录运行演示"
 echo "=" * 50
 
-TARGET_DIR="/Users/ckl/code/code-agent-test"
+TARGET_DIR="/Users/bytedance/code/learn/code_agent_test"
 
 echo "📍 目标工作目录: $TARGET_DIR"
 

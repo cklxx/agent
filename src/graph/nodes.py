@@ -37,6 +37,18 @@ from ..config import SELECTED_SEARCH_ENGINE, SearchEngine
 
 logger = logging.getLogger(__name__)
 
+# 设置日志
+llm_logger = logging.getLogger("llm_planner")
+llm_logger.setLevel(logging.INFO)
+
+# 如果没有handler，添加一个console handler
+if not llm_logger.handlers:
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('🧠 [LLM] %(asctime)s - %(levelname)s - %(message)s', datefmt='%H:%M:%S')
+    console_handler.setFormatter(formatter)
+    llm_logger.addHandler(console_handler)
+
 
 @tool
 def handoff_to_planner(
@@ -52,32 +64,28 @@ def handoff_to_planner(
 def background_investigation_node(
     state: State, config: RunnableConfig
 ) -> Command[Literal["planner"]]:
-    logger.info("background investigation node is running.")
+    """Background investigation node that gather background context."""
+    logger.info("Background investigation starting.")
     configurable = Configuration.from_runnable_config(config)
-    query = state["messages"][-1].content
-    if SELECTED_SEARCH_ENGINE == SearchEngine.TAVILY.value:
-        searched_content = LoggedTavilySearch(
-            max_results=configurable.max_search_results
-        ).invoke(query)
-        background_investigation_results = None
-        if isinstance(searched_content, list):
-            background_investigation_results = [
-                {"title": elem["title"], "content": elem["content"]}
-                for elem in searched_content
-            ]
-        else:
-            logger.error(
-                f"Tavily search returned malformed response: {searched_content}"
-            )
-    else:
-        background_investigation_results = get_web_search_tool(
-            configurable.max_search_results
-        ).invoke(query)
+    messages = apply_prompt_template("background_investigator", state)
+    response = get_llm_by_type(AGENT_LLM_MAP["researcher"]).invoke(messages)
+
+    background_investigation_results = response.content
+    # limit the investigation context to 1000 words
+    if len(background_investigation_results.split()) > 1000:
+        logger.warning(
+            "Background investigation result is too long, truncating to 1000 words"
+        )
+        words = background_investigation_results.split()[:1000]
+        background_investigation_results = " ".join(words)
+
+    logger.info(
+        f"Background investigation results: {background_investigation_results[:200]}..."
+    )
+
     return Command(
         update={
-            "background_investigation_results": json.dumps(
-                background_investigation_results, ensure_ascii=False
-            )
+            "background_investigation_results": background_investigation_results,
         },
         goto="planner",
     )
@@ -88,9 +96,18 @@ def planner_node(
 ) -> Command[Literal["human_feedback", "reporter"]]:
     """Planner node that generate the full plan."""
     logger.info("Planner generating full plan")
+    llm_logger.info("开始生成任务规划")
+    
     configurable = Configuration.from_runnable_config(config)
     plan_iterations = state["plan_iterations"] if state.get("plan_iterations", 0) else 0
     messages = apply_prompt_template("planner", state, configurable)
+
+    # 记录规划相关的输入信息
+    if state.get("messages"):
+        user_query = state["messages"][-1].content if state["messages"] else "未知查询"
+        llm_logger.info(f"用户查询: {user_query[:100]}{'...' if len(user_query) > 100 else ''}")
+    
+    llm_logger.info(f"规划迭代次数: {plan_iterations}")
 
     if (
         plan_iterations == 0
@@ -107,6 +124,7 @@ def planner_node(
                 ),
             }
         ]
+        llm_logger.info("已添加背景调研结果到规划上下文")
 
     if AGENT_LLM_MAP["planner"] == "basic":
         llm = get_llm_by_type(AGENT_LLM_MAP["planner"]).with_structured_output(
@@ -118,8 +136,11 @@ def planner_node(
 
     # if the plan iterations is greater than the max plan iterations, return the reporter node
     if plan_iterations >= configurable.max_plan_iterations:
+        llm_logger.warning(f"规划迭代次数达到上限 ({configurable.max_plan_iterations})，跳转到reporter节点")
         return Command(goto="reporter")
 
+    llm_logger.info("开始调用LLM生成规划...")
+    
     full_response = ""
     if AGENT_LLM_MAP["planner"] == "basic":
         response = llm.invoke(messages)
@@ -128,19 +149,64 @@ def planner_node(
         response = llm.stream(messages)
         for chunk in response:
             full_response += chunk.content
+    
     logger.debug(f"Current state messages: {state['messages']}")
     logger.info(f"Planner response: {full_response}")
 
+    # 详细记录LLM规划输出
+    llm_logger.info("=" * 60)
+    llm_logger.info("📋 LLM规划输出详情:")
+    llm_logger.info("=" * 60)
+    
     try:
         curr_plan = json.loads(repair_json_output(full_response))
+        
+        # 记录规划的核心信息
+        llm_logger.info(f"📌 规划标题: {curr_plan.get('title', '未设置')}")
+        llm_logger.info(f"🤔 规划思路: {curr_plan.get('thought', '未设置')}")
+        llm_logger.info(f"🌍 语言区域: {curr_plan.get('locale', '未设置')}")
+        llm_logger.info(f"✅ 上下文充足: {'是' if curr_plan.get('has_enough_context') else '否'}")
+        
+        # 记录规划步骤详情
+        steps = curr_plan.get('steps', [])
+        llm_logger.info(f"📝 规划步骤数量: {len(steps)}")
+        
+        if steps:
+            llm_logger.info("📋 详细步骤列表:")
+            for i, step in enumerate(steps, 1):
+                step_type = step.get('step_type', '未知')
+                need_search = step.get('need_search', False)
+                title = step.get('title', '未设置标题')
+                description = step.get('description', '未设置描述')
+                
+                llm_logger.info(f"  {i}. [{step_type.upper()}] {title}")
+                llm_logger.info(f"     🔍 需要搜索: {'是' if need_search else '否'}")
+                llm_logger.info(f"     📖 描述: {description[:100]}{'...' if len(description) > 100 else ''}")
+                
+                if i < len(steps):  # 不是最后一个步骤
+                    llm_logger.info("     " + "-" * 50)
+        else:
+            llm_logger.info("📝 无具体执行步骤")
+        
+        # 记录完整的JSON结构（仅在调试模式下）
+        llm_logger.debug("🔧 完整规划JSON:")
+        llm_logger.debug(json.dumps(curr_plan, indent=2, ensure_ascii=False))
+        
+        llm_logger.info("=" * 60)
+        
     except json.JSONDecodeError:
         logger.warning("Planner response is not a valid JSON")
+        llm_logger.error("❌ 规划输出解析失败：JSON格式错误")
+        llm_logger.error(f"原始输出: {full_response[:200]}{'...' if len(full_response) > 200 else ''}")
+        
         if plan_iterations > 0:
             return Command(goto="reporter")
         else:
             return Command(goto="__end__")
+    
     if curr_plan.get("has_enough_context"):
         logger.info("Planner response has enough context.")
+        llm_logger.info("✅ 上下文充足，直接跳转到reporter生成最终报告")
         new_plan = Plan.model_validate(curr_plan)
         return Command(
             update={
@@ -149,6 +215,8 @@ def planner_node(
             },
             goto="reporter",
         )
+    
+    llm_logger.info("ℹ️ 上下文不足，需要人工反馈或进一步调研")
     return Command(
         update={
             "messages": [AIMessage(content=full_response, name="planner")],
