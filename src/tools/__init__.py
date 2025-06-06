@@ -7,7 +7,7 @@ from .retriever import get_retriever_tool
 from .search import get_web_search_tool
 from .tts import VolcengineTTS
 from .maps import search_location, get_route, get_nearby_places
-from .terminal_executor import execute_terminal_command, get_current_directory, list_directory_contents
+from .terminal_executor import execute_terminal_command, get_current_directory, list_directory_contents, execute_command_background, get_background_tasks_status, terminate_background_task
 from .file_reader import read_file, read_file_lines, get_file_info
 from .file_writer import write_file, append_to_file, create_new_file, generate_file_diff
 
@@ -24,6 +24,9 @@ __all__ = [
     "execute_terminal_command",
     "get_current_directory", 
     "list_directory_contents",
+    "execute_command_background",
+    "get_background_tasks_status", 
+    "terminate_background_task",
     "read_file",
     "read_file_lines",
     "get_file_info",
