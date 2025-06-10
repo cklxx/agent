@@ -35,3 +35,5 @@ mcp.json
 
 # RAG temporary data
 temp/
+# Benchmark 临时文件
+benckmark/runner/temp_generated/

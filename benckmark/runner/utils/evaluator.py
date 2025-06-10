@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
 
-from .sandbox_manager import SandboxManager
+from sandbox_manager import SandboxManager
 
 
 @dataclass

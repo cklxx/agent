@@ -1,0 +1,26 @@
+# 工作区配置
+workspace:
+  root_path: "/Users/ckl/code/agent"
+  temp_path: "/Users/ckl/code/agent/temp"
+  rag_data_path: "/Users/ckl/code/agent/temp/rag_data"
+  context_db_path: "/Users/ckl/code/agent/temp/contexts.db"
+  benchmark_path: "/Users/ckl/code/agent/benckmark"
+
+# RAG Code Agent 测试配置
+rag_agent:
+  enabled: true
+  test_scenarios:
+    - name: "代码理解与分析"
+      description: "测试RAG Agent对现有代码的理解能力"
+    - name: "代码生成与改进"
+      description: "测试基于RAG的代码生成能力"
+    - name: "项目结构分析"
+      description: "测试对整个项目结构的分析能力"
+    - name: "智能重构建议"
+      description: "测试基于历史代码模式的重构建议"
+
+# 测试环境配置
+environment:
+  use_project_env: true
+  python_path: "/Users/ckl/code/agent/.venv/bin/python"
+  working_directory: "/Users/ckl/code/agent"
