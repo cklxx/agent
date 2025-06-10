@@ -1,0 +1,69 @@
+# Embedding服务配置
+# 使用阿里云百炼DashScope作为默认embedding服务
+
+# 默认配置
+default:
+  provider: "dashscope"
+  model: "text-embedding-v4"
+  batch_size: 100
+  max_retries: 3
+  timeout: 30
+
+# 阿里云百炼DashScope配置
+dashscope:
+  base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  model: "text-embedding-v4"
+  api_key: "${DASHSCOPE_API_KEY}"
+  dimensions: 1024
+  encoding_format: "float"
+  max_tokens: 8191
+
+# 混合搜索权重配置
+search_weights:
+  vector_weight: 0.6      # 向量相似度权重
+  keyword_weight: 0.4     # 关键词匹配权重
+  
+  # 根据查询类型调整权重
+  query_type_weights:
+    code_search:
+      vector_weight: 0.7
+      keyword_weight: 0.3
+    semantic_search:
+      vector_weight: 0.8
+      keyword_weight: 0.2
+    keyword_search:
+      vector_weight: 0.3
+      keyword_weight: 0.7
+
+# 索引配置
+indexing:
+  chunk_size: 1000        # 文本块大小
+  chunk_overlap: 200      # 块重叠大小
+  min_chunk_size: 100     # 最小块大小
+  max_chunks_per_file: 50 # 每个文件最大块数
+  
+  # TF-IDF配置
+  tfidf:
+    max_features: 10000
+    ngram_range: [1, 2]
+    min_df: 1
+    max_df: 0.95
+  
+  # 向量存储配置
+  vector_store:
+    collection_name: "code_chunks"
+    distance_metric: "cosine"
+    index_type: "hnsw"
+
+# 缓存配置
+cache:
+  enabled: true
+  ttl: 3600              # 缓存时间（秒）
+  max_size: 1000         # 最大缓存条目数
+  embedding_cache_dir: "temp/rag_data/embedding_cache"
+
+# 性能配置
+performance:
+  async_workers: 4       # 异步工作线程数
+  batch_processing: true # 批量处理
+  parallel_indexing: true # 并行索引构建 

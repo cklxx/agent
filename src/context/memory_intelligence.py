@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
-from ..llms.llm_factory import create_llm_client
+from ..llms.llm import get_llm_by_type
 from .base import BaseContext, ContextType, Priority
 from .memory import LongTermMemory
 from .manager import ContextManager
@@ -60,7 +60,7 @@ class IntelligentMemoryManager:
             rag_threshold: RAG存储阈值
             max_context_length: 最大上下文长度
         """
-        self.llm_client = llm_client or create_llm_client()
+        self.llm_client = llm_client or get_llm_by_type("basic")
         self.importance_threshold = importance_threshold
         self.rag_threshold = rag_threshold
         self.max_context_length = max_context_length
@@ -113,14 +113,10 @@ class IntelligentMemoryManager:
         prompt = self._build_analysis_prompt(context_summaries)
 
         try:
-            response = await self.llm_client.chat_completion(
-                messages=[{"role": "user", "content": prompt}], temperature=0.1
-            )
+            response = await self.llm_client.ainvoke(prompt)
 
             # 解析分析结果
-            analyses = self._parse_analysis_response(
-                response.choices[0].message.content
-            )
+            analyses = self._parse_analysis_response(response.content)
             self.stats["analyzed_contexts"] += len(contexts)
 
             return analyses
@@ -243,11 +239,9 @@ RAG存储标准：
 """
 
         try:
-            response = await self.llm_client.chat_completion(
-                messages=[{"role": "user", "content": prompt}], temperature=0.1
-            )
+            response = await self.llm_client.ainvoke(prompt)
 
-            compressed_content = response.choices[0].message.content.strip()
+            compressed_content = response.content.strip()
 
             # 创建压缩后的上下文
             compressed_context = BaseContext(

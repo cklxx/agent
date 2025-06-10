@@ -3,9 +3,21 @@
 import os
 import dataclasses
 from datetime import datetime
+from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from langgraph.prebuilt.chat_agent_executor import AgentState
 from src.config.configuration import Configuration
+
+
+def basename_filter(path):
+    """Extract basename from file path"""
+    return Path(path).name
+
+
+def selectattr_filter(objects, attr):
+    """Select objects that have the specified attribute as True"""
+    return [obj for obj in objects if obj.get(attr, False)]
+
 
 # Initialize Jinja2 environment
 env = Environment(
@@ -14,6 +26,10 @@ env = Environment(
     trim_blocks=True,
     lstrip_blocks=True,
 )
+
+# Add custom filters
+env.filters["basename"] = basename_filter
+env.filters["selectattr"] = selectattr_filter
 
 
 def get_prompt_template(prompt_name: str) -> str:

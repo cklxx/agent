@@ -1,11 +1,7 @@
 from .retriever import Retriever, Document, Resource
 from .ragflow import RAGFlowProvider
 from .builder import build_retriever
-from .llamaindex_retriever import (
-    HybridLlamaIndexRetriever,
-    get_llamaindex_retriever,
-    is_llamaindex_available,
-)
+from .enhanced_retriever import EnhancedRAGRetriever, RetrievalResult
 
 __all__ = [
     "Retriever",
@@ -13,7 +9,6 @@ __all__ = [
     "Resource",
     "RAGFlowProvider",
     "build_retriever",
-    "HybridLlamaIndexRetriever",
-    "get_llamaindex_retriever",
-    "is_llamaindex_available",
+    "EnhancedRAGRetriever",
+    "RetrievalResult",
 ]

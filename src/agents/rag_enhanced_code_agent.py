@@ -1,7 +1,15 @@
 # SPDX-License-Identifier: MIT
 
 """
-RAG增强的Code Agent - 集成context管理和代码检索功能
+RAG-Enhanced Code Agent - Integrates context management and code retrieval capabilities
+
+Optimizations made:
+- Simplified context passing - only essential information transmitted to models
+- LLM-generated execution plans instead of predefined templates
+- RAG and environment analysis handled automatically (not included in plans)
+- Verification steps determined by model as needed
+- Streamlined prompts for better efficiency
+- All prompts now use apply_prompt_template for consistent template management
 """
 
 import logging
@@ -12,10 +20,11 @@ from langgraph.prebuilt import create_react_agent
 from src.llms.llm import get_llm_by_type
 from src.prompts import apply_prompt_template
 
-# RAG组件
+# Enhanced RAG components
+from src.rag.enhanced_retriever import EnhancedRAGRetriever
 from src.rag.code_retriever import CodeRetriever
 
-# Context组件
+# Context components
 from src.context.manager import ContextManager
 from src.context.base import ContextType, Priority
 
@@ -23,65 +32,103 @@ logger = logging.getLogger(__name__)
 
 
 class RAGEnhancedCodeTaskPlanner:
-    """增强的代码任务规划器，集成RAG和Context功能"""
+    """Enhanced code task planner that integrates RAG and Context functionality"""
 
     def __init__(
-        self, repo_path: str = ".", context_manager: Optional[ContextManager] = None
+        self,
+        repo_path: str = ".",
+        context_manager: Optional[ContextManager] = None,
+        use_enhanced_retriever: bool = True,
+        embedding_config: Optional[Dict[str, Any]] = None,
     ):
         self.repo_path = repo_path
         self.context_manager = context_manager or ContextManager()
+        self.use_enhanced_retriever = use_enhanced_retriever
 
-        # 初始化RAG组件
-        self.code_retriever = CodeRetriever(repo_path)
-        self.code_indexer = self.code_retriever.indexer
+        # Initialize RAG components with enhanced retriever
+        if use_enhanced_retriever:
+            try:
+                logger.info(
+                    "Initializing Enhanced RAG Retriever with hybrid search capabilities"
+                )
+                self.rag_retriever = EnhancedRAGRetriever(
+                    repo_path=repo_path,
+                    db_path=f"temp/rag_data/enhanced_{Path(repo_path).name}",
+                    embedding_config=embedding_config,
+                )
+                self.code_indexer = self.rag_retriever.base_retriever.indexer
+                logger.info("✅ Enhanced RAG Retriever initialized successfully")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Enhanced RAG Retriever: {e}")
+                logger.info("Falling back to basic CodeRetriever")
+                self.rag_retriever = CodeRetriever(repo_path)
+                self.code_indexer = self.rag_retriever.indexer
+                self.use_enhanced_retriever = False
+        else:
+            # Use basic code retriever as fallback
+            logger.info("Using basic CodeRetriever")
+            self.rag_retriever = CodeRetriever(repo_path)
+            self.code_indexer = self.rag_retriever.indexer
 
         self.tasks = []
         self.current_step = 0
 
-        # 存储相关上下文信息
+        # Store relevant context information
         self.relevant_code_contexts: List[Dict[str, Any]] = []
         self.project_structure: Dict[str, Any] = {}
 
-        logger.info("Initializing RAG-enhanced task planner")
+        logger.info(
+            f"RAG-enhanced task planner initialized - Enhanced: {self.use_enhanced_retriever}"
+        )
 
     async def plan_task_with_context(self, description: str) -> List[Dict[str, Any]]:
         """
-        基于RAG和Context信息进行任务规划
+        Plan tasks based on RAG and Context information
+
+        Note: RAG context analysis and environment assessment are performed automatically
+        and do not appear as explicit steps in the generated plan.
 
         Args:
-            description: 任务描述
+            description: Task description
 
         Returns:
-            增强的任务步骤列表
+            LLM-generated task step list focused on core implementation
         """
         logger.info(f"🧠 Starting RAG-based task planning: {description[:50]}...")
 
-        # 1. 添加任务到context管理器
+        # 1. Add task to context manager
         task_context_id = await self.context_manager.add_context(
             content=description,
             context_type=ContextType.TASK,
-            metadata={"task_type": "code_task", "status": "planning"},
+            metadata={
+                "task_type": "code_task",
+                "status": "planning",
+                "enhanced_rag": self.use_enhanced_retriever,
+            },
             priority=Priority.HIGH,
             tags=["code_task", "planning"],
         )
 
-        # 2. 使用RAG检索相关代码信息
+        # 2. Automatic RAG retrieval (not shown in plan steps)
         relevant_code = await self._retrieve_relevant_code(description)
 
-        # 3. 分析项目结构
+        # 3. Automatic environment analysis (not shown in plan steps)
         project_info = await self._analyze_project_structure()
 
-        # 4. 基于检索到的信息生成增强的规划
+        # 4. LLM generates core implementation plan only
         enhanced_plan = await self._generate_enhanced_plan(
             description, relevant_code, project_info
         )
 
-        # 5. 将规划信息添加到context
+        # 5. Store planning context for later reference
         await self.context_manager.add_context(
             content={
                 "plan": enhanced_plan,
                 "relevant_code": relevant_code,
                 "project_info": project_info,
+                "retriever_type": (
+                    "enhanced" if self.use_enhanced_retriever else "basic"
+                ),
             },
             context_type=ContextType.PLANNING,
             metadata={"task_id": task_context_id},
@@ -91,18 +138,23 @@ class RAGEnhancedCodeTaskPlanner:
 
         self.tasks = enhanced_plan
         logger.info(
-            f"✅ RAG-enhanced planning completed, generated {len(enhanced_plan)} steps"
+            f"✅ RAG-enhanced planning completed, generated {len(enhanced_plan)} implementation steps"
         )
 
         return enhanced_plan
 
     async def _retrieve_relevant_code(self, description: str) -> List[Dict[str, Any]]:
-        """检索与任务相关的代码"""
-        logger.info("🔍 Retrieving relevant code...")
+        """Retrieve code related to the task using enhanced RAG capabilities"""
+        if self.use_enhanced_retriever:
+            logger.info(
+                "🔍 Retrieving relevant code using Enhanced RAG (hybrid search)..."
+            )
+        else:
+            logger.info("🔍 Retrieving relevant code using basic retriever...")
 
         try:
-            # 使用代码检索器搜索相关文档
-            documents = self.code_retriever.query_relevant_documents(description)
+            # Use enhanced RAG retriever if available
+            documents = self.rag_retriever.query_relevant_documents(description)
 
             relevant_code = []
             for doc in documents:
@@ -111,16 +163,37 @@ class RAGEnhancedCodeTaskPlanner:
                     "title": doc.title,
                     "url": doc.url,
                     "chunks": [],
+                    "retriever_type": (
+                        "enhanced" if self.use_enhanced_retriever else "basic"
+                    ),
                 }
 
                 for chunk in doc.chunks:
-                    code_info["chunks"].append(
-                        {"content": chunk.content, "similarity": chunk.similarity}
-                    )
+                    chunk_info = {
+                        "content": chunk.content,
+                        "similarity": chunk.similarity,
+                    }
+
+                    # Add enhanced retrieval metadata if available
+                    if hasattr(chunk, "vector_score"):
+                        chunk_info["vector_score"] = getattr(chunk, "vector_score", 0.0)
+                    if hasattr(chunk, "keyword_score"):
+                        chunk_info["keyword_score"] = getattr(
+                            chunk, "keyword_score", 0.0
+                        )
+                    if hasattr(chunk, "combined_score"):
+                        chunk_info["combined_score"] = getattr(
+                            chunk, "combined_score", chunk.similarity
+                        )
+
+                    code_info["chunks"].append(chunk_info)
 
                 relevant_code.append(code_info)
 
-            logger.info(f"✅ Found {len(relevant_code)} relevant code files")
+            retriever_type = "Enhanced RAG" if self.use_enhanced_retriever else "Basic"
+            logger.info(
+                f"✅ Found {len(relevant_code)} relevant code files using {retriever_type}"
+            )
             self.relevant_code_contexts = relevant_code
 
             return relevant_code
@@ -130,14 +203,19 @@ class RAGEnhancedCodeTaskPlanner:
             return []
 
     async def _analyze_project_structure(self) -> Dict[str, Any]:
-        """分析项目结构"""
+        """Analyze project structure"""
         logger.info("📊 Analyzing project structure...")
 
         try:
-            # 获取索引器统计信息
-            stats = self.code_indexer.get_statistics()
+            # Get indexer statistics
+            if self.use_enhanced_retriever:
+                # Get enhanced statistics from EnhancedRAGRetriever
+                stats = self.rag_retriever.get_statistics()
+            else:
+                # Get basic statistics from CodeRetriever
+                stats = self.code_indexer.get_statistics()
 
-            # 扫描仓库文件
+            # Scan repository files
             all_files = self.code_indexer.scan_repository()
 
             project_info = {
@@ -146,11 +224,14 @@ class RAGEnhancedCodeTaskPlanner:
                 "total_chunks": stats.get("total_chunks", 0),
                 "recent_files": all_files[:20] if all_files else [],
                 "main_languages": list(stats.get("files_by_language", {}).keys())[:5],
+                "enhanced_indexing": stats.get("enhanced_indexing", False),
+                "vector_store_count": stats.get("vector_store_count", 0),
+                "hybrid_search_enabled": stats.get("hybrid_search_enabled", False),
             }
 
             self.project_structure = project_info
             logger.info(
-                f"✅ Project analysis completed: {project_info['total_files']} files"
+                f"✅ Project analysis completed: {project_info['total_files']} files, Enhanced: {project_info.get('enhanced_indexing', False)}"
             )
 
             return project_info
@@ -165,290 +246,167 @@ class RAGEnhancedCodeTaskPlanner:
         relevant_code: List[Dict[str, Any]],
         project_info: Dict[str, Any],
     ) -> List[Dict[str, Any]]:
-        """生成增强的执行计划"""
-        logger.info("⚡ Generating enhanced execution plan...")
+        """Generate enhanced execution plan using LLM"""
+        logger.info("⚡ Generating enhanced execution plan using LLM...")
 
-        # 基础计划结构
-        base_plan = [
-            {
-                "id": 1,
-                "phase": "context_analysis",
-                "phase_description": "上下文分析阶段",
-                "type": "rag_context_analysis",
-                "title": "RAG上下文分析",
-                "description": "基于RAG检索分析相关代码和项目结构",
-                "tools": ["code_retriever", "context_manager"],
-                "priority": 1,
-                "estimated_time": "2-3分钟",
-                "verification_criteria": ["理解相关代码", "把握项目架构"],
-                "rag_context": {
-                    "relevant_files": [code["file_path"] for code in relevant_code],
-                    "project_languages": project_info.get("main_languages", []),
-                    "total_context_files": len(relevant_code),
-                },
-            },
-            {
-                "id": 2,
-                "phase": "environment_setup",
-                "phase_description": "环境准备阶段",
-                "type": "enhanced_environment_assessment",
-                "title": "增强环境评估",
-                "description": "结合RAG信息进行环境评估和准备",
-                "tools": [
-                    "get_current_directory",
-                    "list_directory_contents",
-                    "get_file_info",
-                ],
-                "priority": 2,
-                "estimated_time": "1-2分钟",
-                "verification_criteria": ["确认工作环境", "验证依赖项"],
-                "context_hints": [
-                    f"项目包含 {project_info.get('total_files', 0)} 个文件",
-                    f"主要语言: {', '.join(project_info.get('main_languages', [])[:3])}",
-                    f"找到 {len(relevant_code)} 个相关文件",
-                ],
-            },
-        ]
-
-        # 根据任务类型和相关代码生成具体实施步骤
-        implementation_steps = await self._generate_implementation_steps(
-            description, relevant_code, project_info
-        )
-
-        # 增强验证步骤
-        verification_steps = [
-            {
-                "id": len(base_plan) + len(implementation_steps) + 1,
-                "phase": "rag_verification",
-                "phase_description": "RAG增强验证阶段",
-                "type": "context_aware_verification",
-                "title": "上下文感知验证",
-                "description": "基于相关代码上下文验证实现正确性",
-                "tools": ["read_file", "generate_file_diff", "context_manager"],
-                "priority": 1,
-                "estimated_time": "2-4分钟",
-                "verification_criteria": [
-                    "代码风格一致性",
-                    "与现有架构兼容",
-                    "依赖关系正确",
-                ],
-                "rag_validation": {
-                    "check_against_similar_code": True,
-                    "verify_patterns": True,
-                    "validate_imports": True,
-                },
-            }
-        ]
-
-        # 合并所有步骤
-        all_steps = base_plan + implementation_steps + verification_steps
-
-        # 为每个步骤添加RAG上下文信息
-        for step in all_steps:
-            step["rag_enhanced"] = True
-            step["available_context"] = {
+        try:
+            # Prepare context for template
+            template_context = {
+                "task_description": description,
+                "relevant_files": [code["file_path"] for code in relevant_code][
+                    :5
+                ],  # Only top 5 files
                 "relevant_files_count": len(relevant_code),
-                "project_languages": project_info.get("main_languages", []),
-                "has_similar_implementations": len(relevant_code) > 0,
+                "project_languages": project_info.get("main_languages", [])[
+                    :3
+                ],  # Only top 3 languages
+                "total_files": project_info.get("total_files", 0),
+                "has_similar_code": len(relevant_code) > 0,
+                "retriever_type": (
+                    "enhanced" if self.use_enhanced_retriever else "basic"
+                ),
             }
 
-        return all_steps
+            # Get LLM to generate plan using template
+            llm = get_llm_by_type("reasoning")
 
-    async def _generate_implementation_steps(
-        self,
-        description: str,
-        relevant_code: List[Dict[str, Any]],
-        project_info: Dict[str, Any],
-    ) -> List[Dict[str, Any]]:
-        """生成具体的实施步骤"""
-        steps = []
-        step_id = 3  # 继续base_plan的编号
+            # Load prompt template
+            from src.prompts.template import get_prompt_template, env
 
-        # 分析任务类型
-        task_lower = description.lower()
+            template = env.get_template("rag_task_planner.md")
+            plan_prompt = template.render(**template_context)
 
-        if any(
-            keyword in task_lower for keyword in ["create", "new", "implement", "add"]
-        ):
-            # 创建新功能的步骤
-            steps.append(
+            response = await llm.ainvoke(plan_prompt)
+
+            # Parse LLM response and create plan
+            try:
+                import json
+                import re
+
+                # Extract JSON from response
+                json_match = re.search(r"\[.*\]", response.content, re.DOTALL)
+                if json_match:
+                    plan_data = json.loads(json_match.group(0))
+                else:
+                    # Fallback: create simple plan
+                    plan_data = [
+                        {
+                            "id": 1,
+                            "title": "Execute Task",
+                            "description": description,
+                            "type": "implementation",
+                            "priority": 1,
+                            "tools": ["all_available"],
+                        }
+                    ]
+
+                # Enhance plan with context info
+                for step in plan_data:
+                    step["rag_enhanced"] = True
+                    step["context_available"] = template_context["has_similar_code"]
+
+                logger.info(f"✅ Generated {len(plan_data)} execution steps")
+                return plan_data
+
+            except (json.JSONDecodeError, Exception) as e:
+                logger.warning(f"Failed to parse LLM plan response: {e}")
+                # Return simple fallback plan
+                return [
+                    {
+                        "id": 1,
+                        "title": "Execute Task",
+                        "description": description,
+                        "type": "implementation",
+                        "priority": 1,
+                        "tools": ["all_available"],
+                        "rag_enhanced": True,
+                        "context_available": template_context["has_similar_code"],
+                    }
+                ]
+
+        except Exception as e:
+            logger.error(f"❌ Plan generation failed: {str(e)}")
+            # Return minimal plan on error
+            return [
                 {
-                    "id": step_id,
-                    "phase": "implementation",
-                    "phase_description": "实现阶段",
-                    "type": "rag_guided_implementation",
-                    "title": "RAG指导的代码实现",
-                    "description": "基于相关代码模式和项目结构实现新功能",
-                    "tools": ["write_file", "create_new_file", "read_file"],
+                    "id": 1,
+                    "title": "Execute Task",
+                    "description": description,
+                    "type": "implementation",
                     "priority": 1,
-                    "estimated_time": "10-20分钟",
-                    "verification_criteria": ["功能完整", "遵循项目模式", "代码规范"],
-                    "implementation_hints": self._get_implementation_hints(
-                        relevant_code
-                    ),
-                    "similar_implementations": len(relevant_code),
-                }
-            )
-            step_id += 1
-
-        if any(
-            keyword in task_lower for keyword in ["modify", "update", "change", "fix"]
-        ):
-            # 修改现有代码的步骤
-            steps.append(
-                {
-                    "id": step_id,
-                    "phase": "implementation",
-                    "phase_description": "实现阶段",
-                    "type": "context_aware_modification",
-                    "title": "上下文感知的代码修改",
-                    "description": "基于相关代码上下文进行安全修改",
-                    "tools": ["read_file", "write_file", "generate_file_diff"],
-                    "priority": 1,
-                    "estimated_time": "5-15分钟",
-                    "verification_criteria": ["修改准确", "保持兼容性", "无破坏性变更"],
-                    "modification_context": {
-                        "related_files": [code["file_path"] for code in relevant_code],
-                        "impact_analysis_required": True,
-                    },
-                }
-            )
-            step_id += 1
-
-        if any(keyword in task_lower for keyword in ["test", "debug", "validate"]):
-            # 测试和调试步骤
-            steps.append(
-                {
-                    "id": step_id,
-                    "phase": "implementation",
-                    "phase_description": "实现阶段",
-                    "type": "rag_enhanced_testing",
-                    "title": "RAG增强测试",
-                    "description": "基于相关代码模式进行全面测试",
-                    "tools": ["execute_terminal_command", "read_file"],
-                    "priority": 2,
-                    "estimated_time": "5-10分钟",
-                    "verification_criteria": ["测试通过", "覆盖关键场景", "性能可接受"],
-                    "testing_patterns": self._extract_testing_patterns(relevant_code),
-                }
-            )
-
-        # 如果没有匹配到特定类型，添加通用实施步骤
-        if not steps:
-            steps.append(
-                {
-                    "id": step_id,
-                    "phase": "implementation",
-                    "phase_description": "实现阶段",
-                    "type": "generic_rag_implementation",
-                    "title": "通用RAG实现",
-                    "description": "基于检索到的相关信息执行任务",
                     "tools": ["all_available"],
-                    "priority": 1,
-                    "estimated_time": "10-15分钟",
-                    "verification_criteria": ["任务完成", "质量达标"],
-                    "context_guidance": f"找到 {len(relevant_code)} 个相关参考",
+                    "rag_enhanced": True,
+                    "context_available": len(relevant_code) > 0,
                 }
-            )
-
-        return steps
-
-    def _get_implementation_hints(
-        self, relevant_code: List[Dict[str, Any]]
-    ) -> List[str]:
-        """从相关代码中提取实现提示"""
-        hints = []
-
-        for code_info in relevant_code:
-            file_path = code_info["file_path"]
-            chunks = code_info.get("chunks", [])
-
-            # 分析文件类型和模式
-            if file_path.endswith(".py"):
-                hints.append(f"参考 {Path(file_path).name} 中的Python实现模式")
-            elif file_path.endswith((".js", ".ts")):
-                hints.append(
-                    f"参考 {Path(file_path).name} 中的JavaScript/TypeScript模式"
-                )
-
-            # 从高相似度的代码块中提取模式
-            high_similarity_chunks = [
-                chunk for chunk in chunks if chunk.get("similarity", 0) > 0.7
             ]
 
-            if high_similarity_chunks:
-                hints.append(f"在 {Path(file_path).name} 中发现高度相关的实现")
-
-        return hints[:5]  # 限制提示数量
-
-    def _extract_testing_patterns(
-        self, relevant_code: List[Dict[str, Any]]
-    ) -> List[str]:
-        """从相关代码中提取测试模式"""
-        patterns = []
-
-        for code_info in relevant_code:
-            file_path = code_info["file_path"]
-
-            if "test" in file_path.lower():
-                patterns.append(f"参考 {Path(file_path).name} 中的测试模式")
-
-            # 检查是否有pytest、unittest等测试框架的使用
-            chunks = code_info.get("chunks", [])
-            for chunk in chunks:
-                content = chunk.get("content", "").lower()
-                if "pytest" in content:
-                    patterns.append("使用pytest测试框架")
-                elif "unittest" in content:
-                    patterns.append("使用unittest测试框架")
-                elif "test_" in content:
-                    patterns.append("遵循test_前缀命名约定")
-
-        return list(set(patterns))  # 去重
-
     async def get_context_for_step(self, step_id: int) -> Dict[str, Any]:
-        """为特定步骤获取相关上下文"""
+        """Get essential context for a specific step - simplified for efficiency"""
         if step_id >= len(self.tasks):
             return {}
 
         step = self.tasks[step_id]
-        context = {
-            "step_info": step,
-            "relevant_code": self.relevant_code_contexts,
-            "project_structure": self.project_structure,
+
+        # Only pass essential context - top 3 most relevant files
+        relevant_files = []
+        for code_info in self.relevant_code_contexts[:3]:
+            # Extract only essential info
+            file_info = {
+                "file_path": code_info["file_path"],
+                "has_high_similarity": any(
+                    chunk.get("similarity", 0) > 0.6
+                    for chunk in code_info.get("chunks", [])
+                ),
+            }
+            relevant_files.append(file_info)
+
+        return {
+            "step_info": {
+                "title": step.get("title", ""),
+                "type": step.get("type", ""),
+                "description": step.get("description", ""),
+            },
+            "relevant_files": relevant_files,
+            "project_languages": self.project_structure.get("main_languages", [])[
+                :2
+            ],  # Only top 2
+            "has_similar_code": len(self.relevant_code_contexts) > 0,
         }
-
-        # 从context管理器获取相关历史上下文
-        related_contexts = await self.context_manager.search_contexts(
-            query=step.get("title", ""), context_type=ContextType.TASK, limit=3
-        )
-
-        context["historical_context"] = [
-            {"content": ctx.content, "metadata": ctx.metadata}
-            for ctx in related_contexts
-        ]
-
-        return context
 
 
 class RAGEnhancedCodeAgent:
-    """RAG增强的代码代理"""
+    """RAG enhanced code agent with hybrid retrieval capabilities"""
 
-    def __init__(self, repo_path: str = ".", tools: Optional[List[Any]] = None):
+    def __init__(
+        self,
+        repo_path: str = ".",
+        tools: Optional[List[Any]] = None,
+        use_enhanced_retriever: bool = True,
+        embedding_config: Optional[Dict[str, Any]] = None,
+    ):
         self.repo_path = repo_path
         self.tools = tools or []
+        self.use_enhanced_retriever = use_enhanced_retriever
 
-        # 初始化增强组件
+        # Initialize enhanced components
         self.context_manager = ContextManager()
-        self.task_planner = RAGEnhancedCodeTaskPlanner(repo_path, self.context_manager)
+        self.task_planner = RAGEnhancedCodeTaskPlanner(
+            repo_path,
+            self.context_manager,
+            use_enhanced_retriever=use_enhanced_retriever,
+            embedding_config=embedding_config,
+        )
 
-        # 创建基础agent
+        # Create base agent
         self.agent = self._create_agent()
 
-        logger.info("RAG Enhanced Code Agent initialization completed")
+        retriever_type = "Enhanced RAG" if use_enhanced_retriever else "Basic"
+        logger.info(
+            f"RAG Enhanced Code Agent initialization completed - Using: {retriever_type}"
+        )
 
     def _create_agent(self):
-        """创建RAG增强的代理"""
+        """Create RAG enhanced agent"""
         try:
             llm = get_llm_by_type("reasoning")
 
@@ -466,26 +424,29 @@ class RAGEnhancedCodeAgent:
             raise
 
     def _apply_rag_enhanced_prompt(self, state: Dict[str, Any]) -> List[Dict[str, str]]:
-        """应用RAG增强的提示模板"""
+        """Apply RAG enhanced prompt template"""
 
-        # 获取RAG上下文信息
+        # Get RAG context information
         rag_context = state.get("rag_context", {})
         relevant_code = rag_context.get("relevant_code", [])
         project_info = rag_context.get("project_structure", {})
 
-        # 构建增强的状态信息
+        # Build enhanced state information
         enhanced_state = {
             **state,
             "rag_context_available": len(relevant_code) > 0,
             "relevant_files_count": len(relevant_code),
             "project_languages": project_info.get("main_languages", []),
             "has_context_manager": True,
+            "enhanced_rag_enabled": self.use_enhanced_retriever,
+            "hybrid_search_enabled": project_info.get("hybrid_search_enabled", False),
+            "vector_store_count": project_info.get("vector_store_count", 0),
         }
 
-        # 使用RAG增强的提示模板
+        # Use RAG enhanced prompt template
         base_messages = apply_prompt_template("rag_enhanced_code_agent", enhanced_state)
 
-        # 添加RAG特定的系统提示
+        # Add RAG specific system prompt
         if relevant_code:
             rag_prompt = self._build_rag_context_prompt(relevant_code, project_info)
             base_messages.insert(1, {"role": "system", "content": rag_prompt})
@@ -495,94 +456,64 @@ class RAGEnhancedCodeAgent:
     def _build_rag_context_prompt(
         self, relevant_code: List[Dict[str, Any]], project_info: Dict[str, Any]
     ) -> str:
-        """构建RAG上下文提示"""
+        """Build simplified RAG context prompt using template"""
 
-        prompt_parts = [
-            "# RAG增强上下文信息",
-            "",
-            f"你现在拥有以下相关代码上下文信息，请充分利用这些信息来更好地完成任务：",
-            "",
-            "## 项目概况",
-            f"- 总文件数: {project_info.get('total_files', 0)}",
-            f"- 主要编程语言: {', '.join(project_info.get('main_languages', []))}",
-            f"- 找到相关文件: {len(relevant_code)} 个",
-            "",
-        ]
+        # Prepare context for template
+        template_context = {
+            "relevant_code": [],
+            "project_languages": project_info.get("main_languages", []),
+        }
 
-        if relevant_code:
-            prompt_parts.extend(["## 相关代码文件", ""])
+        # Process relevant code for template
+        for code_info in relevant_code[:3]:
+            file_path = code_info["file_path"]
+            chunks = code_info.get("chunks", [])
 
-            for i, code_info in enumerate(relevant_code[:5], 1):  # 限制显示前5个
-                file_path = code_info["file_path"]
-                chunks = code_info.get("chunks", [])
+            # Find best chunk
+            best_chunk = None
+            if chunks:
+                high_similarity = [c for c in chunks if c.get("similarity", 0) > 0.6]
+                if high_similarity:
+                    best_chunk = max(
+                        high_similarity, key=lambda x: x.get("similarity", 0)
+                    )
 
-                prompt_parts.append(f"### {i}. {Path(file_path).name}")
-                prompt_parts.append(f"**文件路径**: {file_path}")
+            template_context["relevant_code"].append(
+                {"file_path": file_path, "best_chunk": best_chunk}
+            )
 
-                if chunks:
-                    high_similarity = [
-                        c for c in chunks if c.get("similarity", 0) > 0.6
-                    ]
-                    if high_similarity:
-                        prompt_parts.append(
-                            f"**相关度**: 高 ({len(high_similarity)} 个高相关代码块)"
-                        )
-                        prompt_parts.append("**相关代码片段**:")
-                        prompt_parts.append("```")
-                        # 显示最相关的代码片段
-                        best_chunk = max(
-                            high_similarity, key=lambda x: x.get("similarity", 0)
-                        )
-                        content = (
-                            best_chunk["content"][:500] + "..."
-                            if len(best_chunk["content"]) > 500
-                            else best_chunk["content"]
-                        )
-                        prompt_parts.append(content)
-                        prompt_parts.append("```")
-                    else:
-                        prompt_parts.append(f"**相关度**: 中等")
+        # Load and render template
+        from src.prompts.template import env
 
-                prompt_parts.append("")
-
-        prompt_parts.extend(
-            [
-                "## RAG增强指导原则",
-                "",
-                "1. **模式复用**: 参考相关代码中的实现模式和最佳实践",
-                "2. **一致性**: 保持与现有代码风格和架构的一致性",
-                "3. **依赖管理**: 注意现有的依赖关系和导入方式",
-                "4. **命名约定**: 遵循项目中已有的命名约定",
-                "5. **错误处理**: 参考相关代码中的错误处理方式",
-                "",
-                "请在执行任务时充分考虑上述上下文信息，确保你的实现与现有代码库保持高度一致。",
-            ]
-        )
-
-        return "\n".join(prompt_parts)
+        template = env.get_template("rag_context.md")
+        return template.render(**template_context)
 
     async def execute_task_with_rag(
         self, task_description: str, max_iterations: int = 5
     ) -> Dict[str, Any]:
-        """使用RAG增强执行任务"""
+        """Use RAG enhanced to execute task"""
         logger.info("🚀 Starting RAG Enhanced task execution")
 
         try:
-            # 1. 使用RAG进行任务规划
+            # 1. Use RAG for task planning
             plan = await self.task_planner.plan_task_with_context(task_description)
 
             if not plan:
-                return {"success": False, "error": "RAG增强任务规划失败", "results": []}
+                return {
+                    "success": False,
+                    "error": "RAG enhanced task planning failed",
+                    "results": [],
+                }
 
-            # 2. 执行任务步骤
+            # 2. Execute task steps
             results = []
             for i, step in enumerate(plan):
                 logger.info(f"📋 Executing step {i+1}/{len(plan)}: {step['title']}")
 
-                # 获取步骤相关上下文
+                # Get step related context
                 step_context = await self.task_planner.get_context_for_step(i)
 
-                # 构建agent输入状态
+                # Build agent input state
                 agent_state = {
                     "messages": [
                         {
@@ -597,11 +528,11 @@ class RAGEnhancedCodeAgent:
                     "step_index": i,
                 }
 
-                # 执行agent步骤
+                # Execute agent step
                 try:
                     step_result = await self.agent.ainvoke(agent_state)
 
-                    # 处理结果
+                    # Process result
                     result = {
                         "step_id": i,
                         "step_title": step["title"],
@@ -610,7 +541,7 @@ class RAGEnhancedCodeAgent:
                         "rag_enhanced": True,
                     }
 
-                    # 将结果添加到context管理器
+                    # Add result to context manager
                     await self.context_manager.add_context(
                         content=result,
                         context_type=ContextType.EXECUTION_RESULT,
@@ -634,7 +565,7 @@ class RAGEnhancedCodeAgent:
                         }
                     )
 
-            # 3. 生成最终结果
+            # 3. Generate final result
             success_count = sum(1 for r in results if r.get("success", False))
             overall_success = success_count == len(results)
 
@@ -650,7 +581,7 @@ class RAGEnhancedCodeAgent:
                 ),
             }
 
-            # 将最终结果添加到context
+            # Add final result to context
             await self.context_manager.add_context(
                 content=final_result,
                 context_type=ContextType.TASK_RESULT,
@@ -672,111 +603,103 @@ class RAGEnhancedCodeAgent:
     def _build_step_prompt(
         self, step: Dict[str, Any], step_context: Dict[str, Any], original_task: str
     ) -> str:
-        """为特定步骤构建提示"""
+        """Build simplified prompt for a specific step using template"""
 
-        prompt_parts = [
-            f"# 任务执行 - {step['title']}",
-            "",
-            f"**原始任务**: {original_task}",
-            f"**当前步骤**: {step['description']}",
-            f"**执行阶段**: {step['phase_description']}",
-            f"**预计用时**: {step.get('estimated_time', '未知')}",
-            "",
-        ]
+        # Prepare context for template
+        template_context = {
+            "step_title": step.get("title", "Execute Task"),
+            "original_task": original_task,
+            "step_description": step.get("description", "Execute the task"),
+            "relevant_files": step_context.get("relevant_files", []),
+            "project_languages": step_context.get("project_languages", []),
+        }
 
-        # 添加RAG上下文信息
-        relevant_code = step_context.get("relevant_code", [])
-        if relevant_code:
-            prompt_parts.extend(
-                [
-                    "## 相关代码上下文",
-                    f"找到 {len(relevant_code)} 个相关文件供参考：",
-                    "",
-                ]
-            )
+        # Load and render template
+        from src.prompts.template import env
 
-            for code_info in relevant_code[:3]:  # 限制显示前3个最相关的
-                prompt_parts.append(
-                    f"- **{Path(code_info['file_path']).name}**: {code_info['file_path']}"
-                )
-
-        # 添加项目结构信息
-        project_info = step_context.get("project_structure", {})
-        if project_info:
-            prompt_parts.extend(
-                [
-                    "",
-                    "## 项目结构信息",
-                    f"- 项目文件总数: {project_info.get('total_files', 0)}",
-                    f"- 主要编程语言: {', '.join(project_info.get('main_languages', [])[:3])}",
-                    "",
-                ]
-            )
-
-        # 添加特定步骤的提示
-        if step.get("rag_enhanced"):
-            prompt_parts.extend(["## RAG增强指导", "请根据上述相关代码上下文信息："])
-
-            if step.get("implementation_hints"):
-                prompt_parts.extend(
-                    ["### 实现提示"]
-                    + [f"- {hint}" for hint in step["implementation_hints"]]
-                )
-
-            if step.get("context_hints"):
-                prompt_parts.extend(
-                    ["### 上下文提示"] + [f"- {hint}" for hint in step["context_hints"]]
-                )
-
-        # 添加验证标准
-        if step.get("verification_criteria"):
-            prompt_parts.extend(
-                ["", "## 验证标准", "完成后请确保满足以下标准："]
-                + [f"- {criteria}" for criteria in step["verification_criteria"]]
-            )
-
-        prompt_parts.extend(["", "请开始执行这个步骤，并充分利用提供的上下文信息。"])
-
-        return "\n".join(prompt_parts)
+        template = env.get_template("rag_step_execution.md")
+        return template.render(**template_context)
 
 
-# 工厂函数
+# Factory function
 def create_rag_enhanced_code_agent(
-    repo_path: str = ".", tools: Optional[List[Any]] = None
+    repo_path: str = ".",
+    tools: Optional[List[Any]] = None,
+    use_enhanced_retriever: bool = True,
+    embedding_config: Optional[Dict[str, Any]] = None,
 ) -> RAGEnhancedCodeAgent:
     """
-    创建RAG增强的代码代理
+    Create RAG enhanced code agent with optional hybrid retrieval
 
     Args:
-        repo_path: 工作区代码路径
-        tools: 可用工具列表
+        repo_path: Working code path
+        tools: Available tools list
+        use_enhanced_retriever: Whether to use Enhanced RAG Retriever with hybrid search
+        embedding_config: Configuration for embedding service (for enhanced retriever)
 
     Returns:
-        RAG增强的代码代理实例
+        RAG enhanced code agent instance
     """
-    logger.info(f"Creating RAG Enhanced Code Agent - repository path: {repo_path}")
+    retriever_type = "Enhanced RAG" if use_enhanced_retriever else "Basic"
+    logger.info(
+        f"Creating RAG Enhanced Code Agent - repository path: {repo_path}, Retriever: {retriever_type}"
+    )
 
-    return RAGEnhancedCodeAgent(repo_path=repo_path, tools=tools)
+    try:
+        agent = RAGEnhancedCodeAgent(
+            repo_path=repo_path,
+            tools=tools,
+            use_enhanced_retriever=use_enhanced_retriever,
+            embedding_config=embedding_config,
+        )
+        logger.info(
+            f"✅ RAG Enhanced Code Agent created successfully with {retriever_type}"
+        )
+        return agent
+    except Exception as e:
+        logger.error(f"❌ Failed to create RAG Enhanced Code Agent: {str(e)}")
+        if use_enhanced_retriever:
+            logger.info("🔄 Retrying with basic retriever as fallback...")
+            return RAGEnhancedCodeAgent(
+                repo_path=repo_path, tools=tools, use_enhanced_retriever=False
+            )
+        else:
+            raise
 
 
-# 异步运行函数
+# Asynchronous run function
 async def run_rag_enhanced_code_agent(
     task_description: str,
     repo_path: str = ".",
     tools: Optional[List[Any]] = None,
     max_iterations: int = 5,
+    use_enhanced_retriever: bool = True,
+    embedding_config: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
-    运行RAG增强的代码代理任务
+    Run RAG enhanced code agent task with hybrid retrieval capabilities
 
     Args:
-        task_description: 任务描述
-        repo_path: 代码仓库路径
-        tools: 可用工具列表
-        max_iterations: 最大迭代次数
+        task_description: Task description
+        repo_path: Code repository path
+        tools: Available tools list
+        max_iterations: Maximum iteration count
+        use_enhanced_retriever: Whether to use Enhanced RAG Retriever
+        embedding_config: Configuration for embedding service
 
     Returns:
-        任务执行结果
+        Task execution result with enhanced retrieval information
     """
-    agent = create_rag_enhanced_code_agent(repo_path, tools)
-    return await agent.execute_task_with_rag(task_description, max_iterations)
+    agent = create_rag_enhanced_code_agent(
+        repo_path=repo_path,
+        tools=tools,
+        use_enhanced_retriever=use_enhanced_retriever,
+        embedding_config=embedding_config,
+    )
+
+    result = await agent.execute_task_with_rag(task_description, max_iterations)
+
+    # Add retrieval method information to result
+    result["retrieval_method"] = "enhanced" if agent.use_enhanced_retriever else "basic"
+
+    return result
