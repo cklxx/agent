@@ -1,0 +1,92 @@
+#!/bin/bash
+
+# RAG Enhanced Code Agent CLI 启动脚本
+# 这个脚本提供了一个便捷的方式来启动RAG增强Code Agent CLI工具
+SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+CLI_SCRIPT="$SCRIPT_DIR/scripts/rag_enhanced_code_agent_cli.py"
+
+# 检查CLI脚本是否存在
+if [ ! -f "$CLI_SCRIPT" ]; then
+    echo "❌ 错误: 找不到CLI脚本: $CLI_SCRIPT"
+    exit 1
+fi
+
+# 检查是否安装了uv
+if ! command -v uv &> /dev/null; then
+    echo "❌ 错误: 需要安装uv包管理器"
+    echo "请访问 https://github.com/astral-sh/uv 获取安装说明"
+    exit 1
+fi
+
+# 显示使用说明
+show_help() {
+    echo "🔮 RAG Enhanced Code Agent CLI - 智能编程助手"
+    echo ""
+    echo "用法:"
+    echo "  ./code_agent --task \"任务描述\"                              # 在当前目录执行RAG增强编程任务"
+    echo "  ./code_agent --task \"任务描述\" --working-directory /path   # 在指定目录执行任务"
+    echo "  ./code_agent --task \"...\" --config /path/to/conf.yml      # 指定配置文件路径"
+    echo "  ./code_agent --task \"...\" --debug                         # 启用调试模式"
+    echo "  ./code_agent --help                                         # 显示帮助信息"
+    echo ""
+    echo "RAG增强特性:"
+    echo "  • 自动检索项目中相关的代码模式和实现"
+    echo "  • 基于现有代码风格生成一致的新代码"
+    echo "  • 智能理解项目架构和依赖关系"
+    echo "  • 上下文感知的任务规划和执行"
+    echo ""
+    echo "示例:"
+    echo "  ./code_agent --task \"Create a HTTP client following existing patterns\""
+    echo "  ./code_agent --task \"Refactor user module\" --debug"
+    echo "  ./code_agent --task \"Add caching layer\" --working-directory /path/to/project"
+    echo "  ./code_agent --task \"Fix authentication issues\" --config custom_conf.yml"
+    echo ""
+    echo "更多信息请查看: scripts/rag_enhanced_code_agent_cli.py --help"
+}
+
+# 如果请求帮助
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    show_help
+    exit 0
+fi
+
+# 启动CLI工具
+echo "🚀 启动 RAG Enhanced Code Agent CLI..."
+
+# 检查是否传递了 --working-directory 和 --config 参数
+ARGS=("$@")
+HAS_WORKING_DIR=false
+HAS_CONFIG=false
+
+for arg in "$@"; do
+    if [[ "$arg" == "--working-directory" ]]; then
+        HAS_WORKING_DIR=true
+    elif [[ "$arg" == "--config" ]]; then
+        HAS_CONFIG=true
+    fi
+done
+
+# 如果没有传递 --working-directory，添加当前目录作为默认工作目录
+if [ "$HAS_WORKING_DIR" = false ]; then
+    ARGS+=("--working-directory" "$(pwd)")
+fi
+
+# 如果没有传递 --config，检查是否存在默认配置文件
+if [ "$HAS_CONFIG" = false ]; then
+    # 优先级: conf.yml > conf.yaml > conf.yaml.example
+    if [ -f "$(pwd)/conf.yml" ]; then
+        ARGS+=("--config" "$(pwd)/conf.yml")
+        echo "🔧 使用配置文件: $(pwd)/conf.yml"
+    elif [ -f "$(pwd)/conf.yaml" ]; then
+        ARGS+=("--config" "$(pwd)/conf.yaml")
+        echo "🔧 使用配置文件: $(pwd)/conf.yaml"
+    elif [ -f "$(pwd)/conf.yaml.example" ]; then
+        echo "⚠️  找到示例配置文件: $(pwd)/conf.yaml.example"
+        echo "💡 建议复制为 conf.yml 并进行配置"
+    else
+        echo "ℹ️  未找到配置文件，将使用默认配置"
+    fi
+fi
+
+cd "$SCRIPT_DIR"
+uv run python "$CLI_SCRIPT" "${ARGS[@]}" 

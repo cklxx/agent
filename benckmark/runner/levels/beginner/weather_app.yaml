@@ -1,0 +1,123 @@
+id: "beginner_mobile_weather_app"
+level: "beginner"
+domain: "mobile_development"
+title: "天气应用原型"
+description: |
+  创建一个显示当前天气和简单预报的移动应用原型，对接气象API。
+  
+  要求：
+  - 显示当前天气信息（温度、湿度、天气状况）
+  - 显示3天天气预报
+  - 支持城市搜索功能
+  - 处理API错误和网络错误
+  - 实现加载状态和错误提示
+  - 响应式设计适配移动设备
+
+input_spec:
+  type: "api_specification"
+  weather_api:
+    base_url: "https://api.openweathermap.org/data/2.5"
+    endpoints:
+      current: "/weather?q={city}&appid={api_key}&units=metric&lang=zh_cn"
+      forecast: "/forecast?q={city}&appid={api_key}&units=metric&lang=zh_cn"
+    response_format:
+      current:
+        main: "温度、湿度、气压信息"
+        weather: "天气状况描述和图标"
+        name: "城市名称"
+      forecast:
+        list: "预报数据数组（3小时间隔）"
+        city: "城市信息"
+  ui_requirements:
+    framework: "React Native, Flutter 或原生 HTML/CSS/JS"
+    layout:
+      - "搜索栏"
+      - "当前天气卡片"
+      - "天气预报列表"
+      - "加载和错误状态"
+
+output_spec:
+  type: "mobile_app_prototype"
+  files:
+    - "App.js/main.dart/index.html"
+    - "WeatherService.js/weather_service.dart/weather.js"
+    - "styles.css/app_styles.dart"
+    - "package.json/pubspec.yaml"
+  requirements:
+    - "模块化代码结构"
+    - "API调用封装"
+    - "错误处理机制"
+    - "状态管理"
+    - "响应式UI设计"
+
+evaluation_criteria:
+  api_integration: 30
+  ui_implementation: 25
+  data_processing: 25
+  error_handling: 20
+
+test_cases:
+  - name: "API集成测试"
+    description: "测试天气API调用"
+    scenarios:
+      - name: "成功获取天气数据"
+        input:
+          city: "北京"
+          api_key: "test_api_key"
+        expected:
+          - "成功调用当前天气API"
+          - "成功调用预报API"
+          - "正确解析JSON响应"
+          - "数据格式符合预期"
+          
+      - name: "API错误处理"
+        scenarios:
+          - input: "无效城市名"
+            expected: "显示'未找到城市'错误信息"
+          - input: "无效API密钥"
+            expected: "显示'API密钥错误'提示"
+          - input: "网络超时"
+            expected: "显示'网络连接超时'提示"
+            
+  - name: "UI功能测试"
+    description: "测试用户界面功能"
+    tests:
+      - name: "城市搜索"
+        steps:
+          - "输入城市名称"
+          - "点击搜索按钮"
+          - "等待数据加载"
+        expected:
+          - "显示加载动画"
+          - "成功显示天气数据"
+          - "搜索历史保存"
+          
+      - name: "天气数据显示"
+        checks:
+          - "当前温度显示正确"
+          - "天气图标加载"
+          - "湿度、风速等信息显示"
+          - "3天预报列表显示"
+          - "时间格式正确"
+          
+  - name: "响应式设计测试"
+    description: "测试不同设备适配"
+    devices:
+      - "iPhone (375x667)"
+      - "Android (360x640)"
+      - "iPad (768x1024)"
+    checks:
+      - "布局适配不同屏幕尺寸"
+      - "文字大小合适"
+      - "按钮可点击区域充足"
+      - "图片不变形"
+      
+  - name: "错误状态测试"
+    description: "测试各种错误情况的用户体验"
+    scenarios:
+      - "网络断开时的降级体验"
+      - "长时间加载的超时处理"
+      - "无效输入的友好提示"
+      - "API限额超出的处理"
+
+time_limit: 1800  # 30分钟 

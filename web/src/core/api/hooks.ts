@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: MIT
+
+import { useEffect, useRef, useState } from "react";
+
+import { env } from "~/env";
+
+import { useReplay } from "../replay";
+
+import { fetchReplayTitle } from "./chat";
+import { getRAGConfig } from "./rag";
+
+export function useReplayMetadata() {
+  const { isReplay } = useReplay();
+  const [title, setTitle] = useState<string | null>(null);
+  const isLoading = useRef(false);
+  const [error, setError] = useState<boolean>(false);
+  useEffect(() => {
+    if (!isReplay) {
+      return;
+    }
+    if (title || isLoading.current) {
+      return;
+    }
+    isLoading.current = true;
+    fetchReplayTitle()
+      .then((title) => {
+        setError(false);
+        setTitle(title ?? null);
+        if (title) {
+          document.title = `${title} - DeepTool`;
+        }
+      })
+      .catch(() => {
+        setError(true);
+        setTitle("Error: the replay is not available.");
+        document.title = "DeepTool";
+      })
+      .finally(() => {
+        isLoading.current = false;
+      });
+  }, [isLoading, isReplay, title]);
+  return { title, isLoading, hasError: error };
+}
+
+export function useRAGProvider() {
+  const [loading, setLoading] = useState(true);
+  const [provider, setProvider] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY) {
+      setLoading(false);
+      return;
+    }
+    getRAGConfig()
+      .then(setProvider)
+      .catch((e) => {
+        setProvider(null);
+        console.error("Failed to get RAG provider", e);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
+
+  return { provider, loading };
+}

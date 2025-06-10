@@ -1,0 +1,154 @@
+id: "advanced_web_realtime_collab"
+level: "advanced"
+domain: "web_development"
+title: "实时协作文档编辑平台"
+description: |
+  开发一个支持多用户实时协作的文档编辑平台，类似Google Docs的核心功能。
+  
+  核心要求：
+  - 实时多用户协作编辑
+  - 冲突解决机制
+  - 操作历史和版本控制
+  - 用户权限管理
+  - 高性能和低延迟
+  - 分布式架构支持
+
+input_spec:
+  type: "system_design_specification"
+  description: "系统设计文档和技术要求"
+  architecture:
+    frontend:
+      framework: "React/Vue.js + WebSocket客户端"
+      features:
+        - "富文本编辑器集成"
+        - "实时光标显示"
+        - "用户在线状态"
+        - "文档版本历史"
+        - "评论和建议功能"
+        - "权限管理界面"
+    backend:
+      framework: "Node.js/Python + WebSocket服务器"
+      components:
+        - "WebSocket连接管理"
+        - "操作转换算法(OT)或CRDT"
+        - "文档状态同步"
+        - "用户会话管理"
+        - "权限验证中间件"
+        - "文档持久化服务"
+    database:
+      primary: "PostgreSQL/MongoDB"
+      cache: "Redis"
+      schema:
+        documents: ["id", "title", "content", "owner_id", "created_at", "updated_at"]
+        operations: ["id", "doc_id", "user_id", "operation", "timestamp", "applied"]
+        users: ["id", "username", "email", "role"]
+        permissions: ["doc_id", "user_id", "permission_level"]
+  performance_requirements:
+    latency: "< 100ms for operations"
+    throughput: "> 1000 operations/second"
+    concurrent_users: "> 100 per document"
+    availability: "99.9%"
+  
+output_spec:
+  type: "distributed_application"
+  deliverables:
+    source_code:
+      frontend: ["src/", "public/", "package.json", "webpack.config.js"]
+      backend: ["app/", "models/", "services/", "websocket/", "requirements.txt"]
+      shared: ["proto/", "schemas/", "types/"]
+    infrastructure:
+      - "docker-compose.yml"
+      - "Dockerfile(s)"
+      - "nginx.conf"
+      - "redis.conf"
+    documentation:
+      - "系统架构图"
+      - "API文档"
+      - "部署指南"
+      - "性能测试报告"
+    tests:
+      - "单元测试覆盖率 > 80%"
+      - "集成测试套件"
+      - "并发测试脚本"
+      - "性能基准测试"
+
+evaluation_criteria:
+  functionality: 25
+  architecture: 25
+  performance: 20
+  security: 15
+  maintainability: 15
+
+test_cases:
+  - name: "实时协作功能测试"
+    description: "多用户同时编辑文档"
+    scenario:
+      - setup: "创建新文档，3个用户同时连接"
+      - actions:
+        - "用户A在位置0插入文本'Hello'"
+        - "用户B在位置5插入文本' World'"  
+        - "用户C在位置0插入文本'Hi '"
+        - "用户A删除位置3-5的字符"
+      - verification:
+        - "所有用户看到相同的最终文档内容"
+        - "操作顺序一致性验证"
+        - "无数据丢失或重复"
+    expected_result: "Hi Horld"
+    max_latency: "200ms"
+    
+  - name: "冲突解决测试"
+    description: "验证操作转换算法正确性"
+    test_scenarios:
+      - concurrent_insertions:
+          user_a: "在位置5插入'ABC'"
+          user_b: "在位置5插入'XYZ'"
+          expected: "文本正确合并，无冲突"
+      - insert_delete_conflict:
+          user_a: "删除位置3-8的文本"
+          user_b: "在位置5插入'NEW'"
+          expected: "操作正确转换，结果一致"
+      - format_conflicts:
+          user_a: "设置位置1-10为粗体"
+          user_b: "设置位置5-15为斜体"
+          expected: "格式正确叠加"
+          
+  - name: "性能压力测试"
+    description: "高并发场景下的系统性能"
+    load_test:
+      concurrent_users: 50
+      operations_per_second: 500
+      test_duration: "10分钟"
+      metrics:
+        - "平均响应时间 < 100ms"
+        - "95%分位响应时间 < 200ms"
+        - "错误率 < 0.1%"
+        - "内存使用 < 2GB"
+        - "CPU使用率 < 80%"
+        
+  - name: "故障恢复测试"
+    description: "系统容错和恢复能力"
+    failure_scenarios:
+      - network_partition: "模拟网络分区，验证数据一致性"
+      - server_restart: "服务器重启后状态恢复"
+      - database_failure: "数据库故障时的降级处理"
+      - websocket_reconnection: "连接断开后的自动重连"
+    recovery_requirements:
+      - "数据零丢失"
+      - "恢复时间 < 30秒"
+      - "用户体验平滑过渡"
+      
+  - name: "安全性测试"
+    description: "全面的安全漏洞检查"
+    security_checks:
+      - authentication: "用户身份验证绕过测试"
+      - authorization: "权限提升攻击测试"
+      - input_validation: "恶意输入注入测试"
+      - xss_protection: "跨站脚本攻击防护"
+      - csrf_protection: "跨站请求伪造防护"
+      - rate_limiting: "频率限制和DDoS防护"
+    compliance:
+      - "OWASP Top 10安全标准"
+      - "数据加密传输"
+      - "敏感数据保护"
+
+time_limit: 7200  # 2小时 

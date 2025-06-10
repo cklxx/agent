@@ -1,0 +1,208 @@
+id: "intermediate_algo_path_planning"
+level: "intermediate"
+domain: "algorithms"
+title: "路径规划系统"
+description: |
+  实现一个基于图算法的路径规划系统，能找到两点间的最短或最优路径。
+  
+  要求：
+  - 实现Dijkstra最短路径算法
+  - 实现A*启发式搜索算法
+  - 支持带权重的图结构
+  - 提供路径查询API接口
+  - 实现路径可视化功能
+  - 处理图的动态更新
+  - 支持不同的优化目标（距离、时间、成本）
+
+input_spec:
+  type: "graph_data_and_queries"
+  graph_format:
+    nodes:
+      structure: "List[Dict]"
+      fields:
+        - "id: str - 节点唯一标识"
+        - "name: str - 节点名称"
+        - "x: float - X坐标"
+        - "y: float - Y坐标"
+        - "type: str - 节点类型（optional）"
+    edges:
+      structure: "List[Dict]"
+      fields:
+        - "from: str - 起始节点ID"
+        - "to: str - 目标节点ID"
+        - "weight: float - 边的权重"
+        - "distance: float - 实际距离"
+        - "time: float - 遍历时间（optional）"
+        - "cost: float - 遍历成本（optional）"
+  query_format:
+    path_query:
+      - "start_node: str - 起始节点ID"
+      - "end_node: str - 目标节点ID"
+      - "algorithm: str - 使用的算法（dijkstra/astar）"
+      - "optimize_for: str - 优化目标（distance/time/cost）"
+  sample_data:
+    nodes: |
+      [
+        {"id": "A", "name": "起点", "x": 0, "y": 0},
+        {"id": "B", "name": "中转1", "x": 1, "y": 1},
+        {"id": "C", "name": "中转2", "x": 2, "y": 0},
+        {"id": "D", "name": "终点", "x": 3, "y": 1}
+      ]
+    edges: |
+      [
+        {"from": "A", "to": "B", "weight": 1.4, "distance": 1.4},
+        {"from": "A", "to": "C", "weight": 2.0, "distance": 2.0},
+        {"from": "B", "to": "D", "weight": 2.2, "distance": 2.2},
+        {"from": "C", "to": "D", "weight": 1.4, "distance": 1.4}
+      ]
+
+output_spec:
+  type: "path_planning_system"
+  language: "python"
+  structure:
+    core:
+      - "graph.py - 图数据结构实现"
+      - "dijkstra.py - Dijkstra算法实现"
+      - "astar.py - A*算法实现"
+      - "path_planner.py - 路径规划主类"
+    api:
+      - "api.py - REST API接口"
+      - "models.py - 数据模型定义"
+    visualization:
+      - "visualizer.py - 路径可视化"
+      - "static/index.html - 可视化界面"
+    tests:
+      - "test_algorithms.py - 算法测试"
+      - "test_api.py - API测试"
+  requirements:
+    - "使用面向对象设计"
+    - "支持图的动态更新"
+    - "提供RESTful API"
+    - "实现Web可视化界面"
+    - "包含完整的单元测试"
+
+evaluation_criteria:
+  algorithm_correctness: 35
+  performance_optimization: 25
+  code_quality: 20
+  edge_case_handling: 10
+  visualization: 10
+
+test_cases:
+  - name: "Dijkstra算法正确性测试"
+    description: "验证Dijkstra算法实现正确性"
+    test_graphs:
+      - name: "简单连通图"
+        nodes: 4
+        edges: 5
+        queries:
+          - start: "A"
+            end: "D"
+            expected_path: ["A", "C", "D"]
+            expected_distance: 3.4
+            
+      - name: "复杂网络图"
+        nodes: 10
+        edges: 20
+        verification: "与标准算法结果对比"
+        
+      - name: "断开图测试"
+        scenario: "起点和终点不连通"
+        expected: "返回null或空路径，并提供错误信息"
+        
+  - name: "A*算法正确性测试"
+    description: "验证A*算法实现和启发式函数"
+    test_scenarios:
+      - name: "基本路径查找"
+        heuristic: "欧几里得距离"
+        expected: "找到最优路径"
+        performance: "访问节点数 < Dijkstra算法"
+        
+      - name: "启发式函数测试"
+        scenarios:
+          - "欧几里得距离"
+          - "曼哈顿距离"
+          - "自定义启发式"
+        validation: "保证启发式函数的一致性"
+        
+  - name: "性能基准测试"
+    description: "测试不同规模图的算法性能"
+    test_cases:
+      - name: "小规模图（10-50节点）"
+        expected_time: "< 10ms"
+        
+      - name: "中规模图（100-500节点）"
+        expected_time: "< 100ms"
+        
+      - name: "大规模图（1000+节点）"
+        expected_time: "< 1s"
+        memory_usage: "< 100MB"
+        
+  - name: "API接口测试"
+    description: "测试REST API功能"
+    endpoints:
+      - name: "POST /api/graph/load"
+        description: "加载图数据"
+        test_data: "包含节点和边的JSON"
+        expected: "成功加载返回200状态码"
+        
+      - name: "POST /api/path/find"
+        description: "查找路径"
+        request_body: |
+          {
+            "start": "A",
+            "end": "D", 
+            "algorithm": "dijkstra",
+            "optimize_for": "distance"
+          }
+        expected_response: |
+          {
+            "path": ["A", "C", "D"],
+            "distance": 3.4,
+            "execution_time": 0.002
+          }
+          
+      - name: "GET /api/graph/visualize"
+        description: "获取可视化数据"
+        expected: "返回图的可视化JSON数据"
+        
+  - name: "可视化功能测试"
+    description: "测试路径可视化界面"
+    requirements:
+      - "节点和边的图形显示"
+      - "路径高亮显示"
+      - "交互式节点选择"
+      - "算法执行过程动画"
+      - "支持图的缩放和平移"
+    validation:
+      - "HTML页面正确渲染"
+      - "JavaScript交互功能正常"
+      - "路径计算结果实时显示"
+      
+  - name: "边界条件和错误处理测试"
+    description: "测试各种边界情况"
+    scenarios:
+      - name: "空图处理"
+        input: "无节点或无边的图"
+        expected: "返回相应错误信息"
+        
+      - name: "单节点图"
+        input: "只有一个节点的图"
+        expected: "起点终点相同时返回空路径"
+        
+      - name: "负权重边"
+        input: "包含负权重边的图"
+        expected: "Dijkstra应报错，A*需要检查一致性"
+        
+      - name: "不存在的节点"
+        input: "查询不存在的起点或终点"
+        expected: "返回404错误和友好提示"
+        
+      - name: "图数据更新"
+        steps:
+          - "加载初始图"
+          - "动态添加/删除节点或边"
+          - "重新计算路径"
+        expected: "路径计算结果正确更新"
+
+time_limit: 4800  # 80分钟 

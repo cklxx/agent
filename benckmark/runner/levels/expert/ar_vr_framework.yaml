@@ -1,0 +1,291 @@
+id: "expert_mobile_ar_vr_framework"
+level: "expert"
+domain: "mobile_development"
+title: "AR/VR应用开发框架"
+description: |
+  设计和实现一个AR/VR应用开发框架，支持复杂交互和高性能渲染。
+  
+  要求：
+  - 跨平台AR/VR框架设计（iOS/Android/Web）
+  - 高性能3D渲染引擎
+  - 空间定位和追踪系统
+  - 手势识别和交互系统
+  - 物理引擎集成
+  - 多用户协作支持
+  - 插件化架构设计
+  - 开发者友好的API设计
+
+input_spec:
+  type: "framework_specification"
+  target_platforms:
+    - "iOS (ARKit)"
+    - "Android (ARCore)"
+    - "WebXR (浏览器)"
+    - "VR Headsets (Oculus, HTC Vive)"
+  core_features:
+    rendering:
+      - "PBR材质渲染"
+      - "实时阴影和光照"
+      - "多重采样抗锯齿"
+      - "HDR渲染管线"
+      - "粒子系统"
+    tracking:
+      - "6DOF位置追踪"
+      - "平面检测"
+      - "物体识别"
+      - "手部追踪"
+      - "眼动追踪（VR）"
+    interaction:
+      - "触摸手势识别"
+      - "语音命令"
+      - "控制器输入"
+      - "凝视选择"
+      - "空间手势"
+  performance_requirements:
+    rendering:
+      framerate: ">= 60fps（AR）/ >= 90fps（VR）"
+      latency: "运动到显示延迟 < 20ms"
+      tracking_accuracy: "位置误差 < 1cm，角度误差 < 1°"
+    resource_usage:
+      memory: "< 512MB峰值内存使用"
+      cpu: "< 40% CPU使用率"
+      battery: "连续使用时间 >= 2小时"
+
+output_spec:
+  type: "ar_vr_framework"
+  architecture:
+    core_engine:
+      - "Engine/Core/ - 核心引擎模块"
+      - "Engine/Rendering/ - 渲染引擎"
+      - "Engine/Physics/ - 物理引擎"
+      - "Engine/Audio/ - 音频引擎"
+    platform_layers:
+      - "Platform/iOS/ - iOS平台适配"
+      - "Platform/Android/ - Android平台适配"
+      - "Platform/Web/ - WebXR适配"
+      - "Platform/VR/ - VR头显适配"
+    framework_api:
+      - "API/Scene/ - 场景管理API"
+      - "API/Components/ - 组件系统API"
+      - "API/Input/ - 输入处理API"
+      - "API/Network/ - 网络同步API"
+    tools_and_utilities:
+      - "Tools/SceneEditor/ - 场景编辑器"
+      - "Tools/AssetPipeline/ - 资产处理管线"
+      - "Tools/Profiler/ - 性能分析器"
+      - "Utilities/Math/ - 数学库"
+    samples_and_docs:
+      - "Examples/ - 示例应用"
+      - "Documentation/ - API文档"
+      - "Tutorials/ - 开发教程"
+  implementation_requirements:
+    - "使用C++核心引擎，语言绑定支持多种开发语言"
+    - "组件化实体系统(ECS)架构"
+    - "异步资源加载和流式传输"
+    - "内存池管理和对象复用"
+    - "多线程渲染和计算"
+
+evaluation_criteria:
+  framework_architecture: 30
+  rendering_performance: 25
+  spatial_accuracy: 20
+  developer_experience: 15
+  innovation: 10
+
+test_cases:
+  - name: "核心框架架构测试"
+    description: "验证框架架构设计和实现质量"
+    architecture_tests:
+      - name: "组件系统验证"
+        requirements:
+          - "ECS架构正确实现"
+          - "组件注册和查询机制"
+          - "系统间解耦设计"
+          - "运行时组件动态添加/删除"
+        validation:
+          - "创建包含Transform、Renderer、Collider组件的实体"
+          - "查询特定组件组合的实体"
+          - "验证系统间通信机制"
+          
+      - name: "插件系统验证"
+        requirements:
+          - "动态插件加载机制"
+          - "插件API标准化"
+          - "插件隔离和安全"
+          - "热重载支持"
+        tests:
+          - "加载自定义渲染插件"
+          - "加载物理引擎插件"
+          - "插件依赖管理验证"
+          
+      - name: "跨平台抽象验证"
+        platforms: ["iOS", "Android", "Web"]
+        tests:
+          - "统一API在不同平台表现一致"
+          - "平台特定功能正确封装"
+          - "资源格式自动转换"
+          
+  - name: "渲染性能测试"
+    description: "验证3D渲染引擎性能和质量"
+    rendering_tests:
+      - name: "基础渲染功能"
+        test_scenes:
+          - "简单几何体渲染（立方体、球体）"
+          - "复杂模型渲染（1万+多边形）"
+          - "透明物体渲染排序"
+          - "多光源场景渲染"
+        expected:
+          - "渲染结果正确"
+          - "帧率稳定 >= 60fps"
+          - "内存使用稳定"
+          
+      - name: "高级渲染特性"
+        features:
+          - "PBR材质渲染"
+          - "实时阴影映射"
+          - "环境光遮蔽"
+          - "后处理效果"
+        validation:
+          - "视觉效果符合预期"
+          - "性能开销在可接受范围"
+          - "不同设备表现一致"
+          
+      - name: "性能压力测试"
+        stress_tests:
+          - "1000个动态物体同时渲染"
+          - "大场景（10km²）流式加载"
+          - "粒子系统极限测试（10万粒子）"
+        requirements:
+          - "帧率不低于目标值的80%"
+          - "内存使用不超过限制"
+          - "无明显卡顿或崩溃"
+          
+  - name: "空间追踪精度测试"
+    description: "验证AR/VR空间定位和追踪准确性"
+    tracking_tests:
+      - name: "6DOF追踪精度"
+        test_setup:
+          - "已知位置标记物"
+          - "精确测量设备"
+          - "不同环境条件"
+        measurements:
+          - "位置追踪误差"
+          - "旋转追踪误差"
+          - "追踪稳定性"
+        targets:
+          - "位置精度 < 1cm"
+          - "角度精度 < 1°"
+          - "追踪丢失恢复时间 < 100ms"
+          
+      - name: "平面检测验证"
+        scenarios:
+          - "水平面检测（桌面、地面）"
+          - "垂直面检测（墙面）"
+          - "倾斜面检测"
+        validation:
+          - "检测速度 < 3秒"
+          - "平面边界准确"
+          - "法向量计算正确"
+          
+      - name: "物体识别测试"
+        test_objects:
+          - "预定义标记"
+          - "常见物体（书本、杯子等）"
+          - "复杂场景中的目标物体"
+        requirements:
+          - "识别准确率 >= 95%"
+          - "识别速度 < 500ms"
+          - "遮挡情况下的鲁棒性"
+          
+  - name: "交互系统测试"
+    description: "验证多模态交互系统功能"
+    interaction_tests:
+      - name: "手势识别测试"
+        gestures:
+          - "点击、双击、长按"
+          - "拖拽、缩放、旋转"
+          - "自定义空间手势"
+        validation:
+          - "识别准确率 >= 90%"
+          - "响应延迟 < 100ms"
+          - "误触率 < 5%"
+          
+      - name: "语音命令测试"
+        commands:
+          - "基础控制命令"
+          - "自然语言描述"
+          - "多语言支持"
+        requirements:
+          - "识别准确率 >= 85%"
+          - "噪声环境鲁棒性"
+          - "离线模式支持"
+          
+      - name: "控制器集成测试"
+        controllers:
+          - "VR手柄"
+          - "AR控制器"
+          - "手机作为控制器"
+        tests:
+          - "按键映射正确"
+          - "6DOF追踪同步"
+          - "触觉反馈功能"
+          
+  - name: "多用户协作测试"
+    description: "验证多用户实时协作功能"
+    collaboration_tests:
+      - name: "实时同步测试"
+        scenarios:
+          - "2-4用户同时在线"
+          - "虚拟对象协作操作"
+          - "语音聊天集成"
+        requirements:
+          - "同步延迟 < 100ms"
+          - "网络断线重连恢复"
+          - "冲突检测和解决"
+          
+      - name: "空间共享测试"
+        features:
+          - "共享世界坐标系"
+          - "用户位置同步"
+          - "共享物体状态"
+        validation:
+          - "多用户看到相同场景"
+          - "交互状态实时同步"
+          - "用户头像显示正确"
+          
+  - name: "开发者体验测试"
+    description: "验证框架易用性和开发效率"
+    developer_tests:
+      - name: "API易用性测试"
+        scenarios:
+          - "创建简单AR应用"
+          - "实现基础交互功能"
+          - "添加自定义组件"
+        evaluation:
+          - "代码行数合理"
+          - "学习曲线平缓"
+          - "错误信息清晰"
+          
+      - name: "工具链完整性"
+        tools:
+          - "场景编辑器"
+          - "资源导入工具"
+          - "性能分析器"
+          - "调试工具"
+        requirements:
+          - "工具稳定可用"
+          - "工作流程顺畅"
+          - "集成开发环境支持"
+          
+      - name: "文档和示例质量"
+        content:
+          - "API参考文档"
+          - "入门教程"
+          - "最佳实践指南"
+          - "示例应用代码"
+        validation:
+          - "文档完整准确"
+          - "示例可运行"
+          - "社区支持活跃"
+
+time_limit: 14400  # 240分钟 

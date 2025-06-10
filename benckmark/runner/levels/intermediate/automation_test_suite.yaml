@@ -1,0 +1,140 @@
+id: "beginner_devops_automation_test"
+level: "beginner"
+domain: "devops"
+title: "自动化测试脚本套件"
+description: |
+  为给定的Web应用编写自动化测试脚本，包括单元测试和API测试。
+  
+  要求：
+  - 编写单元测试覆盖核心业务逻辑
+  - 编写API集成测试
+  - 实现测试数据准备和清理
+  - 生成测试覆盖率报告
+  - 配置CI友好的测试执行
+  - 包含测试文档和使用说明
+
+input_spec:
+  type: "web_application_codebase"
+  application:
+    type: "简单的用户管理系统"
+    endpoints:
+      - "GET /api/users - 获取用户列表"
+      - "POST /api/users - 创建新用户"
+      - "GET /api/users/{id} - 获取用户详情"
+      - "PUT /api/users/{id} - 更新用户信息"
+      - "DELETE /api/users/{id} - 删除用户"
+    business_logic:
+      - "用户注册验证（邮箱唯一性）"
+      - "密码强度验证"
+      - "用户权限检查"
+      - "数据格式验证"
+    database:
+      schema: "users (id, email, password_hash, role, created_at)"
+
+output_spec:
+  type: "test_suite"
+  structure:
+    unit_tests:
+      - "test_user_validation.py"
+      - "test_password_utils.py"
+      - "test_user_service.py"
+    integration_tests:
+      - "test_user_api.py"
+      - "test_database_operations.py"
+    configuration:
+      - "pytest.ini"
+      - "conftest.py"
+      - "requirements-test.txt"
+    documentation:
+      - "README_testing.md"
+  requirements:
+    - "使用pytest测试框架"
+    - "使用requests库进行API测试"
+    - "使用mock进行依赖隔离"
+    - "生成HTML和XML格式测试报告"
+    - "测试覆盖率达到80%以上"
+
+evaluation_criteria:
+  test_coverage: 30
+  test_scenarios: 30
+  code_quality: 25
+  edge_case_coverage: 15
+
+test_cases:
+  - name: "单元测试验证"
+    description: "验证单元测试实现质量"
+    requirements:
+      - "用户邮箱验证测试（有效/无效格式）"
+      - "密码强度测试（长度、复杂度）"
+      - "权限检查测试（管理员/普通用户）"
+      - "数据验证测试（必填字段、类型检查）"
+      - "边界条件测试（空值、特殊字符）"
+    expected_coverage: ">= 5个测试用例"
+    
+  - name: "API集成测试验证"
+    description: "验证API测试完整性"
+    test_scenarios:
+      - name: "用户CRUD操作测试"
+        steps:
+          - "创建新用户"
+          - "获取用户信息"
+          - "更新用户信息"
+          - "删除用户"
+        validation:
+          - "状态码正确性"
+          - "响应数据格式"
+          - "数据库状态验证"
+          
+      - name: "错误处理测试"
+        scenarios:
+          - "重复邮箱注册 -> 400错误"
+          - "无效用户ID -> 404错误"
+          - "未授权访问 -> 401错误"
+          - "权限不足 -> 403错误"
+          
+      - name: "边界条件测试"
+        scenarios:
+          - "超长邮箱地址"
+          - "特殊字符在用户名中"
+          - "大批量用户创建"
+          - "并发访问测试"
+          
+  - name: "测试配置验证"
+    description: "验证测试环境配置"
+    checks:
+      - "pytest配置正确"
+      - "测试数据库隔离"
+      - "测试数据自动清理"
+      - "覆盖率报告生成"
+      - "CI/CD集成配置"
+      
+  - name: "测试执行验证"
+    description: "验证测试套件执行"
+    execution_tests:
+      - name: "全量测试执行"
+        command: "pytest -v --cov=app --cov-report=html"
+        expected:
+          - "所有测试通过"
+          - "覆盖率 >= 80%"
+          - "生成HTML报告"
+          - "执行时间 < 60秒"
+          
+      - name: "分类测试执行"
+        commands:
+          - "pytest tests/unit/ -v"
+          - "pytest tests/integration/ -v"
+        expected:
+          - "可以单独运行单元测试"
+          - "可以单独运行集成测试"
+          - "测试结果互不影响"
+          
+  - name: "测试文档验证"
+    description: "验证测试文档完整性"
+    documentation_checks:
+      - "安装依赖说明"
+      - "测试运行命令"
+      - "测试数据准备说明"
+      - "CI集成配置示例"
+      - "故障排除指南"
+
+time_limit: 3600  # 60分钟 

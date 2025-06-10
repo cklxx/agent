@@ -1,0 +1,41 @@
+# [!NOTE]
+# Read the `docs/configuration_guide.md` carefully, and update the configurations to match your specific settings and requirements.
+# - Replace `api_key` with your own credentials
+# - Replace `base_url` and `model` name if you want to use a custom model
+MODEL_TYPE: qwen
+
+# 基础模型配置（默认使用）
+BASIC_MODEL:
+  base_url: https://openrouter.ai/api/v1
+  model: "doubao-1-5-pro-32k-250115"
+  api_key: xxxx
+
+# 大型模型配置 - 用于复杂推理、复杂工具调用和高质量内容生成
+REASONING_MODEL:
+  base_url: https://openrouter.ai/api/v1
+  model: "google/gemini-2.5-flash-preview-05-20:thinking"
+  api_key: xxxx
+
+# 中型模型配置 - 用于普通对话、一般工具调用
+MEDIUM_MODEL:
+  base_url: https://openrouter.ai/api/v1
+  model: "gpt-3.5-turbo-16k"
+  api_key: xxxx
+ 
+# 小型模型配置 - 用于简单任务、快速响应
+SMALL_MODEL:
+  base_url: https://openrouter.ai/api/v1
+  model: "mistral-small"
+  api_key: xxxx
+ 
+# 图像识别模型配置
+VISION_MODEL:
+  base_url: https://openrouter.ai/api/v1
+  model: "google/gemini-2.5-flash-preview-05-20:thinking"
+  api_key: xxxx
+
+# 图像生成模型配置
+IMAGE_GEN_MODEL:
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  model: "doubao-1-5-pro-32k-250115"
+  api_key: xxxx

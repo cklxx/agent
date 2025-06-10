@@ -1,0 +1,74 @@
+id: "entry_mobile_calculator_ui"
+level: "entry"
+domain: "mobile_development"
+title: "计算器UI设计"
+description: |
+  设计一个移动端计算器的用户界面，包含数字按钮、运算符和显示区域。
+  
+  要求：
+  - 包含0-9数字按钮
+  - 包含基本运算符（+、-、*、/）
+  - 包含等号和清除按钮
+  - 包含显示屏区域
+  - 适配移动设备屏幕
+  - 使用CSS实现基本样式
+
+input_spec:
+  type: "design_specification"
+  requirements:
+    color_scheme: "#4CAF50 (主色调), #ffffff (背景), #333333 (文字)"
+    components:
+      - "数字按钮 (0-9)"
+      - "运算符按钮 (+, -, *, /)"
+      - "功能按钮 (=, C, CE)"
+      - "显示屏区域"
+    screen_size: "375px x 667px (iPhone 8 标准)"
+    layout: "网格布局，4列5行"
+
+output_spec:
+  type: "static_files"
+  files:
+    - "calculator.html"
+    - "calculator.css"
+  requirements:
+    - "HTML结构语义化"
+    - "CSS响应式设计"
+    - "按钮布局合理"
+    - "颜色方案符合要求"
+
+evaluation_criteria:
+  interface_completeness: 30
+  design_compliance: 25
+  css_organization: 25
+  responsive_design: 20
+
+test_cases:
+  - name: "HTML结构验证"
+    description: "检查HTML元素完整性"
+    checks:
+      - "包含显示屏元素"
+      - "包含所有数字按钮(0-9)"
+      - "包含所有运算符按钮"
+      - "包含功能按钮"
+      - "HTML语法正确"
+    
+  - name: "CSS样式验证"
+    description: "检查CSS实现"
+    checks:
+      - "按钮网格布局正确"
+      - "颜色方案符合要求"
+      - "字体大小适中"
+      - "按钮间距合理"
+      
+  - name: "响应式测试"
+    description: "检查移动设备适配"
+    viewports:
+      - "375x667 (iPhone 8)"
+      - "414x896 (iPhone 11)"
+      - "360x640 (Android)"
+    checks:
+      - "布局不溢出"
+      - "按钮可点击区域充足"
+      - "文字清晰可读"
+
+time_limit: 120  # 2分钟 

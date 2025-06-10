@@ -1,0 +1,77 @@
+id: "beginner_algo_temp_converter"
+level: "beginner"
+domain: "algorithms"
+title: "温度转换器"
+description: |
+  编写一个程序，将摄氏温度转换为华氏温度，反之亦然。
+  
+  要求：
+  - 接受温度值（浮点数）和单位标识（'C'或'F'）
+  - 返回转换后的温度值（保留一位小数）和对应单位
+  - 处理无效输入的情况
+
+input_spec:
+  type: "function_call"
+  function_name: "temperature_converter"
+  parameters:
+    - name: "value"
+      type: "float"
+      description: "温度值"
+    - name: "unit"
+      type: "string"
+      description: "单位标识：'C'表示摄氏度，'F'表示华氏度"
+  
+output_spec:
+  type: "tuple"
+  description: "返回转换后的温度值和单位"
+  format: "(converted_value, converted_unit)"
+  example: "(32.0, 'F')"
+
+evaluation_criteria:
+  functionality: 40
+  code_structure: 25
+  readability: 20
+  edge_cases: 15
+
+test_cases:
+  - name: "摄氏度转华氏度"
+    input:
+      value: 0
+      unit: "C"
+    expected:
+      value: 32.0
+      unit: "F"
+    
+  - name: "华氏度转摄氏度"
+    input:
+      value: 32
+      unit: "F"
+    expected:
+      value: 0.0
+      unit: "C"
+      
+  - name: "特殊值测试"
+    input:
+      value: -40
+      unit: "C"
+    expected:
+      value: -40.0
+      unit: "F"
+      
+  - name: "高温测试"
+    input:
+      value: 100
+      unit: "C"
+    expected:
+      value: 212.0
+      unit: "F"
+      
+  - name: "边界条件 - 无效单位"
+    input:
+      value: 25
+      unit: "K"
+    expected:
+      error: "ValueError"
+      message: "Invalid unit"
+
+time_limit: 60  # 1分钟 

@@ -1,0 +1,197 @@
+# AI Agent 编程能力测试配置文件
+
+# 支持的难度级别
+levels:
+  - beginner
+  - elementary
+  - intermediate
+  - advanced
+  - expert
+  - master
+
+# 支持的技术领域
+domains:
+  - web_development
+  - mobile_app
+  - algorithms
+  - devops
+  - data_science
+
+# 执行配置
+execution:
+  timeout: 300  # 任务超时时间（秒）
+  parallel_tasks: 3  # 并行执行的任务数
+  sandbox_enabled: true  # 是否启用沙箱环境
+  max_memory: "1GB"  # 最大内存使用
+  max_disk: "100MB"  # 最大磁盘使用
+
+# 输出配置
+output:
+  formats: ["json", "html"]  # 支持的报告格式
+  detailed_logs: true  # 是否生成详细日志
+  save_generated_code: true  # 是否保存生成的代码
+  include_test_data: false  # 是否在报告中包含测试数据
+
+# 评估标准配置（按难度级别）
+evaluation:
+  beginner:
+    functionality: 40  # 功能完整性和正确性 (40%)
+    code_structure: 25  # 代码结构 (25%)
+    readability: 20  # 代码可读性 (20%)
+    edge_cases: 15  # 边界条件处理 (15%)
+    
+  elementary:
+    functionality: 35  # 功能完整性和正确性 (35%)
+    code_quality: 25  # 代码结构与质量 (25%)
+    user_experience: 20  # 用户体验与界面 (20%)
+    error_handling: 20  # 错误处理与鲁棒性 (20%)
+    
+  intermediate:
+    functionality: 30  # 功能完整性和正确性 (30%)
+    architecture: 25  # 架构设计与代码质量 (25%)
+    performance: 20  # 性能与优化 (20%)
+    security: 15  # 安全性与错误处理 (15%)
+    testing: 10  # 测试覆盖率 (10%)
+    
+  advanced:
+    functionality: 25  # 功能完整性和正确性 (25%)
+    architecture: 25  # 系统架构与设计 (25%)
+    performance: 20  # 性能优化 (20%)
+    security: 15  # 安全与可靠性 (15%)
+    maintainability: 15  # 可扩展性与维护性 (15%)
+    
+  expert:
+    innovation: 30  # 技术创新与解决方案 (30%)
+    architecture: 25  # 架构与系统设计 (25%)
+    performance: 20  # 性能与优化 (20%)
+    complexity: 15  # 技术复杂度掌控 (15%)
+    knowledge: 10  # 知识深度与广度 (10%)
+    
+  master:
+    innovation: 35  # 前沿创新与突破 (35%)
+    architecture: 25  # 系统架构与理论基础 (25%)
+    integration: 20  # 技术整合与跨领域应用 (20%)
+    efficiency: 15  # 性能与资源效率 (15%)
+    impact: 5  # 行业影响与知识贡献 (5%)
+
+# 测试环境配置
+environment:
+  python_version: "3.12"
+  node_version: "18"
+  rust_version: "1.70"
+  docker_enabled: true
+  
+  # 允许的依赖包
+  allowed_packages:
+    python:
+      - numpy
+      - pandas
+      - matplotlib
+      - scikit-learn
+      - flask
+      - django
+      - fastapi
+      - requests
+      - pytest
+      - asyncio
+    javascript:
+      - react
+      - express
+      - axios
+      - jest
+      - webpack
+    rust:
+      - serde
+      - tokio
+      - wasm-bindgen
+
+# 安全配置
+security:
+  disable_network: false  # 是否禁用网络访问
+  disable_file_system: false  # 是否禁用文件系统访问
+  allowed_file_extensions:
+    - ".py"
+    - ".js"
+    - ".html"
+    - ".css"
+    - ".json"
+    - ".yaml"
+    - ".md"
+    - ".rs"
+    - ".toml"
+  blocked_imports:
+    - os.system
+    - subprocess
+    - exec
+    - eval
+
+# 性能基准
+performance_benchmarks:
+  beginner:
+    max_execution_time: 10  # 秒
+    max_memory_usage: 100  # MB
+    max_lines_of_code: 100
+    
+  elementary:
+    max_execution_time: 30  # 秒
+    max_memory_usage: 200  # MB
+    max_lines_of_code: 500
+    
+  intermediate:
+    max_execution_time: 60  # 秒
+    max_memory_usage: 500  # MB
+    max_lines_of_code: 1000
+    
+  advanced:
+    max_execution_time: 120  # 秒
+    max_memory_usage: 1000  # MB
+    max_lines_of_code: 2000
+    
+  expert:
+    max_execution_time: 300  # 秒
+    max_memory_usage: 2000  # MB
+    max_lines_of_code: 5000
+    
+  master:
+    max_execution_time: 600  # 秒
+    max_memory_usage: 4000  # MB
+    max_lines_of_code: 10000
+
+# 日志配置
+logging:
+  level: INFO
+  file: "logs/benchmark.log"
+  max_size: "10MB"
+  backup_count: 5
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# AI Agent接口配置
+ai_agent:
+  type: "openai"  # openai, anthropic, custom
+  model: "gpt-4"
+  temperature: 0.1
+  max_tokens: 4000
+  timeout: 120
+  retry_attempts: 3
+  
+  # 自定义提示模板
+  prompt_template: |
+    你是一个专业的编程助手。请根据以下任务描述生成高质量的代码解决方案。
+    
+    任务描述：
+    {task_description}
+    
+    输入规范：
+    {input_spec}
+    
+    输出规范：
+    {output_spec}
+    
+    要求：
+    1. 代码应该功能完整且正确
+    2. 遵循最佳编程实践
+    3. 包含适当的错误处理
+    4. 代码应该易读易维护
+    5. 如果可能，包含注释说明
+    
+    请直接提供代码解决方案： 

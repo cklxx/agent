@@ -1,0 +1,208 @@
+id: "advanced_web_webassembly"
+level: "advanced"
+domain: "web_development"
+title: "高性能WebAssembly应用"
+description: |
+  使用WebAssembly开发高性能Web应用，如3D渲染引擎、复杂数据可视化或实时信号处理。
+  
+  要求：
+  - 使用Rust或C++编写核心算法
+  - 编译为WebAssembly模块
+  - JavaScript与WebAssembly集成
+  - 实现高性能计算密集型功能
+  - 内存管理优化
+  - 支持Web Workers进行并行计算
+  - 性能基准测试和优化
+
+input_spec:
+  type: "performance_application_spec"
+  application_type: "实时数据处理引擎"
+  performance_requirements:
+    throughput: "处理速度 >= 1M数据点/秒"
+    latency: "单次计算延迟 < 10ms"
+    memory_efficiency: "内存使用 < 纯JavaScript实现的50%"
+    startup_time: "模块加载时间 < 500ms"
+  algorithms:
+    - "快速傅里叶变换 (FFT)"
+    - "数字信号滤波"
+    - "实时数据聚合"
+    - "并行矩阵运算"
+  data_format:
+    input: "Float32Array - 信号数据流"
+    output: "处理后的信号数据和频谱分析结果"
+  integration_requirements:
+    - "实时数据可视化"
+    - "Web Workers多线程支持"
+    - "JavaScript API接口"
+    - "性能监控和分析"
+
+output_spec:
+  type: "webassembly_application"
+  structure:
+    wasm_core:
+      - "src/lib.rs 或 src/main.cpp - 核心算法实现"
+      - "Cargo.toml 或 CMakeLists.txt - 构建配置"
+      - "pkg/ - 编译输出的WebAssembly模块"
+    web_integration:
+      - "js/wasm-loader.js - WASM模块加载器"
+      - "js/signal-processor.js - 信号处理接口"
+      - "js/visualization.js - 数据可视化"
+      - "js/worker.js - Web Worker支持"
+    frontend:
+      - "index.html - 主界面"
+      - "css/styles.css - 样式文件"
+      - "js/app.js - 应用主逻辑"
+    performance:
+      - "benchmark/ - 性能测试套件"
+      - "profiling/ - 性能分析工具"
+  build_requirements:
+    - "使用wasm-pack或emscripten构建"
+    - "支持SIMD指令优化"
+    - "内存池管理优化"
+    - "启用编译器优化标志"
+
+evaluation_criteria:
+  performance_optimization: 35
+  wasm_implementation: 25
+  js_integration: 20
+  memory_management: 10
+  parallel_computing: 10
+
+test_cases:
+  - name: "WebAssembly模块功能测试"
+    description: "验证WASM模块核心功能"
+    test_scenarios:
+      - name: "FFT算法正确性"
+        input: "1024点正弦波信号"
+        expected: "正确的频域转换结果"
+        tolerance: "数值误差 < 1e-6"
+        
+      - name: "数字滤波器测试"
+        input: "包含噪声的信号数据"
+        filters: ["低通", "高通", "带通", "带阻"]
+        expected: "滤波效果符合预期频响"
+        
+      - name: "实时数据聚合"
+        input: "流式数据（1M点/秒）"
+        operations: ["均值", "方差", "峰值检测", "趋势分析"]
+        expected: "实时聚合结果正确"
+        
+  - name: "性能基准测试"
+    description: "与JavaScript实现对比性能"
+    benchmarks:
+      - name: "FFT性能对比"
+        data_sizes: [512, 1024, 2048, 4096, 8192]
+        metrics:
+          - "执行时间对比"
+          - "内存使用对比"
+          - "CPU使用率对比"
+        target: "WASM性能 >= 5x JavaScript性能"
+        
+      - name: "大数据集处理"
+        test_data: "10M数据点连续处理"
+        metrics:
+          - "吞吐量测试"
+          - "内存稳定性"
+          - "垃圾回收影响"
+        requirements:
+          - "吞吐量 >= 1M点/秒"
+          - "内存使用稳定"
+          - "无内存泄漏"
+          
+      - name: "并行计算性能"
+        scenarios:
+          - "单线程WASM vs 多线程JavaScript"
+          - "Web Workers + WASM vs 纯JavaScript"
+        expected: "并行效率 >= 70%"
+        
+  - name: "JavaScript集成测试"
+    description: "测试WASM与JS的集成质量"
+    integration_tests:
+      - name: "API接口测试"
+        apis:
+          - "processSignal(data: Float32Array): Float32Array"
+          - "configureFilter(type: string, params: object): void"
+          - "getPerformanceMetrics(): object"
+        validation:
+          - "类型安全"
+          - "错误处理"
+          - "内存管理"
+          
+      - name: "数据传输效率"
+        test_scenarios:
+          - "大数组传输性能"
+          - "零拷贝数据共享"
+          - "内存映射优化"
+        target: "数据传输开销 < 5%处理时间"
+        
+      - name: "Web Workers集成"
+        tests:
+          - "WASM在Worker中正常运行"
+          - "主线程与Worker间数据传输"
+          - "多Worker并行处理"
+        expected: "Worker集成无阻塞，性能线性提升"
+        
+  - name: "内存管理测试"
+    description: "验证内存使用优化"
+    test_cases:
+      - name: "内存池管理"
+        scenarios:
+          - "预分配内存池使用"
+          - "动态内存分配优化"
+          - "内存碎片化控制"
+        metrics:
+          - "内存分配次数"
+          - "内存使用峰值"
+          - "内存回收效率"
+          
+      - name: "长期运行稳定性"
+        test_duration: "连续运行4小时"
+        operations: "重复进行复杂计算"
+        monitoring:
+          - "内存使用趋势"
+          - "性能衰减检测"
+          - "资源泄漏检测"
+        expected: "内存使用稳定，无性能衰减"
+        
+  - name: "浏览器兼容性测试"
+    description: "测试跨浏览器兼容性"
+    browsers:
+      - "Chrome (最新版)"
+      - "Firefox (最新版)"
+      - "Safari (最新版)"
+      - "Edge (最新版)"
+    features:
+      - "基本WASM支持"
+      - "SIMD指令支持"
+      - "多线程支持"
+      - "SharedArrayBuffer支持"
+    validation:
+      - "功能一致性"
+      - "性能差异分析"
+      - "特性支持检测"
+      
+  - name: "实际应用场景测试"
+    description: "模拟真实使用场景"
+    scenarios:
+      - name: "实时音频处理"
+        setup: "音频流实时分析和效果处理"
+        requirements:
+          - "延迟 < 10ms"
+          - "音质无损"
+          - "CPU使用率 < 30%"
+          
+      - name: "大规模数据可视化"
+        setup: "百万级数据点实时图表渲染"
+        requirements:
+          - "帧率 >= 60fps"
+          - "交互响应 < 16ms"
+          - "平滑缩放和平移"
+          
+      - name: "科学计算应用"
+        setup: "复杂数学模型求解"
+        requirements:
+          - "计算精度保证"
+          - "进度反馈实时"
+          - "可中断和恢复"
+
+time_limit: 7200  # 120分钟 

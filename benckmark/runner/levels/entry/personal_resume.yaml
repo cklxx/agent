@@ -1,0 +1,94 @@
+id: "beginner_web_resume"
+level: "beginner"
+domain: "web_development"
+title: "个人简历页面"
+description: |
+  创建一个单页HTML个人简历，包含个人信息、教育背景和兴趣爱好部分。
+  
+  要求：
+  - 使用标准HTML结构
+  - 包含基本CSS样式
+  - 显示所有提供的个人信息
+  - 结构清晰，语义化良好
+
+input_spec:
+  type: "json_data"
+  description: "个人信息JSON数据"
+  format:
+    name: "string"
+    email: "string"  
+    phone: "string"
+    education: "string"
+    skills: "array of strings"
+    interests: "array of strings"
+  example:
+    name: "张三"
+    email: "zhangsan@example.com"
+    phone: "138-0000-0000"
+    education: "计算机科学与技术学士"
+    skills: ["Python", "JavaScript", "HTML/CSS"]
+    interests: ["编程", "阅读", "摄影"]
+  
+output_spec:
+  type: "html_file"
+  filename: "resume.html"
+  description: "单个HTML文件，包含完整的个人简历页面"
+  requirements:
+    - "HTML5语法正确"
+    - "包含CSS样式（内嵌或内联）"
+    - "显示所有输入的个人信息"
+    - "使用语义化HTML标签"
+
+evaluation_criteria:
+  functionality: 40
+  code_structure: 25
+  readability: 20
+  edge_cases: 15
+
+test_cases:
+  - name: "基本信息显示"
+    input:
+      name: "李四"
+      email: "lisi@example.com"
+      phone: "139-1111-1111"
+      education: "软件工程硕士"
+      skills: ["Java", "Spring", "MySQL"]
+      interests: ["旅行", "音乐", "运动"]
+    expected:
+      html_contains:
+        - "李四"
+        - "lisi@example.com"
+        - "139-1111-1111"
+        - "软件工程硕士"
+        - "Java"
+        - "Spring"
+        - "MySQL"
+        - "旅行"
+        - "音乐"
+        - "运动"
+      html_structure:
+        - "<!DOCTYPE html>"
+        - "<html>"
+        - "<head>"
+        - "<title>"
+        - "<body>"
+      semantic_tags:
+        - "<h1>"
+        - "<h2>"
+        - "<p>"
+        
+  - name: "HTML验证"
+    input:
+      name: "王五"
+      email: "wangwu@test.com"
+      phone: "150-2222-2222"
+      education: "信息系统管理"
+      skills: ["PHP", "Laravel", "Vue.js"]
+      interests: ["电影", "游戏"]
+    validation:
+      - "HTML语法检查"
+      - "CSS语法检查"
+      - "标签闭合检查"
+      - "字符编码检查"
+
+time_limit: 120  # 2分钟 

@@ -1,0 +1,37 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+# Keep packaging source files
+!packaging/
+wheels/
+*.egg-info
+.coverage
+.coverage.*
+agent_history.gif
+static/browser_history/*.gif
+
+# Virtual environments
+.venv
+venv/
+
+# Environment variables
+.env
+
+# user conf
+conf.yaml
+
+.idea/
+.langgraph_api/
+
+# coverage report
+coverage.xml
+coverage/
+
+mcp.json
+
+.DS_Store
+
+# RAG temporary data
+temp/

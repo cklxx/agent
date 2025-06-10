@@ -1,0 +1,95 @@
+id: "entry_devops_file_backup"
+level: "entry"
+domain: "devops"
+title: "文件备份脚本"
+description: |
+  创建一个脚本，将指定文件夹中的文件复制到备份文件夹，添加时间戳。
+  
+  要求：
+  - 接受源文件夹路径和目标备份文件夹路径作为参数
+  - 复制所有文件到目标文件夹
+  - 为每个文件名添加当前日期时间戳
+  - 处理文件夹不存在的情况
+  - 提供进度反馈
+
+input_spec:
+  type: "script_parameters"
+  parameters:
+    - name: "source_dir"
+      type: "string"
+      description: "源文件夹路径"
+    - name: "backup_dir"
+      type: "string"
+      description: "备份文件夹路径"
+  format: "python script.py <source_dir> <backup_dir>"
+
+output_spec:
+  type: "script_file"
+  language: "python"
+  filename: "backup_script.py"
+  requirements:
+    - "使用argparse处理命令行参数"
+    - "使用shutil进行文件复制"
+    - "使用datetime生成时间戳"
+    - "包含错误处理"
+    - "提供详细的日志输出"
+
+evaluation_criteria:
+  functionality: 35
+  error_handling: 25
+  naming_logic: 20
+  code_readability: 20
+
+test_cases:
+  - name: "基本备份功能"
+    description: "测试正常备份流程"
+    setup:
+      source_files:
+        - "document.txt"
+        - "image.jpg" 
+        - "data.csv"
+    input:
+      source_dir: "./test_source"
+      backup_dir: "./test_backup"
+    expected:
+      - "备份文件夹创建成功"
+      - "包含3个带时间戳的文件"
+      - "文件内容保持不变"
+      - "时间戳格式正确 (YYYYMMDD_HHMMSS)"
+      
+  - name: "错误处理测试"
+    description: "测试异常情况处理"
+    scenarios:
+      - name: "源文件夹不存在"
+        input:
+          source_dir: "./nonexistent"
+          backup_dir: "./backup"
+        expected:
+          error: "FileNotFoundError"
+          message: "源文件夹不存在"
+          
+      - name: "权限不足"
+        input:
+          source_dir: "./readonly_source"
+          backup_dir: "/root/backup"
+        expected:
+          error: "PermissionError"
+          message: "权限不足"
+          
+  - name: "大量文件测试"
+    description: "测试处理多个文件的能力"
+    setup:
+      source_files: 50  # 50个测试文件
+    expected:
+      - "所有文件成功备份"
+      - "进度信息显示"
+      - "总结报告输出"
+      
+  - name: "时间戳格式验证"
+    description: "验证时间戳格式正确性"
+    checks:
+      - "时间戳格式为 YYYYMMDD_HHMMSS"
+      - "备份文件名格式为 原文件名_时间戳.扩展名"
+      - "时间戳唯一性（相同秒内的文件）"
+
+time_limit: 180  # 3分钟 

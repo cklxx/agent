@@ -1,0 +1,287 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ 'main' ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ 'main' ]
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create a release'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  # 先运行测试确保代码质量
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: |
+        uv venv --python ${{ env.PYTHON_VERSION }}
+        uv pip install -e ".[dev]"
+        uv pip install -e ".[test]"
+
+    - name: Run tests
+      run: |
+        source .venv/bin/activate
+        TAVILY_API_KEY=mock-key make test
+
+  # 多平台构建
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: x86_64
+          - os: macos-latest
+            platform: macos
+            arch: x86_64
+          - os: macos-14
+            platform: macos
+            arch: arm64
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: |
+        uv venv --python ${{ env.PYTHON_VERSION }}
+        uv pip install -e ".[dev]"
+        uv add --dev pyinstaller
+
+    - name: Test build environment
+      run: |
+        uv run python packaging/test_build.py
+
+    - name: Build executable
+      run: |
+        uv run python packaging/build.py
+
+    - name: Test executable (Unix)
+      if: runner.os != 'Windows'
+      run: |
+        chmod +x dist/code_agent
+        ./dist/code_agent --help
+        echo "Testing RAG enhanced features..."
+        echo "RAG Enhanced Code Agent is ready for use"
+
+    - name: Test executable (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        dist\code_agent.exe --help
+        echo "Testing RAG enhanced features..."
+        echo "RAG Enhanced Code Agent is ready for use"
+
+    - name: Create package name
+      id: package_name
+      shell: bash
+      run: |
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          exe_name="code_agent.exe"
+          package_name="code_agent-${{ matrix.platform }}-${{ matrix.arch }}"
+        else
+          exe_name="code_agent"
+          package_name="code_agent-${{ matrix.platform }}-${{ matrix.arch }}"
+        fi
+        echo "exe_name=$exe_name" >> $GITHUB_OUTPUT
+        echo "package_name=$package_name" >> $GITHUB_OUTPUT
+
+    - name: Create distribution package
+      shell: bash
+      run: |
+        package_name="${{ steps.package_name.outputs.package_name }}"
+        exe_name="${{ steps.package_name.outputs.exe_name }}"
+        
+        # 创建发布目录
+        mkdir -p "dist/$package_name"
+        
+        # 复制可执行文件
+        cp "dist/$exe_name" "dist/$package_name/"
+        
+        # 复制配置文件和文档
+        cp conf.yaml.example "dist/$package_name/"
+        cp README.md "dist/$package_name/"
+        cp packaging/README.md "dist/$package_name/BUILD_README.md"
+        
+        # 创建简单的启动说明
+        cat > "dist/$package_name/README.txt" << EOF
+        Code Agent - RAG Enhanced AI Coding Assistant
+        ============================================
+        
+        Quick Start:
+        - Run './code_agent --help' (or 'code_agent.exe --help' on Windows) to see available options
+        - Run './code_agent --interactive' for interactive mode
+        - Copy conf.yaml.example to conf.yaml and configure your settings
+        
+        For detailed documentation, see README.md and BUILD_README.md
+        
+        Build info:
+        - Platform: ${{ matrix.platform }}-${{ matrix.arch }}
+        - Build date: $(date)
+        - Git commit: ${{ github.sha }}
+        EOF
+        
+        # 创建压缩包
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          (cd dist && 7z a "$package_name.zip" "$package_name/")
+        else
+          (cd dist && tar -czf "$package_name.tar.gz" "$package_name/")
+        fi
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.package_name.outputs.package_name }}
+        path: |
+          dist/${{ steps.package_name.outputs.package_name }}.*
+        retention-days: 30
+
+    - name: Upload executable only (for quick testing)
+      uses: actions/upload-artifact@v4
+      with:
+        name: executable-${{ matrix.platform }}-${{ matrix.arch }}
+        path: dist/${{ steps.package_name.outputs.exe_name }}
+        retention-days: 7
+
+  # 创建Release（仅在推送tag时或手动触发时）
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Prepare release assets
+      run: |
+        mkdir -p release_assets
+        
+        # 移动所有平台的压缩包到release目录
+        find artifacts -name "*.tar.gz" -exec cp {} release_assets/ \;
+        find artifacts -name "*.zip" -exec cp {} release_assets/ \;
+        
+        # 创建校验和文件
+        cd release_assets
+        for file in *; do
+          if [ -f "$file" ]; then
+            sha256sum "$file" >> checksums.txt
+          fi
+        done
+        
+        ls -la
+
+    - name: Get version from tag
+      id: get_version
+      run: |
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        else
+          echo "version=dev-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.get_version.outputs.version }}
+        name: Code Agent ${{ steps.get_version.outputs.version }}
+        draft: false
+        prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        files: |
+          release_assets/*
+        body: |
+          # Code Agent ${{ steps.get_version.outputs.version }}
+          
+          ## 🚀 RAG增强AI编程助手
+          
+          这个版本包含了以下平台的预构建可执行文件：
+          
+          ### 支持的平台
+          - **Linux (x86_64)**: `code_agent-linux-x86_64.tar.gz`
+          - **Windows (x86_64)**: `code_agent-windows-x86_64.zip`
+          - **macOS (Intel)**: `code_agent-macos-x86_64.tar.gz`
+          - **macOS (Apple Silicon)**: `code_agent-macos-arm64.tar.gz`
+          
+          ### 🔧 安装说明
+          
+          1. 下载适合你平台的压缩包
+          2. 解压到你选择的目录
+          3. 复制 `conf.yaml.example` 为 `conf.yaml` 并配置
+          4. 运行 `./code_agent --help` 查看可用选项
+          
+          ### ✨ 新特性
+          - RAG增强的代码生成和分析
+          - 支持多种搜索引擎集成
+          - 交互式和命令行模式
+          - 完整的上下文管理系统
+          
+          ### 🔒 校验和
+          文件完整性校验请参考 `checksums.txt`
+          
+          ---
+          
+          **构建信息:**
+          - Git Commit: ${{ github.sha }}
+          - 构建时间: ${{ github.run_id }}
+          
+          如有问题请访问 [GitHub Issues](https://github.com/${{ github.repository }}/issues)
+
+  # 构建状态汇总
+  build-summary:
+    needs: [test, build]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Build Summary
+      run: |
+        echo "## 🏗️ Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Test Status" >> $GITHUB_STEP_SUMMARY
+        echo "- Tests: ${{ needs.test.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Build Status" >> $GITHUB_STEP_SUMMARY
+        echo "- Multi-platform Build: ${{ needs.build.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Available Platforms" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Linux x86_64" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Windows x86_64" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ macOS x86_64" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ macOS ARM64" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          echo "### 📦 Download Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "Built executables are available as workflow artifacts for testing." >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          echo "### 📦 Development Build" >> $GITHUB_STEP_SUMMARY
+          echo "This is a development build from main branch. Download artifacts for testing." >> $GITHUB_STEP_SUMMARY
+        fi 

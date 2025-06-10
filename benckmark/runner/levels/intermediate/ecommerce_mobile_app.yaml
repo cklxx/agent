@@ -1,0 +1,210 @@
+id: "intermediate_mobile_ecommerce"
+level: "intermediate"
+domain: "mobile_development"
+title: "电子商务移动应用"
+description: |
+  开发一个完整的移动电子商务应用，具有产品浏览、搜索、购物车、结账和订单跟踪功能。
+  
+  要求：
+  - 产品目录浏览和搜索功能
+  - 购物车管理（添加、删除、修改数量）
+  - 用户认证和个人资料管理
+  - 结账流程和支付集成（模拟）
+  - 订单历史和状态跟踪
+  - 离线数据缓存
+  - 推送通知支持
+
+input_spec:
+  type: "ecommerce_specification"
+  api_endpoints:
+    products:
+      - "GET /api/products - 获取产品列表"
+      - "GET /api/products/{id} - 获取产品详情"
+      - "GET /api/products/search?q={query} - 搜索产品"
+      - "GET /api/categories - 获取商品分类"
+    cart:
+      - "GET /api/cart - 获取购物车"
+      - "POST /api/cart/items - 添加商品到购物车"
+      - "PUT /api/cart/items/{id} - 更新购物车商品"
+      - "DELETE /api/cart/items/{id} - 从购物车删除商品"
+    orders:
+      - "POST /api/orders - 创建订单"
+      - "GET /api/orders - 获取订单历史"
+      - "GET /api/orders/{id} - 获取订单详情"
+    auth:
+      - "POST /api/auth/login - 用户登录"
+      - "POST /api/auth/register - 用户注册"
+      - "GET /api/auth/profile - 获取用户资料"
+  ui_design:
+    screens:
+      - "首页/产品列表"
+      - "产品详情页"
+      - "搜索页面"
+      - "购物车页面"
+      - "结账页面"
+      - "个人中心"
+      - "订单历史"
+    navigation: "底部标签导航 + 堆栈导航"
+    styling: "Material Design (Android) / Human Interface (iOS)"
+
+output_spec:
+  type: "mobile_application"
+  framework: "React Native 或 Flutter"
+  structure:
+    screens:
+      - "HomeScreen/home_screen.dart"
+      - "ProductDetailScreen/product_detail_screen.dart"
+      - "SearchScreen/search_screen.dart"
+      - "CartScreen/cart_screen.dart"
+      - "CheckoutScreen/checkout_screen.dart"
+      - "ProfileScreen/profile_screen.dart"
+      - "OrderHistoryScreen/order_history_screen.dart"
+    services:
+      - "ApiService/api_service.dart"
+      - "AuthService/auth_service.dart"
+      - "CartService/cart_service.dart"
+      - "StorageService/storage_service.dart"
+    state_management:
+      - "Redux/Provider/Bloc状态管理"
+      - "全局状态管理"
+      - "本地存储管理"
+    configuration:
+      - "package.json/pubspec.yaml"
+      - "app配置文件"
+      - "环境变量配置"
+
+evaluation_criteria:
+  functionality: 30
+  architecture: 25
+  state_management: 20
+  ui_ux: 15
+  testing: 10
+
+test_cases:
+  - name: "产品浏览功能测试"
+    description: "测试产品展示和搜索功能"
+    scenarios:
+      - name: "产品列表加载"
+        steps:
+          - "启动应用"
+          - "查看首页产品列表"
+          - "滚动加载更多产品"
+        expected:
+          - "产品列表正确显示"
+          - "图片正常加载"
+          - "分页加载工作正常"
+          - "加载状态提示"
+          
+      - name: "产品搜索功能"
+        steps:
+          - "点击搜索按钮"
+          - "输入搜索关键词"
+          - "查看搜索结果"
+        expected:
+          - "搜索结果准确"
+          - "搜索历史保存"
+          - "无结果时显示提示"
+          
+      - name: "产品详情查看"
+        steps:
+          - "点击产品进入详情页"
+          - "查看产品信息"
+          - "浏览产品图片"
+        expected:
+          - "详情信息完整显示"
+          - "图片轮播功能正常"
+          - "价格和库存显示正确"
+          
+  - name: "购物车管理测试"
+    description: "测试购物车CRUD操作"
+    scenarios:
+      - name: "添加商品到购物车"
+        steps:
+          - "在产品详情页点击'加入购物车'"
+          - "选择商品规格和数量"
+          - "确认添加"
+        expected:
+          - "商品成功添加到购物车"
+          - "购物车图标显示数量徽章"
+          - "显示成功添加提示"
+          
+      - name: "购物车页面操作"
+        steps:
+          - "进入购物车页面"
+          - "修改商品数量"
+          - "删除商品"
+          - "清空购物车"
+        expected:
+          - "数量修改实时更新总价"
+          - "删除操作有确认提示"
+          - "总价计算正确"
+          
+  - name: "用户认证测试"
+    description: "测试用户注册、登录和资料管理"
+    scenarios:
+      - name: "用户注册流程"
+        steps:
+          - "点击注册按钮"
+          - "填写注册信息"
+          - "提交注册"
+        expected:
+          - "表单验证正确"
+          - "注册成功后自动登录"
+          - "错误提示友好"
+          
+      - name: "用户登录流程"
+        steps:
+          - "输入用户名和密码"
+          - "点击登录"
+          - "查看个人中心"
+        expected:
+          - "登录状态持久化"
+          - "个人信息显示正确"
+          - "登录失败有错误提示"
+          
+  - name: "结账流程测试"
+    description: "测试完整的结账和支付流程"
+    scenarios:
+      - name: "结账页面功能"
+        steps:
+          - "从购物车进入结账页"
+          - "填写收货地址"
+          - "选择支付方式"
+          - "确认订单"
+        expected:
+          - "订单信息显示正确"
+          - "地址信息可保存"
+          - "支付方式选择正常"
+          - "订单确认成功"
+          
+      - name: "订单跟踪功能"
+        steps:
+          - "查看订单历史"
+          - "点击订单查看详情"
+          - "检查订单状态"
+        expected:
+          - "订单列表正确显示"
+          - "订单详情信息完整"
+          - "状态更新及时"
+          
+  - name: "离线和性能测试"
+    description: "测试应用性能和离线功能"
+    scenarios:
+      - name: "离线缓存测试"
+        steps:
+          - "正常浏览产品"
+          - "断开网络连接"
+          - "继续浏览已加载的内容"
+        expected:
+          - "已加载内容可正常访问"
+          - "离线状态有明确提示"
+          - "网络恢复后数据同步"
+          
+      - name: "性能基准测试"
+        metrics:
+          - "首屏加载时间 < 3秒"
+          - "列表滚动流畅度 > 55fps"
+          - "页面切换动画流畅"
+          - "内存使用稳定 < 150MB"
+
+time_limit: 6000  # 100分钟 

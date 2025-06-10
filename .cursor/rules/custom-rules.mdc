@@ -1,0 +1,88 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# DeepTool Development Rules
+
+## Environment and Dependencies
+- Always use `uv` environment for Python dependency installation and code execution
+- Ensure Python version >= 3.12 compatibility
+- Use `pnpm` for Node.js web UI dependencies when applicable
+- Follow semantic versioning for package updates
+
+## File Organization and Structure
+- Place final change reports in the `change-log/` directory
+- Organize files according to their purpose:
+  - Source code files: `src/`
+  - Documentation files: `docs/`
+  - Example files and reports: `examples/`
+  - Test files: `tests/`
+  - Configuration files: root directory or `src/config/`
+  - Scripts and CLI tools: `scripts/`
+  - Build artifacts: `build/` and `dist/`
+  - Web-related files: `web/`
+  - Assets (images, media): `assets/`
+  - Temporary files: `temp/` (add to .gitignore)
+  - RAG database files: `temp/rag_data/` (temporary data, excluded from git)
+
+## Code Quality and Standards
+- Follow PEP 8 standards with Black formatter (line length: 88)
+- Use type hints for all function parameters and return values
+- Write comprehensive docstrings for all modules, classes, and functions
+- Maintain test coverage above 25% (current project minimum)
+- Use async/await patterns for I/O operations where applicable
+- Output logs in English
+
+## Configuration Management
+- Store sensitive data in `.env` files (never commit to git)
+- Use `conf.yaml` for application configuration
+- Provide example configuration files (`.env.example`, `conf.yaml.example`)
+- Document all configuration options in `docs/configuration_guide.md`
+
+## Multi-Agent and LLM Integration
+- Use LangGraph for state-based workflow implementations
+- Implement proper error handling for LLM API calls with retry mechanisms
+- Use litellm for multi-provider LLM integration
+- Separate concerns between different agent types (research, coding, RAG, etc.)
+
+## API and Service Integration
+- Support multiple search engines (Tavily, Brave, DuckDuckGo, Arxiv)
+- Implement MCP (Model Context Protocol) integrations properly
+- Use RAGFlow integration for document retrieval when applicable
+- Follow OpenAI-compatible API patterns for consistency
+
+## Testing and Quality Assurance
+- Write unit tests for all core functionality
+- Use pytest with async support for testing
+- Implement integration tests for agent workflows
+- Test configuration loading and validation
+- Mock external API calls in unit tests
+
+## Documentation Standards
+- Maintain up-to-date README.md with installation and usage instructions
+- Document all CLI commands and their options
+- Provide examples for common use cases
+- Include architecture diagrams and flow charts where helpful
+- Write clear error messages and logging statements
+
+## Security and Privacy
+- Never commit API keys or sensitive credentials
+- Implement proper input validation and sanitization
+- Use secure defaults for all configurations
+- Follow privacy-first principles for search engines
+- Validate and sanitize user inputs before processing
+
+## Performance and Optimization
+- Use background processing for long-running tasks
+- Implement proper caching strategies for expensive operations
+- Monitor and log performance metrics
+- Optimize database queries and API calls
+- Use connection pooling for external services
+
+## Deployment and Distribution
+- Support both development and production modes
+- Provide Docker containerization options
+- Include proper logging configuration for different environments
+- Support cross-platform deployment (macOS, Linux, Windows)
+- Use PyInstaller for standalone executable creation

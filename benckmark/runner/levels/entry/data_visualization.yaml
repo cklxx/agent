@@ -1,0 +1,98 @@
+id: "entry_datascience_visualization"
+level: "entry"
+domain: "data_science"
+title: "简单数据可视化"
+description: |
+  使用提供的天气数据集创建温度变化折线图和降水量条形图。
+  
+  要求：
+  - 读取CSV格式的天气数据
+  - 创建温度变化折线图（最高温度和最低温度）
+  - 创建降水量条形图
+  - 添加适当的标题、坐标轴标签和图例
+  - 保存图表为PNG格式
+
+input_spec:
+  type: "csv_data"
+  filename: "weather_data.csv"
+  columns:
+    - "date": "日期 (YYYY-MM-DD格式)"
+    - "high_temp": "最高温度 (摄氏度)"
+    - "low_temp": "最低温度 (摄氏度)"
+    - "precipitation": "降水量 (毫米)"
+  sample_data:
+    - "2024-01-01,15,5,0"
+    - "2024-01-02,18,7,2.5"
+    - "2024-01-03,12,3,8.2"
+    - "2024-01-04,20,8,0"
+    - "2024-01-05,16,6,1.0"
+    - "2024-01-06,14,4,5.5"
+    - "2024-01-07,22,10,0"
+
+output_spec:
+  type: "visualization_script"
+  language: "python"
+  filename: "weather_visualization.py"
+  required_outputs:
+    - "temperature_trend.png - 温度趋势折线图"
+    - "precipitation_chart.png - 降水量条形图"
+  requirements:
+    - "使用matplotlib或seaborn进行绘图"
+    - "使用pandas读取CSV数据"
+    - "图表标题和坐标轴标签中文显示"
+    - "设置合适的图表大小和DPI"
+    - "包含图例和网格线"
+
+evaluation_criteria:
+  data_processing: 30
+  chart_completeness: 30
+  chart_readability: 25
+  code_organization: 15
+
+test_cases:
+  - name: "数据读取验证"
+    description: "检查CSV数据正确读取"
+    checks:
+      - "成功读取CSV文件"
+      - "正确解析日期列"
+      - "数据类型转换正确"
+      - "无缺失值处理"
+      
+  - name: "温度折线图验证"
+    description: "检查温度趋势图生成"
+    requirements:
+      - "包含最高温度和最低温度两条线"
+      - "X轴显示日期"
+      - "Y轴显示温度（摄氏度）"
+      - "图表标题：'7天温度变化趋势'"
+      - "包含图例标识不同温度线"
+      - "线条颜色区分明显"
+      
+  - name: "降水量条形图验证"
+    description: "检查降水量图表生成"
+    requirements:
+      - "X轴显示日期"
+      - "Y轴显示降水量（毫米）"
+      - "图表标题：'7天降水量分布'"
+      - "条形图颜色合适"
+      - "0降水量的日期也显示"
+      
+  - name: "图表质量检查"
+    description: "检查图表整体质量"
+    checks:
+      - "图表尺寸适中 (10x6 inches推荐)"
+      - "字体大小清晰可读"
+      - "坐标轴刻度合理"
+      - "包含网格线提高可读性"
+      - "图片保存为PNG格式"
+      - "DPI >= 150"
+      
+  - name: "代码质量检查"
+    description: "检查代码组织和注释"
+    checks:
+      - "导入语句组织合理"
+      - "函数命名清晰"
+      - "包含必要注释"
+      - "错误处理（文件不存在等）"
+
+time_limit: 240  # 4分钟 

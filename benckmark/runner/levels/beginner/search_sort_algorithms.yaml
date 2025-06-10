@@ -1,0 +1,142 @@
+id: "beginner_algo_search_sort"
+level: "beginner"
+domain: "algorithms"
+title: "搜索和排序算法实现"
+description: |
+  实现线性搜索、二分搜索、冒泡排序和选择排序算法，并分析复杂度。
+  
+  要求：
+  - 实现线性搜索算法
+  - 实现二分搜索算法
+  - 实现冒泡排序算法
+  - 实现选择排序算法
+  - 为每个算法提供时间复杂度分析
+  - 处理边界条件（空数组、单元素等）
+  - 包含详细注释说明算法思路
+
+input_spec:
+  type: "algorithm_parameters"
+  search_algorithms:
+    linear_search:
+      parameters:
+        - "arr: List[int] - 整数数组"
+        - "target: int - 目标值"
+      return: "int - 目标值的索引，未找到返回-1"
+    binary_search:
+      parameters:
+        - "arr: List[int] - 已排序的整数数组"
+        - "target: int - 目标值"
+      return: "int - 目标值的索引，未找到返回-1"
+  sort_algorithms:
+    bubble_sort:
+      parameters:
+        - "arr: List[int] - 待排序的整数数组"
+      return: "List[int] - 排序后的数组"
+    selection_sort:
+      parameters:
+        - "arr: List[int] - 待排序的整数数组"
+      return: "List[int] - 排序后的数组"
+
+output_spec:
+  type: "algorithm_implementation"
+  language: "python"
+  filename: "search_sort_algorithms.py"
+  requirements:
+    - "每个算法作为独立函数实现"
+    - "包含详细的docstring说明"
+    - "时间复杂度和空间复杂度注释"
+    - "处理边界条件"
+    - "包含简单的测试用例"
+
+evaluation_criteria:
+  algorithm_correctness: 40
+  complexity_analysis: 25
+  code_quality: 20
+  edge_case_handling: 15
+
+test_cases:
+  - name: "线性搜索测试"
+    description: "测试线性搜索算法正确性"
+    test_data:
+      - input: 
+          arr: [1, 3, 5, 7, 9, 11]
+          target: 7
+        expected: 3
+      - input:
+          arr: [2, 4, 6, 8, 10]
+          target: 3
+        expected: -1
+      - input:
+          arr: []
+          target: 5
+        expected: -1
+      - input:
+          arr: [42]
+          target: 42
+        expected: 0
+        
+  - name: "二分搜索测试"
+    description: "测试二分搜索算法正确性"
+    test_data:
+      - input:
+          arr: [1, 3, 5, 7, 9, 11, 13, 15]
+          target: 9
+        expected: 4
+      - input:
+          arr: [2, 4, 6, 8, 10, 12]
+          target: 7
+        expected: -1
+      - input:
+          arr: [1, 2, 3, 4, 5]
+          target: 1
+        expected: 0
+      - input:
+          arr: [1, 2, 3, 4, 5]
+          target: 5
+        expected: 4
+        
+  - name: "冒泡排序测试"
+    description: "测试冒泡排序算法正确性"
+    test_data:
+      - input: [64, 34, 25, 12, 22, 11, 90]
+        expected: [11, 12, 22, 25, 34, 64, 90]
+      - input: [5, 1, 4, 2, 8]
+        expected: [1, 2, 4, 5, 8]
+      - input: [1]
+        expected: [1]
+      - input: []
+        expected: []
+      - input: [3, 3, 3, 3]
+        expected: [3, 3, 3, 3]
+        
+  - name: "选择排序测试"
+    description: "测试选择排序算法正确性"
+    test_data:
+      - input: [64, 25, 12, 22, 11]
+        expected: [11, 12, 22, 25, 64]
+      - input: [29, 10, 14, 37, 13]
+        expected: [10, 13, 14, 29, 37]
+      - input: [1]
+        expected: [1]
+      - input: []
+        expected: []
+        
+  - name: "复杂度分析验证"
+    description: "验证时间复杂度分析的正确性"
+    requirements:
+      - "线性搜索: O(n) 时间复杂度"
+      - "二分搜索: O(log n) 时间复杂度"
+      - "冒泡排序: O(n²) 时间复杂度"
+      - "选择排序: O(n²) 时间复杂度"
+      - "所有算法: O(1) 额外空间复杂度"
+      
+  - name: "边界条件测试"
+    description: "测试各种边界条件处理"
+    scenarios:
+      - "空数组处理"
+      - "单元素数组处理"
+      - "重复元素处理"
+      - "已排序数组处理"
+      - "逆序数组处理"
+
+time_limit: 2400  # 40分钟 

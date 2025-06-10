@@ -1,0 +1,139 @@
+id: "elementary_algo_sorting_search"
+level: "elementary"
+domain: "algorithms"
+title: "搜索和排序算法实现"
+description: |
+  实现经典的搜索和排序算法，包括线性搜索、二分搜索、冒泡排序和选择排序。
+  
+  要求：
+  - 实现四个算法的完整代码
+  - 分析每个算法的时间复杂度
+  - 处理边界条件和异常情况
+  - 提供算法正确性的测试验证
+
+input_spec:
+  type: "algorithm_requirements"
+  algorithms:
+    linear_search:
+      description: "在数组中查找目标值，返回索引或-1"
+      signature: "linear_search(arr: List[int], target: int) -> int"
+      complexity: "O(n)"
+    binary_search:
+      description: "在有序数组中查找目标值，返回索引或-1"
+      signature: "binary_search(arr: List[int], target: int) -> int"
+      complexity: "O(log n)"
+      precondition: "输入数组必须已排序"
+    bubble_sort:
+      description: "使用冒泡排序算法对数组进行排序"
+      signature: "bubble_sort(arr: List[int]) -> List[int]"
+      complexity: "O(n²)"
+    selection_sort:
+      description: "使用选择排序算法对数组进行排序"
+      signature: "selection_sort(arr: List[int]) -> List[int]"
+      complexity: "O(n²)"
+  
+output_spec:
+  type: "algorithm_implementation"
+  deliverables:
+    source_code:
+      - "algorithms.py - 包含所有四个算法的实现"
+      - "test_algorithms.py - 完整的测试套件"
+      - "complexity_analysis.md - 复杂度分析文档"
+    requirements:
+      - "每个函数包含详细的文档字符串"
+      - "算法实现必须符合指定的函数签名"
+      - "包含适当的错误处理"
+      - "测试覆盖率达到100%"
+
+evaluation_criteria:
+  functionality: 40
+  complexity_analysis: 25
+  code_quality: 20
+  edge_cases: 15
+
+test_cases:
+  - name: "线性搜索测试"
+    description: "验证线性搜索算法正确性"
+    test_data:
+      - input: {arr: [1, 3, 5, 7, 9], target: 5}
+        expected: 2
+      - input: {arr: [1, 3, 5, 7, 9], target: 1}
+        expected: 0
+      - input: {arr: [1, 3, 5, 7, 9], target: 9}
+        expected: 4
+      - input: {arr: [1, 3, 5, 7, 9], target: 4}
+        expected: -1
+      - input: {arr: [], target: 1}
+        expected: -1
+        
+  - name: "二分搜索测试"
+    description: "验证二分搜索算法正确性"
+    test_data:
+      - input: {arr: [1, 3, 5, 7, 9, 11, 13], target: 7}
+        expected: 3
+      - input: {arr: [1, 3, 5, 7, 9, 11, 13], target: 1}
+        expected: 0
+      - input: {arr: [1, 3, 5, 7, 9, 11, 13], target: 13}
+        expected: 6
+      - input: {arr: [1, 3, 5, 7, 9, 11, 13], target: 6}
+        expected: -1
+      - input: {arr: [1], target: 1}
+        expected: 0
+      - input: {arr: [], target: 1}
+        expected: -1
+        
+  - name: "冒泡排序测试"
+    description: "验证冒泡排序算法正确性"
+    test_data:
+      - input: {arr: [64, 34, 25, 12, 22, 11, 90]}
+        expected: [11, 12, 22, 25, 34, 64, 90]
+      - input: {arr: [5, 2, 8, 1, 9]}
+        expected: [1, 2, 5, 8, 9]
+      - input: {arr: [1]}
+        expected: [1]
+      - input: {arr: []}
+        expected: []
+      - input: {arr: [3, 3, 3, 3]}
+        expected: [3, 3, 3, 3]
+      - input: {arr: [5, 4, 3, 2, 1]}
+        expected: [1, 2, 3, 4, 5]
+        
+  - name: "选择排序测试"
+    description: "验证选择排序算法正确性"
+    test_data:
+      - input: {arr: [64, 25, 12, 22, 11]}
+        expected: [11, 12, 22, 25, 64]
+      - input: {arr: [5, 2, 8, 1, 9]}
+        expected: [1, 2, 5, 8, 9]
+      - input: {arr: [1]}
+        expected: [1]
+      - input: {arr: []}
+        expected: []
+      - input: {arr: [2, 2, 2, 2]}
+        expected: [2, 2, 2, 2]
+        
+  - name: "性能测试"
+    description: "验证算法性能符合复杂度要求"
+    performance_tests:
+      - algorithm: "linear_search"
+        test_size: 10000
+        max_time: "10ms"
+      - algorithm: "binary_search"
+        test_size: 10000
+        max_time: "1ms"
+      - algorithm: "bubble_sort"
+        test_size: 1000
+        max_time: "100ms"
+      - algorithm: "selection_sort"
+        test_size: 1000
+        max_time: "100ms"
+        
+  - name: "复杂度分析验证"
+    description: "验证复杂度分析的准确性"
+    analysis_requirements:
+      - "每个算法包含详细的复杂度分析"
+      - "分析最好、平均、最坏情况"
+      - "包含空间复杂度分析"
+      - "提供复杂度增长的数学证明或解释"
+
+time_limit: 1800  # 30分钟 

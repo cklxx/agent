@@ -1,0 +1,131 @@
+id: "intermediate_web_todo_app"
+level: "intermediate"
+domain: "web_development"
+title: "全栈待办事项应用"
+description: |
+  开发一个完整的待办事项Web应用，包括前端界面和后端API。
+  
+  功能要求：
+  - 用户可以添加、编辑、删除待办事项
+  - 支持标记待办事项为已完成/未完成
+  - 数据持久化存储
+  - 响应式设计，支持移动端
+  - 基本的用户认证
+  - RESTful API设计
+
+input_spec:
+  type: "requirements_document"
+  description: "应用需求规范和API设计"
+  components:
+    frontend:
+      framework: "React或Vue.js或原生JavaScript"
+      features:
+        - "添加新任务表单"
+        - "任务列表显示"
+        - "任务状态切换"
+        - "任务编辑功能"
+        - "任务删除功能"
+        - "筛选功能（全部/已完成/未完成）"
+    backend:
+      framework: "Express.js或Django或FastAPI"
+      endpoints:
+        - "GET /api/todos - 获取所有任务"
+        - "POST /api/todos - 创建新任务"
+        - "PUT /api/todos/:id - 更新任务"
+        - "DELETE /api/todos/:id - 删除任务"
+        - "POST /api/auth/login - 用户登录"
+        - "POST /api/auth/register - 用户注册"
+    database:
+      type: "SQLite或MongoDB"
+      schema:
+        users: ["id", "username", "password_hash", "email"]
+        todos: ["id", "user_id", "title", "description", "completed", "created_at", "updated_at"]
+  
+output_spec:
+  type: "full_stack_application"
+  structure:
+    frontend:
+      - "index.html"
+      - "styles.css"
+      - "script.js"
+      - "package.json (如使用框架)"
+    backend:
+      - "app.py/server.js"
+      - "models.py/models.js"
+      - "routes.py/routes.js"
+      - "requirements.txt/package.json"
+    database:
+      - "database schema"
+      - "初始化脚本"
+    documentation:
+      - "API文档"
+      - "安装运行说明"
+
+evaluation_criteria:
+  functionality: 30
+  architecture: 25
+  code_quality: 20
+  security: 15
+  testing: 10
+
+test_cases:
+  - name: "CRUD操作测试"
+    description: "测试所有基本CRUD操作"
+    steps:
+      - "创建新用户账户"
+      - "登录用户"
+      - "添加3个待办事项"
+      - "标记1个为已完成"
+      - "编辑1个任务标题"
+      - "删除1个任务"
+      - "验证剩余任务数量和状态"
+    expected:
+      - "用户成功注册和登录"
+      - "任务创建成功，返回正确ID"
+      - "任务状态正确更新"
+      - "任务编辑功能正常"
+      - "任务删除功能正常"
+      - "最终状态：2个任务，1个已完成"
+      
+  - name: "API响应格式测试"
+    description: "验证API响应格式符合RESTful标准"
+    endpoints:
+      - endpoint: "GET /api/todos"
+        expected_response:
+          status: 200
+          format: "JSON array"
+          fields: ["id", "title", "completed", "created_at"]
+      - endpoint: "POST /api/todos"
+        request_body: {"title": "Test task", "description": "Test description"}
+        expected_response:
+          status: 201
+          format: "JSON object"
+          fields: ["id", "title", "description", "completed"]
+          
+  - name: "前端功能测试"
+    description: "自动化UI测试"
+    scenarios:
+      - "页面加载测试"
+      - "表单提交测试"
+      - "任务列表更新测试"
+      - "筛选功能测试"
+      - "响应式设计测试"
+      
+  - name: "安全性测试"
+    description: "基本安全检查"
+    checks:
+      - "SQL注入防护"
+      - "XSS防护"
+      - "身份验证检查"
+      - "CORS配置"
+      - "密码哈希检查"
+      
+  - name: "性能测试"
+    description: "基本性能指标"
+    metrics:
+      - "页面加载时间 < 2秒"
+      - "API响应时间 < 500ms"
+      - "并发用户数 >= 10"
+      - "内存使用 < 200MB"
+
+time_limit: 3600  # 1小时 

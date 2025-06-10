@@ -1,0 +1,124 @@
+name: Quick Build (Dev)
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Platform to build for'
+        required: true
+        default: 'ubuntu-latest'
+        type: choice
+        options:
+        - ubuntu-latest
+        - windows-latest
+        - macos-latest
+        - macos-14
+      skip_tests:
+        description: 'Skip tests for faster build'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  quick-test:
+    runs-on: ubuntu-latest
+    if: ${{ !inputs.skip_tests }}
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: |
+        uv venv --python ${{ env.PYTHON_VERSION }}
+        uv pip install -e ".[dev]"
+        uv pip install -e ".[test]"
+
+    - name: Run quick tests
+      run: |
+        source .venv/bin/activate
+        TAVILY_API_KEY=mock-key python -m pytest tests/ -x -v --tb=short
+
+  quick-build:
+    runs-on: ${{ inputs.platform }}
+    needs: [quick-test]
+    if: always() && (needs.quick-test.result == 'success' || inputs.skip_tests)
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: |
+        uv venv --python ${{ env.PYTHON_VERSION }}
+        uv pip install -e ".[dev]"
+        uv add --dev pyinstaller
+
+    - name: Build executable
+      run: |
+        uv run python packaging/build.py
+
+    - name: Test executable (Unix)
+      if: runner.os != 'Windows'
+      run: |
+        chmod +x dist/code_agent
+        ./dist/code_agent --help
+        echo "RAG Enhanced Code Agent build successful"
+
+    - name: Test executable (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        dist\code_agent.exe --help
+        echo "RAG Enhanced Code Agent build successful"
+
+    - name: Get platform info
+      id: platform_info
+      shell: bash
+      run: |
+        case "${{ inputs.platform }}" in
+          "ubuntu-latest")
+            echo "name=linux-x86_64" >> $GITHUB_OUTPUT
+            echo "exe_name=code_agent" >> $GITHUB_OUTPUT
+            ;;
+          "windows-latest")
+            echo "name=windows-x86_64" >> $GITHUB_OUTPUT
+            echo "exe_name=code_agent.exe" >> $GITHUB_OUTPUT
+            ;;
+          "macos-latest")
+            echo "name=macos-x86_64" >> $GITHUB_OUTPUT
+            echo "exe_name=code_agent" >> $GITHUB_OUTPUT
+            ;;
+          "macos-14")
+            echo "name=macos-arm64" >> $GITHUB_OUTPUT
+            echo "exe_name=code_agent" >> $GITHUB_OUTPUT
+            ;;
+        esac
+
+    - name: Upload executable
+      uses: actions/upload-artifact@v4
+      with:
+        name: quick-build-${{ steps.platform_info.outputs.name }}
+        path: dist/${{ steps.platform_info.outputs.exe_name }}
+        retention-days: 3
+
+    - name: Build Summary
+      run: |
+        echo "## 🚀 Quick Build Complete" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Build Details" >> $GITHUB_STEP_SUMMARY
+        echo "- Platform: ${{ inputs.platform }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Executable: ${{ steps.platform_info.outputs.exe_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Tests skipped: ${{ inputs.skip_tests }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📦 Download" >> $GITHUB_STEP_SUMMARY
+        echo "The built executable is available as a workflow artifact: \`quick-build-${{ steps.platform_info.outputs.name }}\`" >> $GITHUB_STEP_SUMMARY 
