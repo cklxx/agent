@@ -181,7 +181,7 @@ class TestRAGEnhancedCodeTaskPlanner:
 
         assert planner.repo_path == temp_repo
         assert planner.context_manager is not None
-        assert planner.code_retriever is not None
+        assert planner.rag_retriever is not None
         assert planner.code_indexer is not None
         assert planner.tasks == []
         assert planner.current_step == 0
@@ -239,20 +239,112 @@ class TestRAGEnhancedCodeTaskPlanner:
 
             pytest.skip("CI environment failed to index any files")
 
-        task_description = "创建一个新的数据处理类"
-        plan = await temp_rag_planner.plan_task_with_context(task_description)
+        # Mock LLM响应来避免真实API调用
+        mock_llm_response = Mock()
+        mock_llm_response.content = """[
+            {
+                "id": 1,
+                "title": "创建数据处理类",
+                "description": "创建一个新的数据处理类来处理输入数据",
+                "type": "implementation",
+                "priority": 1,
+                "tools": ["write_file", "read_file"]
+            },
+            {
+                "id": 2,
+                "title": "添加数据验证",
+                "description": "为数据处理类添加输入验证功能",
+                "type": "implementation",
+                "priority": 2,
+                "tools": ["write_file"]
+            }
+        ]"""
 
-        assert isinstance(plan, list)
-        assert len(plan) > 0
+        with patch(
+            "src.agents.rag_enhanced_code_agent.get_llm_by_type"
+        ) as mock_get_llm:
+            mock_llm = Mock()
+            mock_llm.ainvoke = Mock(return_value=mock_llm_response)
+            mock_get_llm.return_value = mock_llm
 
-        # 检查计划结构
-        for step in plan:
-            assert "id" in step
-            assert "phase" in step
-            assert "title" in step
-            assert "description" in step
-            assert "rag_enhanced" in step
-            assert step["rag_enhanced"] is True
+            task_description = "创建一个新的数据处理类"
+            plan = await temp_rag_planner.plan_task_with_context(task_description)
+
+            assert isinstance(plan, list)
+            assert len(plan) > 0
+
+            # 检查计划结构
+            for step in plan:
+                assert "id" in step
+                assert "title" in step
+                assert "description" in step
+                assert "rag_enhanced" in step
+                assert step["rag_enhanced"] is True
+
+            # 验证LLM被调用
+            mock_get_llm.assert_called_once_with("reasoning")
+            mock_llm.ainvoke.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_plan_task_with_context_llm_failure(self, temp_rag_planner):
+        """测试LLM API失败时的fallback逻辑"""
+        # 检查索引状态
+        indexer_stats = temp_rag_planner.code_indexer.get_statistics()
+        if indexer_stats.get("total_files", 0) == 0:
+            import pytest
+
+            pytest.skip("CI environment failed to index any files")
+
+        # Mock LLM抛出异常
+        with patch(
+            "src.agents.rag_enhanced_code_agent.get_llm_by_type"
+        ) as mock_get_llm:
+            mock_llm = Mock()
+            mock_llm.ainvoke = Mock(side_effect=Exception("API调用失败"))
+            mock_get_llm.return_value = mock_llm
+
+            task_description = "创建一个新的数据处理类"
+            plan = await temp_rag_planner.plan_task_with_context(task_description)
+
+            # 应该返回fallback计划
+            assert isinstance(plan, list)
+            assert len(plan) == 1
+            assert plan[0]["id"] == 1
+            assert plan[0]["title"] == "Execute Task"
+            assert plan[0]["rag_enhanced"] is True
+            assert "context_available" in plan[0]
+
+    @pytest.mark.asyncio
+    async def test_plan_task_with_context_invalid_json(self, temp_rag_planner):
+        """测试LLM返回无效JSON时的fallback逻辑"""
+        # 检查索引状态
+        indexer_stats = temp_rag_planner.code_indexer.get_statistics()
+        if indexer_stats.get("total_files", 0) == 0:
+            import pytest
+
+            pytest.skip("CI environment failed to index any files")
+
+        # Mock LLM返回无效JSON
+        mock_llm_response = Mock()
+        mock_llm_response.content = "这是无效的JSON响应，没有包含有效的计划"
+
+        with patch(
+            "src.agents.rag_enhanced_code_agent.get_llm_by_type"
+        ) as mock_get_llm:
+            mock_llm = Mock()
+            mock_llm.ainvoke = Mock(return_value=mock_llm_response)
+            mock_get_llm.return_value = mock_llm
+
+            task_description = "创建一个新的数据处理类"
+            plan = await temp_rag_planner.plan_task_with_context(task_description)
+
+            # 应该返回fallback计划
+            assert isinstance(plan, list)
+            assert len(plan) == 1
+            assert plan[0]["id"] == 1
+            assert plan[0]["title"] == "Execute Task"
+            assert plan[0]["rag_enhanced"] is True
+            assert "context_available" in plan[0]
 
 
 class TestRAGEnhancedCodeAgent:

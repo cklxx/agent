@@ -63,20 +63,46 @@ class TestResult:
 class BenchmarkTestRunner:
     """Benchmark测试运行器主类"""
 
-    def __init__(self, config_path: str = "config/test_config.yaml"):
+    def __init__(
+        self, config_path: str = "config/test_config.yaml", workspace_path: str = None
+    ):
         """初始化测试运行器"""
         self.config_path = Path(config_path)
         self.config = self._load_config()
         self.base_dir = Path(__file__).parent
-        self.sandbox_dir = self.base_dir / "sandbox"
+
+        # 创建专门的临时文件夹
+        self.temp_dir = self.base_dir / "temp_generated"
+        self.sandbox_dir = self.temp_dir / "sandbox"
         self.reports_dir = self.base_dir / "reports"
+        self.generated_code_dir = self.temp_dir / "generated_code"
+
+        # 设置工作区路径
+        if workspace_path:
+            self.workspace_path = Path(workspace_path)
+        else:
+            # 默认使用项目根目录
+            self.workspace_path = self.base_dir.parent.parent
+
+        logger.info(f"工作区路径: {self.workspace_path}")
+        logger.info(f"临时文件目录: {self.temp_dir}")
 
         # 确保目录存在
+        self.temp_dir.mkdir(exist_ok=True)
         self.sandbox_dir.mkdir(exist_ok=True)
         self.reports_dir.mkdir(exist_ok=True)
+        self.generated_code_dir.mkdir(exist_ok=True)
 
         self.test_tasks: Dict[str, TestTask] = {}
         self.test_results: List[TestResult] = []
+
+        # 加载工作区配置
+        self.workspace_config = self._load_workspace_config()
+
+        # 初始化RAG Agent（如果启用）
+        self.rag_agent = None
+        if self.workspace_config.get("rag_agent", {}).get("enabled", False):
+            self._init_rag_agent()
 
     def _load_config(self) -> Dict[str, Any]:
         """加载测试配置"""
@@ -152,6 +178,54 @@ class BenchmarkTestRunner:
                 },
             },
         }
+
+    def _load_workspace_config(self) -> Dict[str, Any]:
+        """加载工作区配置"""
+        workspace_config_path = self.base_dir / "config" / "workspace_config.yaml"
+        try:
+            if workspace_config_path.exists():
+                with open(workspace_config_path, "r", encoding="utf-8") as f:
+                    return yaml.safe_load(f)
+            else:
+                logger.warning(
+                    f"工作区配置文件 {workspace_config_path} 不存在，使用默认配置"
+                )
+                return self._get_default_workspace_config()
+        except Exception as e:
+            logger.error(f"加载工作区配置失败: {e}")
+            return self._get_default_workspace_config()
+
+    def _get_default_workspace_config(self) -> Dict[str, Any]:
+        """获取默认工作区配置"""
+        return {
+            "workspace": {
+                "root_path": str(self.workspace_path),
+                "temp_path": str(self.workspace_path / "temp"),
+                "rag_data_path": str(self.workspace_path / "temp" / "rag_data"),
+                "context_db_path": str(self.workspace_path / "temp" / "contexts.db"),
+            },
+            "rag_agent": {"enabled": False},
+            "environment": {
+                "use_project_env": True,
+                "working_directory": str(self.workspace_path),
+            },
+        }
+
+    def _init_rag_agent(self):
+        """初始化RAG Agent"""
+        try:
+            sys.path.insert(0, str(self.workspace_path))
+            from src.rag_enhanced_code_agent_workflow import (
+                RAGEnhancedCodeAgentWorkflow,
+            )
+
+            self.rag_agent = RAGEnhancedCodeAgentWorkflow(
+                repo_path=str(self.workspace_path)
+            )
+            logger.info("✅ RAG Code Agent 初始化成功")
+        except Exception as e:
+            logger.error(f"❌ RAG Code Agent 初始化失败: {e}")
+            self.rag_agent = None
 
     def load_test_tasks(
         self, level: Optional[str] = None, domain: Optional[str] = None
@@ -257,12 +331,70 @@ class BenchmarkTestRunner:
             )
 
     async def _simulate_code_generation(self, task: TestTask) -> str:
-        """模拟AI Agent代码生成（实际实现中应该调用真实的AI Agent）"""
+        """代码生成 - 优先使用RAG Agent，备用传统模板"""
+        # 如果RAG Agent可用，使用RAG Agent生成代码
+        if self.rag_agent:
+            try:
+                logger.info(f"🤖 使用RAG Code Agent生成代码: {task.title}")
+
+                # 构建任务描述
+                rag_task_description = f"""
+                请根据以下任务要求生成代码:
+                
+                任务标题: {task.title}
+                任务描述: {task.description}
+                级别: {task.level}
+                领域: {task.domain}
+                
+                输入规格: {task.input_spec}
+                输出规格: {task.output_spec}
+                评估标准: {task.evaluation_criteria}
+                
+                请生成符合要求的完整代码实现。
+                """
+
+                # 使用RAG Agent执行任务
+                result = await self.rag_agent.execute_task(
+                    task_description=rag_task_description, max_iterations=3
+                )
+
+                if result.get("success") and result.get("results"):
+                    # 提取生成的代码
+                    for step_result in result["results"]:
+                        if step_result.get("generated_code"):
+                            logger.info("✅ RAG Agent 成功生成代码")
+                            return step_result["generated_code"]
+                        elif (
+                            step_result.get("output") and "```" in step_result["output"]
+                        ):
+                            # 尝试从输出中提取代码块
+                            output = step_result["output"]
+                            code_start = output.find("```python")
+                            if code_start == -1:
+                                code_start = output.find("```")
+                            if code_start != -1:
+                                code_start = output.find("\n", code_start) + 1
+                                code_end = output.find("```", code_start)
+                                if code_end != -1:
+                                    extracted_code = output[code_start:code_end].strip()
+                                    logger.info("✅ 从RAG Agent输出中提取代码")
+                                    return extracted_code
+
+                logger.warning("⚠️ RAG Agent 未生成有效代码，使用模板生成")
+
+            except Exception as e:
+                logger.error(f"❌ RAG Agent 代码生成失败: {e}")
+
+        # 备用方案：使用传统模板生成
+        logger.info(f"📝 使用模板生成代码: {task.title}")
         await asyncio.sleep(1)  # 模拟生成时间
 
-        # 根据任务类型返回不同的示例代码
+        # 根据任务类型返回不同的示例代码并保存到文件
+        generated_code = ""
+        file_extension = ""
+
         if task.domain == "algorithms":
-            return """
+            generated_code = """
 def temperature_converter(value, unit):
     if unit == 'C':
         return round((value * 9/5) + 32, 1), 'F'
@@ -271,8 +403,9 @@ def temperature_converter(value, unit):
     else:
         raise ValueError("Invalid unit")
 """
+            file_extension = ".py"
         elif task.domain == "web_development":
-            return """
+            generated_code = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -297,8 +430,24 @@ def temperature_converter(value, unit):
 </body>
 </html>
 """
+            file_extension = ".html"
         else:
-            return "# 示例代码\nprint('Hello, World!')"
+            generated_code = "# 示例代码\nprint('Hello, World!')"
+            file_extension = ".py"
+
+        # 将生成的代码保存到临时文件
+        try:
+            code_file = (
+                self.generated_code_dir
+                / f"{task.id}_{task.level}_{task.domain}{file_extension}"
+            )
+            with open(code_file, "w", encoding="utf-8") as f:
+                f.write(generated_code)
+            logger.info(f"💾 代码已保存到: {code_file}")
+        except Exception as e:
+            logger.warning(f"⚠️ 保存代码文件失败: {e}")
+
+        return generated_code
 
     async def _run_functional_tests(
         self, task: TestTask, code: str, sandbox_dir: Path
@@ -585,11 +734,17 @@ def main():
     parser.add_argument(
         "--config", default="config/test_config.yaml", help="配置文件路径"
     )
+    parser.add_argument(
+        "--workspace", type=str, help="指定工作区路径（用于RAG Code Agent测试）"
+    )
+    parser.add_argument(
+        "--enable-rag", action="store_true", help="启用RAG Code Agent测试功能"
+    )
 
     args = parser.parse_args()
 
     # 创建测试运行器
-    runner = BenchmarkTestRunner(args.config)
+    runner = BenchmarkTestRunner(args.config, workspace_path=args.workspace)
 
     try:
         # 运行测试

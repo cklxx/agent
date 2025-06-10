@@ -1,9 +1,9 @@
-# AI Agent 编程能力测试配置文件
+# AI Agent Benchmark 测试配置文件
 
-# 支持的难度级别
+# 支持的测试级别
 levels:
   - beginner
-  - elementary
+  - elementary 
   - intermediate
   - advanced
   - expert
@@ -16,6 +16,79 @@ domains:
   - algorithms
   - devops
   - data_science
+
+# 基础配置
+timeout: 300  # 每个任务的超时时间（秒）
+parallel_tasks: 3  # 并行执行的任务数
+sandbox_enabled: true  # 是否启用沙箱环境
+output_formats:
+  - json
+  - html
+
+# RAG Code Agent 配置
+rag_agent:
+  enabled: true
+  max_iterations: 3
+  code_extraction_patterns:
+    - "```python"
+    - "```javascript"
+    - "```html"
+    - "```css"
+  timeout: 120  # RAG Agent 任务超时时间
+
+# 评分标准配置
+evaluation:
+  beginner:
+    functionality: 40     # 功能实现
+    code_structure: 25    # 代码结构
+    readability: 20       # 可读性
+    edge_cases: 15        # 边界情况处理
+    
+  elementary:
+    functionality: 35     # 功能实现
+    code_quality: 25      # 代码质量
+    user_experience: 20   # 用户体验
+    error_handling: 20    # 错误处理
+    
+  intermediate:
+    functionality: 30     # 功能实现
+    architecture: 25      # 架构设计
+    performance: 20       # 性能优化
+    security: 15          # 安全性
+    testing: 10           # 测试覆盖
+    
+  advanced:
+    functionality: 25     # 功能实现
+    architecture: 25      # 架构设计
+    performance: 20       # 性能优化
+    security: 15          # 安全性
+    maintainability: 15   # 可维护性
+    
+  expert:
+    innovation: 30        # 创新性
+    architecture: 25      # 架构设计
+    performance: 20       # 性能优化
+    complexity: 15        # 复杂度处理
+    knowledge: 10         # 领域知识
+    
+  master:
+    innovation: 35        # 创新性
+    architecture: 25      # 架构设计
+    integration: 20       # 系统集成
+    efficiency: 15        # 效率优化
+    impact: 5             # 业务影响
+
+# 日志配置
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/benchmark.log"
+
+# 报告配置
+reporting:
+  include_code: true      # 是否在报告中包含生成的代码
+  include_details: true   # 是否包含详细信息
+  max_code_length: 5000   # 报告中代码的最大长度
 
 # 执行配置
 execution:
@@ -31,48 +104,6 @@ output:
   detailed_logs: true  # 是否生成详细日志
   save_generated_code: true  # 是否保存生成的代码
   include_test_data: false  # 是否在报告中包含测试数据
-
-# 评估标准配置（按难度级别）
-evaluation:
-  beginner:
-    functionality: 40  # 功能完整性和正确性 (40%)
-    code_structure: 25  # 代码结构 (25%)
-    readability: 20  # 代码可读性 (20%)
-    edge_cases: 15  # 边界条件处理 (15%)
-    
-  elementary:
-    functionality: 35  # 功能完整性和正确性 (35%)
-    code_quality: 25  # 代码结构与质量 (25%)
-    user_experience: 20  # 用户体验与界面 (20%)
-    error_handling: 20  # 错误处理与鲁棒性 (20%)
-    
-  intermediate:
-    functionality: 30  # 功能完整性和正确性 (30%)
-    architecture: 25  # 架构设计与代码质量 (25%)
-    performance: 20  # 性能与优化 (20%)
-    security: 15  # 安全性与错误处理 (15%)
-    testing: 10  # 测试覆盖率 (10%)
-    
-  advanced:
-    functionality: 25  # 功能完整性和正确性 (25%)
-    architecture: 25  # 系统架构与设计 (25%)
-    performance: 20  # 性能优化 (20%)
-    security: 15  # 安全与可靠性 (15%)
-    maintainability: 15  # 可扩展性与维护性 (15%)
-    
-  expert:
-    innovation: 30  # 技术创新与解决方案 (30%)
-    architecture: 25  # 架构与系统设计 (25%)
-    performance: 20  # 性能与优化 (20%)
-    complexity: 15  # 技术复杂度掌控 (15%)
-    knowledge: 10  # 知识深度与广度 (10%)
-    
-  master:
-    innovation: 35  # 前沿创新与突破 (35%)
-    architecture: 25  # 系统架构与理论基础 (25%)
-    integration: 20  # 技术整合与跨领域应用 (20%)
-    efficiency: 15  # 性能与资源效率 (15%)
-    impact: 5  # 行业影响与知识贡献 (5%)
 
 # 测试环境配置
 environment:
@@ -156,14 +187,6 @@ performance_benchmarks:
     max_execution_time: 600  # 秒
     max_memory_usage: 4000  # MB
     max_lines_of_code: 10000
-
-# 日志配置
-logging:
-  level: INFO
-  file: "logs/benchmark.log"
-  max_size: "10MB"
-  backup_count: 5
-  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 # AI Agent接口配置
 ai_agent:

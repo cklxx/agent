@@ -1,0 +1,648 @@
+{
+  "timestamp": "20250610_224014",
+  "summary": {
+    "total_tasks": 5,
+    "successful_tasks": 5,
+    "failed_tasks": 0,
+    "average_score": 72.94166666666666,
+    "total_score": 364.7083333333333,
+    "total_max_score": 500,
+    "total_time": 5.006052732467651,
+    "success_rate": 100.0
+  },
+  "results": [
+    {
+      "task_id": "beginner_devops_automation_test",
+      "success": true,
+      "score": 72.25,
+      "max_score": 100,
+      "execution_time": 1.0012741088867188,
+      "details": {
+        "functionality": {
+          "score": 18.0,
+          "weight": 30,
+          "max_score": 30
+        },
+        "architecture": {
+          "score": 19.375,
+          "weight": 25,
+          "max_score": 25
+        },
+        "performance": {
+          "score": 15.5,
+          "weight": 20,
+          "max_score": 20
+        },
+        "security": {
+          "score": 11.625,
+          "weight": 15,
+          "max_score": 15
+        },
+        "testing": {
+          "score": 7.75,
+          "weight": 10,
+          "max_score": 10
+        },
+        "test_results": {
+          "passed": 3,
+          "failed": 2,
+          "total": 5,
+          "details": [
+            {
+              "test_case": 0,
+              "passed": false,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 1,
+              "passed": true,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 2,
+              "passed": true,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 3,
+              "passed": false,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 4,
+              "passed": true,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            }
+          ]
+        },
+        "quality_scores": {
+          "syntax": 85.0,
+          "structure": 80.0,
+          "readability": 75.0,
+          "best_practices": 70.0
+        }
+      },
+      "error_message": null,
+      "generated_code": "# 示例代码\nprint('Hello, World!')"
+    },
+    {
+      "task_id": "intermediate_algo_path_planning",
+      "success": true,
+      "score": 74.25,
+      "max_score": 100,
+      "execution_time": 1.0011780261993408,
+      "details": {
+        "functionality": {
+          "score": 19.999999999999996,
+          "weight": 30,
+          "max_score": 30
+        },
+        "architecture": {
+          "score": 19.375,
+          "weight": 25,
+          "max_score": 25
+        },
+        "performance": {
+          "score": 15.5,
+          "weight": 20,
+          "max_score": 20
+        },
+        "security": {
+          "score": 11.625,
+          "weight": 15,
+          "max_score": 15
+        },
+        "testing": {
+          "score": 7.75,
+          "weight": 10,
+          "max_score": 10
+        },
+        "test_results": {
+          "passed": 4,
+          "failed": 2,
+          "total": 6,
+          "details": [
+            {
+              "test_case": 0,
+              "passed": false,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 1,
+              "passed": true,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 2,
+              "passed": true,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 3,
+              "passed": false,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 4,
+              "passed": true,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 5,
+              "passed": true,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            }
+          ]
+        },
+        "quality_scores": {
+          "syntax": 85.0,
+          "structure": 80.0,
+          "readability": 75.0,
+          "best_practices": 70.0
+        }
+      },
+      "error_message": null,
+      "generated_code": "\ndef temperature_converter(value, unit):\n    if unit == 'C':\n        return round((value * 9/5) + 32, 1), 'F'\n    elif unit == 'F':\n        return round((value - 32) * 5/9, 1), 'C'\n    else:\n        raise ValueError(\"Invalid unit\")\n"
+    },
+    {
+      "task_id": "intermediate_web_todo_app",
+      "success": true,
+      "score": 72.25,
+      "max_score": 100,
+      "execution_time": 1.001133918762207,
+      "details": {
+        "functionality": {
+          "score": 18.0,
+          "weight": 30,
+          "max_score": 30
+        },
+        "architecture": {
+          "score": 19.375,
+          "weight": 25,
+          "max_score": 25
+        },
+        "performance": {
+          "score": 15.5,
+          "weight": 20,
+          "max_score": 20
+        },
+        "security": {
+          "score": 11.625,
+          "weight": 15,
+          "max_score": 15
+        },
+        "testing": {
+          "score": 7.75,
+          "weight": 10,
+          "max_score": 10
+        },
+        "test_results": {
+          "passed": 3,
+          "failed": 2,
+          "total": 5,
+          "details": [
+            {
+              "test_case": 0,
+              "passed": false,
+              "input": {},
+              "expected": [
+                "用户成功注册和登录",
+                "任务创建成功，返回正确ID",
+                "任务状态正确更新",
+                "任务编辑功能正常",
+                "任务删除功能正常",
+                "最终状态：2个任务，1个已完成"
+              ],
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 1,
+              "passed": true,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 2,
+              "passed": true,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 3,
+              "passed": false,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 4,
+              "passed": true,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            }
+          ]
+        },
+        "quality_scores": {
+          "syntax": 85.0,
+          "structure": 80.0,
+          "readability": 75.0,
+          "best_practices": 70.0
+        }
+      },
+      "error_message": null,
+      "generated_code": "\n<!DOCTYPE html>\n<html>\n<head>\n    <title>Personal Resume</title>\n    <style>\n        body { font-family: Arial, sans-serif; margin: 40px; }\n        .section { margin-bottom: 20px; }\n        h1, h2 { color: #333; }\n    </style>\n</head>\n<body>\n    <h1 id=\"name\">John Doe</h1>\n    <div class=\"section\">\n        <h2>Contact</h2>\n        <p id=\"email\">john@example.com</p>\n        <p id=\"phone\">123-456-7890</p>\n    </div>\n    <div class=\"section\">\n        <h2>Education</h2>\n        <p id=\"education\">Computer Science Degree</p>\n    </div>\n</body>\n</html>\n"
+    },
+    {
+      "task_id": "intermediate_mobile_ecommerce",
+      "success": true,
+      "score": 72.25,
+      "max_score": 100,
+      "execution_time": 1.001291036605835,
+      "details": {
+        "functionality": {
+          "score": 18.0,
+          "weight": 30,
+          "max_score": 30
+        },
+        "architecture": {
+          "score": 19.375,
+          "weight": 25,
+          "max_score": 25
+        },
+        "performance": {
+          "score": 15.5,
+          "weight": 20,
+          "max_score": 20
+        },
+        "security": {
+          "score": 11.625,
+          "weight": 15,
+          "max_score": 15
+        },
+        "testing": {
+          "score": 7.75,
+          "weight": 10,
+          "max_score": 10
+        },
+        "test_results": {
+          "passed": 3,
+          "failed": 2,
+          "total": 5,
+          "details": [
+            {
+              "test_case": 0,
+              "passed": false,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 1,
+              "passed": true,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 2,
+              "passed": true,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 3,
+              "passed": false,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 4,
+              "passed": true,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            }
+          ]
+        },
+        "quality_scores": {
+          "syntax": 85.0,
+          "structure": 80.0,
+          "readability": 75.0,
+          "best_practices": 70.0
+        }
+      },
+      "error_message": null,
+      "generated_code": "# 示例代码\nprint('Hello, World!')"
+    },
+    {
+      "task_id": "elementary_algo_sorting_search",
+      "success": true,
+      "score": 73.70833333333333,
+      "max_score": 100,
+      "execution_time": 1.0011756420135498,
+      "details": {
+        "functionality": {
+          "score": 23.33333333333333,
+          "weight": 35,
+          "max_score": 35
+        },
+        "code_quality": {
+          "score": 19.375,
+          "weight": 25,
+          "max_score": 25
+        },
+        "user_experience": {
+          "score": 15.5,
+          "weight": 20,
+          "max_score": 20
+        },
+        "error_handling": {
+          "score": 15.5,
+          "weight": 20,
+          "max_score": 20
+        },
+        "test_results": {
+          "passed": 4,
+          "failed": 2,
+          "total": 6,
+          "details": [
+            {
+              "test_case": 0,
+              "passed": false,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 1,
+              "passed": true,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 2,
+              "passed": true,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 3,
+              "passed": false,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 4,
+              "passed": true,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            },
+            {
+              "test_case": 5,
+              "passed": true,
+              "input": {},
+              "expected": {},
+              "actual": "模拟输出"
+            }
+          ]
+        },
+        "quality_scores": {
+          "syntax": 85.0,
+          "structure": 80.0,
+          "readability": 75.0,
+          "best_practices": 70.0
+        }
+      },
+      "error_message": null,
+      "generated_code": "\ndef temperature_converter(value, unit):\n    if unit == 'C':\n        return round((value * 9/5) + 32, 1), 'F'\n    elif unit == 'F':\n        return round((value - 32) * 5/9, 1), 'C'\n    else:\n        raise ValueError(\"Invalid unit\")\n"
+    }
+  ],
+  "config": {
+    "levels": [
+      "beginner",
+      "elementary",
+      "intermediate",
+      "advanced",
+      "expert",
+      "master"
+    ],
+    "domains": [
+      "web_development",
+      "mobile_app",
+      "algorithms",
+      "devops",
+      "data_science"
+    ],
+    "timeout": 300,
+    "parallel_tasks": 3,
+    "sandbox_enabled": true,
+    "output_formats": [
+      "json",
+      "html"
+    ],
+    "rag_agent": {
+      "enabled": true,
+      "max_iterations": 3,
+      "code_extraction_patterns": [
+        "```python",
+        "```javascript",
+        "```html",
+        "```css"
+      ],
+      "timeout": 120
+    },
+    "evaluation": {
+      "beginner": {
+        "functionality": 40,
+        "code_structure": 25,
+        "readability": 20,
+        "edge_cases": 15
+      },
+      "elementary": {
+        "functionality": 35,
+        "code_quality": 25,
+        "user_experience": 20,
+        "error_handling": 20
+      },
+      "intermediate": {
+        "functionality": 30,
+        "architecture": 25,
+        "performance": 20,
+        "security": 15,
+        "testing": 10
+      },
+      "advanced": {
+        "functionality": 25,
+        "architecture": 25,
+        "performance": 20,
+        "security": 15,
+        "maintainability": 15
+      },
+      "expert": {
+        "innovation": 30,
+        "architecture": 25,
+        "performance": 20,
+        "complexity": 15,
+        "knowledge": 10
+      },
+      "master": {
+        "innovation": 35,
+        "architecture": 25,
+        "integration": 20,
+        "efficiency": 15,
+        "impact": 5
+      }
+    },
+    "logging": {
+      "level": "INFO",
+      "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+      "file": "logs/benchmark.log"
+    },
+    "reporting": {
+      "include_code": true,
+      "include_details": true,
+      "max_code_length": 5000
+    },
+    "execution": {
+      "timeout": 300,
+      "parallel_tasks": 3,
+      "sandbox_enabled": true,
+      "max_memory": "1GB",
+      "max_disk": "100MB"
+    },
+    "output": {
+      "formats": [
+        "json",
+        "html"
+      ],
+      "detailed_logs": true,
+      "save_generated_code": true,
+      "include_test_data": false
+    },
+    "environment": {
+      "python_version": "3.12",
+      "node_version": "18",
+      "rust_version": "1.70",
+      "docker_enabled": true,
+      "allowed_packages": {
+        "python": [
+          "numpy",
+          "pandas",
+          "matplotlib",
+          "scikit-learn",
+          "flask",
+          "django",
+          "fastapi",
+          "requests",
+          "pytest",
+          "asyncio"
+        ],
+        "javascript": [
+          "react",
+          "express",
+          "axios",
+          "jest",
+          "webpack"
+        ],
+        "rust": [
+          "serde",
+          "tokio",
+          "wasm-bindgen"
+        ]
+      }
+    },
+    "security": {
+      "disable_network": false,
+      "disable_file_system": false,
+      "allowed_file_extensions": [
+        ".py",
+        ".js",
+        ".html",
+        ".css",
+        ".json",
+        ".yaml",
+        ".md",
+        ".rs",
+        ".toml"
+      ],
+      "blocked_imports": [
+        "os.system",
+        "subprocess",
+        "exec",
+        "eval"
+      ]
+    },
+    "performance_benchmarks": {
+      "beginner": {
+        "max_execution_time": 10,
+        "max_memory_usage": 100,
+        "max_lines_of_code": 100
+      },
+      "elementary": {
+        "max_execution_time": 30,
+        "max_memory_usage": 200,
+        "max_lines_of_code": 500
+      },
+      "intermediate": {
+        "max_execution_time": 60,
+        "max_memory_usage": 500,
+        "max_lines_of_code": 1000
+      },
+      "advanced": {
+        "max_execution_time": 120,
+        "max_memory_usage": 1000,
+        "max_lines_of_code": 2000
+      },
+      "expert": {
+        "max_execution_time": 300,
+        "max_memory_usage": 2000,
+        "max_lines_of_code": 5000
+      },
+      "master": {
+        "max_execution_time": 600,
+        "max_memory_usage": 4000,
+        "max_lines_of_code": 10000
+      }
+    },
+    "ai_agent": {
+      "type": "openai",
+      "model": "gpt-4",
+      "temperature": 0.1,
+      "max_tokens": 4000,
+      "timeout": 120,
+      "retry_attempts": 3,
+      "prompt_template": "你是一个专业的编程助手。请根据以下任务描述生成高质量的代码解决方案。\n\n任务描述：\n{task_description}\n\n输入规范：\n{input_spec}\n\n输出规范：\n{output_spec}\n\n要求：\n1. 代码应该功能完整且正确\n2. 遵循最佳编程实践\n3. 包含适当的错误处理\n4. 代码应该易读易维护\n5. 如果可能，包含注释说明\n\n请直接提供代码解决方案： "
+    }
+  }
+}
