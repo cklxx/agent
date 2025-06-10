@@ -1,16 +1,6 @@
 #!/bin/sh
 
-# Run make lint
-echo "Running linting..."
-make lint
-LINT_RESULT=$?
-
-if [ $LINT_RESULT -ne 0 ]; then
-    echo "❌ Linting failed. Please fix the issues and try committing again."
-    exit 1
-fi
-
-# Run make format
+# Run make format first to format all files
 echo "Running formatting..."
 make format
 FORMAT_RESULT=$?
@@ -22,6 +12,16 @@ fi
 
 # If any files were reformatted, add them back to staging
 git diff --name-only | xargs -I {} git add "{}"
+
+# Run make lint to check if formatting is correct
+echo "Running linting..."
+make lint
+LINT_RESULT=$?
+
+if [ $LINT_RESULT -ne 0 ]; then
+    echo "❌ Linting failed after formatting. Please check the issues and try committing again."
+    exit 1
+fi
 
 echo "✅ Pre-commit checks passed!"
 exit 0
