@@ -175,7 +175,7 @@ export function MessagesBlock({ className }: { className?: string }) {
                 own question, please{" "}
                 <a
                   className="underline"
-                  href="https://github.com/cklxx/agent
+                  href="https://github.com/cklxx/agent"
                   target="_blank"
                   rel="noopener noreferrer"
                 >

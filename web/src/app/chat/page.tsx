@@ -32,7 +32,7 @@ export default function HomePage() {
           <Tooltip title="Star DeepTool on GitHub">
             <Button variant="ghost" size="icon" asChild>
               <Link
-                href="https://github.com/cklxx/agent
+                href="https://github.com/cklxx/agent"
                 target="_blank"
               >
                 <GithubOutlined />

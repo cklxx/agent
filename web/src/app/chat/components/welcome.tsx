@@ -18,7 +18,7 @@ export function Welcome({ className }: { className?: string }) {
       <div className="text-muted-foreground px-4 text-center text-lg">
         Welcome to{" "}
         <a
-          href="https://github.com/cklxx/agent
+          href="https://github.com/cklxx/agent"
           target="_blank"
           rel="noopener noreferrer"
           className="hover:underline"

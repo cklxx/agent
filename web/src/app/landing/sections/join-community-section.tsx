@@ -21,7 +21,7 @@ export function JoinCommunitySection() {
         description="Contribute brilliant ideas to shape the future of DeepTool. Collaborate, innovate, and make impacts."
       />
       <Button className="text-xl" size="lg" asChild>
-        <Link href="https://github.com/cklxx/agent
+        <Link href="https://github.com/cklxx/agent">
           <GithubFilled />
           Contribute Now
         </Link>

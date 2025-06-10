@@ -51,7 +51,7 @@ export function Jumbotron() {
               }
               href={
                 env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY
-                  ? "https://github.com/cklxx/agent
+                  ? "https://github.com/cklxx/agent"
                   : "/chat"
               }
             >
@@ -66,7 +66,7 @@ export function Jumbotron() {
               asChild
             >
               <Link
-                href="https://github.com/cklxx/agent
+                href="https://github.com/cklxx/agent"
                 target="_blank"
               >
                 <GithubFilled />

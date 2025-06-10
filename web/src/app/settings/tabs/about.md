@@ -8,7 +8,7 @@
 
 ## 🌟 GitHub Repository
 
-Explore DeepTool on GitHub: [github.com/example/agent](https://github.com/cklxx/agent)
+Explore DeepTool on GitHub: [github.com/cklxx/agent](https://github.com/cklxx/agent)
 
 ---
 
