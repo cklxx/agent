@@ -296,3 +296,7 @@ class CodeRetriever(Retriever):
     def get_indexer_statistics(self) -> Dict[str, Any]:
         """获取索引器统计信息"""
         return self.indexer.get_statistics()
+
+    def get_statistics(self) -> Dict[str, Any]:
+        """获取统计信息 - 与get_indexer_statistics保持一致"""
+        return self.indexer.get_statistics()

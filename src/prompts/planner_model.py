@@ -37,6 +37,7 @@ class Plan(BaseModel):
         json_schema_extra = {
             "examples": [
                 {
+                    "locale": "zh-CN",
                     "has_enough_context": False,
                     "thought": (
                         "To understand the current market trends in AI, we need to gather comprehensive information."

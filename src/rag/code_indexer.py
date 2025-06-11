@@ -14,6 +14,8 @@ from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
 
+from .intelligent_file_filter import IntelligentFileFilter, FileRelevance
+
 logger = logging.getLogger(__name__)
 
 
@@ -352,11 +354,23 @@ class GitignoreParser:
 class CodeIndexer:
     """代码索引器"""
 
-    def __init__(self, repo_path: str, db_path: str = "temp/rag_data/code_index.db"):
+    def __init__(
+        self,
+        repo_path: str,
+        db_path: str = "temp/rag_data/code_index.db",
+        use_intelligent_filter: bool = True,
+    ):
         self.repo_path = Path(repo_path)
         self.db_path = db_path
         self.parser = CodeParser()
         self.gitignore_parser = GitignoreParser(repo_path)
+
+        # 智能文件过滤器
+        self.use_intelligent_filter = use_intelligent_filter
+        if use_intelligent_filter:
+            self.intelligent_filter = IntelligentFileFilter(repo_path)
+        else:
+            self.intelligent_filter = None
 
         # 只索引有用的代码文件和配置文件
         self.include_extensions = {
@@ -450,34 +464,47 @@ class CodeIndexer:
             "README",
         }
 
-        # 排除的目录 (这些目录通常包含生成文件或缓存)
+        # 增强的排除目录 - 包含更多虚拟环境和第三方库目录
         self.exclude_dirs = {
+            # 版本控制
             ".git",
             ".svn",
             ".hg",
+            # Python 虚拟环境和缓存
             ".venv",
             "venv",
             "env",
             "ENV",
+            "virtualenv",
+            ".virtualenv",
             "__pycache__",
             ".pytest_cache",
             ".coverage",
             ".tox",
             ".mypy_cache",
+            "site-packages",
+            "dist-info",
+            "egg-info",
+            # Node.js
             "node_modules",
             ".npm",
             ".yarn",
-            "dist",
+            ".pnpm",
+            # 其他语言包管理器
+            "vendor",  # Go, PHP, Ruby
+            "target",  # Rust, Java, Maven
             "build",
-            "target",
+            "dist",
             "out",
             "bin",
-            "obj",
-            ".gradle",
-            ".maven",
+            "obj",  # 构建输出
+            # IDE和工具
             ".idea",
             ".vscode",
             ".vs",
+            ".gradle",
+            ".maven",
+            # 临时和缓存目录
             "temp",
             "tmp",
             "cache",
@@ -488,6 +515,11 @@ class CodeIndexer:
             ".sass-cache",
             ".next",
             ".nuxt",
+            ".parcel-cache",
+            # 文档生成
+            "_site",
+            "_build",
+            "docs/_build",
         }
 
         # 明确排除的文件扩展名 (二进制文件等)
@@ -498,44 +530,44 @@ class CodeIndexer:
             ".pyd",
             ".so",
             ".dll",
+            ".dylib",
             ".exe",
-            ".bin",
-            ".class",
-            ".jar",
-            ".war",
-            ".ear",
             ".o",
             ".obj",
             ".lib",
             ".a",
-            # 媒体文件
-            ".png",
-            ".jpg",
-            ".jpeg",
-            ".gif",
-            ".bmp",
-            ".ico",
-            ".svg",
-            ".mp4",
-            ".avi",
-            ".mov",
-            ".wmv",
-            ".flv",
-            ".webm",
-            ".mp3",
-            ".wav",
-            ".ogg",
-            ".flac",
-            ".aac",
+            ".jar",
+            ".war",
+            ".ear",
             # 压缩文件
             ".zip",
             ".tar",
             ".gz",
             ".bz2",
             ".xz",
-            ".rar",
             ".7z",
-            # 其他二进制文件
+            ".rar",
+            # 图像和媒体
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".gif",
+            ".svg",
+            ".ico",
+            ".bmp",
+            ".mp3",
+            ".mp4",
+            ".avi",
+            ".mov",
+            ".wmv",
+            ".flv",
+            # 字体
+            ".ttf",
+            ".otf",
+            ".woff",
+            ".woff2",
+            ".eot",
+            # 其他二进制
             ".pdf",
             ".doc",
             ".docx",
@@ -543,14 +575,21 @@ class CodeIndexer:
             ".xlsx",
             ".ppt",
             ".pptx",
+            ".db",
+            ".sqlite",
+            ".sqlite3",
         }
 
+        # 确保数据库目录存在
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         self._init_database()
+
+        logger.info(
+            f"CodeIndexer initialized: repo={repo_path}, intelligent_filter={use_intelligent_filter}"
+        )
 
     def _init_database(self):
         """初始化数据库"""
-        # 确保数据库目录存在
-        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
@@ -664,6 +703,9 @@ class CodeIndexer:
         excluded_by_extension = 0
         excluded_by_type = 0
 
+        # 首先获取所有可能的文件
+        candidate_files = []
+
         for root, dirs, filenames in os.walk(self.repo_path):
             # 排除目录
             original_dirs = dirs[:]
@@ -699,23 +741,169 @@ class CodeIndexer:
                     logger.debug(f"Excluded by extension: {relative_path}")
                     continue
 
-                # 检查是否是我们想要索引的文件
+                # 基本文件类型检查
                 if not self._should_include_file(file_path):
                     excluded_by_type += 1
                     logger.debug(f"Excluded by file type: {relative_path}")
                     continue
 
-                files.append(relative_path)
+                candidate_files.append(relative_path)
+
+        # 使用智能过滤器进一步过滤
+        if self.use_intelligent_filter and self.intelligent_filter:
+            logger.info(f"使用智能过滤器处理 {len(candidate_files)} 个候选文件...")
+            try:
+                final_files, filter_stats = (
+                    self.intelligent_filter.filter_files_for_indexing(candidate_files)
+                )
+                files = final_files
+
+                # 更新统计信息
+                intelligent_excluded = len(candidate_files) - len(final_files)
+                logger.info(f"智能过滤器统计: {filter_stats}")
+
+            except Exception as e:
+                logger.warning(f"智能过滤器失败，使用基础过滤: {e}")
+                files = candidate_files
+        else:
+            files = candidate_files
 
         logger.info(
-            f"Repository scan completed: {total_files} total files, {len(files)} included files"
+            f"Repository scan completed: {total_files} total files, {len(files)} files selected for indexing"
         )
         logger.info(
             f"Exclusion stats: gitignore({excluded_by_gitignore}), directory({excluded_by_dir}), extension({excluded_by_extension}), type({excluded_by_type})"
         )
+
+        if self.use_intelligent_filter:
+            logger.info(f"Final file selection: {len(files)} files will be indexed")
+
         return files
 
-    def index_file(self, file_path: str) -> bool:
+    async def scan_repository_intelligent(self, task_context: str = "") -> List[str]:
+        """使用LLM智能扫描仓库文件"""
+        # 首先进行基础扫描获取候选文件
+        candidate_files = []
+        total_files = 0
+
+        for root, dirs, filenames in os.walk(self.repo_path):
+            # 排除明显不需要的目录
+            original_dirs = dirs[:]
+            dirs[:] = [d for d in dirs if d not in self.exclude_dirs]
+
+            for filename in filenames:
+                total_files += 1
+                file_path = Path(root) / filename
+                relative_path = str(file_path.relative_to(self.repo_path))
+
+                # 基础过滤：gitignore、扩展名等
+                if self.gitignore_parser.is_ignored(relative_path):
+                    continue
+                if file_path.suffix.lower() in self.exclude_extensions:
+                    continue
+
+                candidate_files.append(relative_path)
+
+        logger.info(
+            f"基础扫描完成: {total_files} 个文件，{len(candidate_files)} 个候选文件"
+        )
+
+        # 使用智能过滤器和LLM进行智能分类
+        if self.use_intelligent_filter and self.intelligent_filter:
+            try:
+                logger.info(f"开始LLM智能文件分类，任务上下文: {task_context}")
+                classifications = await self.intelligent_filter.llm_classify_files(
+                    candidate_files, task_context
+                )
+
+                # 收集高优先级和中等优先级的文件
+                final_files = [
+                    c.path
+                    for c in classifications
+                    if c.relevance in [FileRelevance.HIGH, FileRelevance.MEDIUM]
+                ]
+
+                # 统计信息
+                stats = {
+                    "total_scanned": total_files,
+                    "candidates": len(candidate_files),
+                    "final_selected": len(final_files),
+                    "high_relevance": len(
+                        [
+                            c
+                            for c in classifications
+                            if c.relevance == FileRelevance.HIGH
+                        ]
+                    ),
+                    "medium_relevance": len(
+                        [
+                            c
+                            for c in classifications
+                            if c.relevance == FileRelevance.MEDIUM
+                        ]
+                    ),
+                    "low_relevance": len(
+                        [c for c in classifications if c.relevance == FileRelevance.LOW]
+                    ),
+                    "excluded": len(
+                        [
+                            c
+                            for c in classifications
+                            if c.relevance == FileRelevance.EXCLUDE
+                        ]
+                    ),
+                }
+
+                logger.info(f"LLM智能扫描完成: {stats}")
+                return final_files
+
+            except Exception as e:
+                logger.error(f"LLM智能扫描失败，回退到基础扫描: {e}")
+                return self.scan_repository()
+        else:
+            return self.scan_repository()
+
+    def index_repository(self, force_reindex: bool = False) -> Dict[str, int]:
+        """索引整个仓库"""
+        logger.info(f"Starting repository indexing: {self.repo_path}")
+
+        files = self.scan_repository()
+        stats = {
+            "total_files": len(files),
+            "indexed_files": 0,
+            "skipped_files": 0,
+            "failed_files": 0,
+        }
+
+        # 如果强制重新索引，清理现有数据
+        if force_reindex:
+            logger.info("强制重新索引，清理现有数据...")
+            self._clear_index()
+
+        for file_path in files:
+            try:
+                if self.index_file(file_path, force_update=force_reindex):
+                    stats["indexed_files"] += 1
+                else:
+                    stats["skipped_files"] += 1
+            except Exception as e:
+                logger.error(f"Failed to index file {file_path}: {e}")
+                stats["failed_files"] += 1
+
+        logger.info(f"Indexing completed: {stats}")
+        return stats
+
+    def _clear_index(self):
+        """清理索引数据"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM code_chunks")
+        cursor.execute("DELETE FROM files")
+        conn.commit()
+        conn.close()
+        logger.info("索引数据已清理")
+
+    def index_file(self, file_path: str, force_update: bool = False) -> bool:
         """索引单个文件"""
         full_path = self.repo_path / file_path
 
@@ -729,10 +917,10 @@ class CodeIndexer:
                 return False
 
             # 检查文件是否已更新
-            if self._is_file_updated(file_info):
+            if force_update or self._is_file_updated(file_info):
                 self._store_file_info(file_info)
                 self._store_code_chunks(chunks)
-                logger.info(f"Indexed file: {file_path}")
+                logger.debug(f"Indexed file: {file_path}")
                 return True
             else:
                 logger.debug(f"File unchanged, skipping: {file_path}")
@@ -817,31 +1005,6 @@ class CodeIndexer:
 
         conn.commit()
         conn.close()
-
-    def index_repository(self) -> Dict[str, int]:
-        """索引整个仓库"""
-        logger.info(f"Starting repository indexing: {self.repo_path}")
-
-        files = self.scan_repository()
-        stats = {
-            "total_files": len(files),
-            "indexed_files": 0,
-            "skipped_files": 0,
-            "failed_files": 0,
-        }
-
-        for file_path in files:
-            try:
-                if self.index_file(file_path):
-                    stats["indexed_files"] += 1
-                else:
-                    stats["skipped_files"] += 1
-            except Exception as e:
-                logger.error(f"Failed to index file {file_path}: {e}")
-                stats["failed_files"] += 1
-
-        logger.info(f"Indexing completed: {stats}")
-        return stats
 
     def search_code(
         self,

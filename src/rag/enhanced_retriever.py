@@ -19,6 +19,8 @@ from chromadb.config import Settings
 
 from .retriever import Retriever, Resource, Document, Chunk
 from .code_retriever import CodeRetriever
+from .code_indexer import CodeIndexer
+from .intelligent_file_filter import IntelligentFileFilter
 
 logger = logging.getLogger(__name__)
 
@@ -328,28 +330,38 @@ class KeywordIndex:
 
 
 class EnhancedRAGRetriever(Retriever):
-    """增强的RAG检索器 - 结合向量召回和关键词召回"""
+    """增强的RAG检索器，支持向量和关键词混合搜索"""
 
     def __init__(
         self,
         repo_path: str,
         db_path: str = "temp/rag_data/enhanced_rag",
         embedding_config: Optional[Dict[str, Any]] = None,
+        use_intelligent_filter: bool = True,
     ):
         self.repo_path = repo_path
         self.db_path = db_path
+        self.use_intelligent_filter = use_intelligent_filter
 
-        # 初始化基础代码检索器
-        self.base_retriever = CodeRetriever(repo_path, f"{db_path}_base.db")
-
-        # 初始化embedding客户端
+        # 加载embedding配置
         if embedding_config is None:
             embedding_config = load_embedding_config()
-        self.embedding_client = EmbeddingClient(embedding_config)
+        self.embedding_config = embedding_config
 
-        # 初始化存储
-        self.vector_store = VectorStore(f"{db_path}_vectors")
-        self.keyword_index = KeywordIndex(f"{db_path}_keywords.db")
+        # 初始化组件
+        self.embedding_client = EmbeddingClient(embedding_config)
+        self.vector_store = VectorStore(f"{db_path}/vector")
+        self.keyword_index = KeywordIndex(f"{db_path}/keyword.db")
+
+        # 使用智能文件过滤的代码索引器
+        self.code_indexer = CodeIndexer(
+            repo_path=repo_path,
+            db_path=f"{db_path}/code_index.db",
+            use_intelligent_filter=use_intelligent_filter,
+        )
+
+        # 创建基础检索器作为fallback
+        self.base_retriever = CodeRetriever(repo_path, f"{db_path}/base.db")
 
         # 权重配置
         self.vector_weight = 0.6  # 向量召回权重
@@ -358,8 +370,12 @@ class EnhancedRAGRetriever(Retriever):
         # 标记是否需要构建索引
         self._needs_indexing = False
 
-        # 确保索引已构建
+        # 检查是否需要构建索引
         self._ensure_indexed()
+
+        logger.info(
+            f"增强RAG检索器初始化完成: {repo_path}, 智能过滤: {use_intelligent_filter}"
+        )
 
     def _ensure_indexed(self):
         """确保增强索引已构建"""
@@ -376,74 +392,85 @@ class EnhancedRAGRetriever(Retriever):
             logger.error(f"检查增强索引状态失败: {e}")
             self._needs_indexing = True
 
-    async def _build_enhanced_index(self):
-        """构建增强索引"""
-        try:
-            # 获取所有代码块
-            search_results = self.base_retriever.indexer.search_code("", limit=10000)
+    async def build_index_async(self, task_context: str = ""):
+        """异步构建增强索引，支持智能文件分类"""
+        logger.info("开始构建增强RAG索引...")
 
-            if not search_results:
-                logger.warning("没有找到代码块，跳过增强索引构建")
+        try:
+            # 使用智能扫描获取文件列表
+            if self.use_intelligent_filter:
+                logger.info("使用智能文件分类扫描仓库...")
+                files_to_index = await self.code_indexer.scan_repository_intelligent(
+                    task_context
+                )
+            else:
+                logger.info("使用基础扫描仓库...")
+                files_to_index = self.code_indexer.scan_repository()
+
+            if not files_to_index:
+                logger.warning("没有找到需要索引的文件")
                 return
 
-            # 准备文档数据
+            # 构建代码索引
+            logger.info(f"开始索引 {len(files_to_index)} 个文件...")
+
+            # 如果之前没有索引任何文件，强制重新索引
+            existing_stats = self.code_indexer.get_statistics()
+            force_reindex = existing_stats.get("total_files", 0) == 0
+            if force_reindex:
+                logger.info("检测到空索引，强制重新索引...")
+
+            index_stats = self.code_indexer.index_repository(
+                force_reindex=force_reindex
+            )
+
+            # 获取所有代码块
             documents = []
-            texts = []
-
-            for result in search_results:
-                doc_id = f"{result['file_path']}:{result.get('start_line', 0)}"
-                content = result["content"]
-
-                # 确保metadata中没有None值
-                metadata = {
-                    "file_path": str(result.get("file_path", "unknown")),
-                    "language": str(result.get("language", "unknown")),
-                    "chunk_type": str(result.get("chunk_type", "unknown")),
-                    "name": str(result.get("name", "")),
-                    "start_line": int(result.get("start_line", 0)),
-                    "end_line": int(result.get("end_line", 0)),
-                }
-
-                documents.append(
-                    {"id": doc_id, "content": content, "metadata": metadata}
-                )
-                texts.append(content)
-
-            logger.info(f"准备为 {len(documents)} 个文档构建增强索引")
-
-            # 获取embeddings（分批处理，DashScope限制为10个）
-            batch_size = 10
-            all_embeddings = []
-
-            for i in range(0, len(texts), batch_size):
-                batch_texts = texts[i : i + batch_size]
+            for file_path in files_to_index:
                 try:
-                    batch_embeddings = await self.embedding_client.get_embeddings(
-                        batch_texts
-                    )
-                    all_embeddings.extend(batch_embeddings)
-                    logger.info(
-                        f"处理了 {len(all_embeddings)}/{len(texts)} 个embeddings"
-                    )
+                    file_info = self.code_indexer.get_file_info(file_path)
+                    if file_info:
+                        chunks = self.code_indexer.search_code(
+                            "", file_type=file_info["language"], limit=1000
+                        )
+                        for chunk in chunks:
+                            if chunk["file_path"] == file_path:
+                                documents.append(
+                                    {
+                                        "id": f"{file_path}:{chunk['start_line']}",
+                                        "content": chunk["content"],
+                                        "metadata": {
+                                            "file_path": file_path,
+                                            "chunk_type": chunk.get(
+                                                "chunk_type", "code"
+                                            ),
+                                            "start_line": chunk.get("start_line", 0),
+                                            "end_line": chunk.get("end_line", 0),
+                                            "language": file_info["language"],
+                                        },
+                                    }
+                                )
                 except Exception as e:
-                    logger.error(f"获取embeddings失败: {e}")
-                    # 使用零向量作为fallback，使用配置的维度
-                    dimensions = self.embedding_client.model_config.get(
-                        "dimensions", 1024
-                    )
-                    batch_embeddings = [[0.0] * dimensions for _ in batch_texts]
-                    all_embeddings.extend(batch_embeddings)
+                    logger.warning(f"处理文件 {file_path} 失败: {e}")
 
-            # 构建向量存储
-            self.vector_store.add_documents(documents, all_embeddings)
+            if documents:
+                # 构建向量索引
+                logger.info(f"构建向量索引，共 {len(documents)} 个文档块...")
+                texts = [doc["content"] for doc in documents]
+                embeddings = await self.embedding_client.get_embeddings(texts)
+                self.vector_store.add_documents(documents, embeddings)
 
-            # 构建关键词索引
-            self.keyword_index.build_index(documents)
+                # 构建关键词索引
+                logger.info("构建关键词索引...")
+                self.keyword_index.build_index(documents)
 
-            logger.info("增强索引构建完成")
+                logger.info(f"增强RAG索引构建完成: {len(documents)} 个文档块")
+            else:
+                logger.warning("没有生成任何文档块")
 
         except Exception as e:
-            logger.error(f"构建增强索引失败: {e}")
+            logger.error(f"构建增强RAG索引失败: {e}")
+            raise
 
     async def hybrid_search(
         self,
@@ -460,7 +487,7 @@ class EnhancedRAGRetriever(Retriever):
             # 如果需要构建索引，先构建
             if self._needs_indexing:
                 logger.info("首次搜索，开始构建增强索引...")
-                await self._build_enhanced_index()
+                await self.build_index_async()
                 self._needs_indexing = False
 
             # 1. 向量召回
@@ -607,19 +634,29 @@ class EnhancedRAGRetriever(Retriever):
             return self.base_retriever.query_relevant_documents(query, resources)
 
     def get_statistics(self) -> Dict[str, Any]:
-        """获取统计信息"""
+        """获取增强RAG检索器的统计信息"""
         try:
-            base_stats = self.base_retriever.get_indexer_statistics()
+            # 获取向量存储统计
             vector_count = self.vector_store.count()
 
-            return {
-                **base_stats,
+            # 获取代码索引器统计
+            code_stats = self.code_indexer.get_statistics()
+
+            # 组合统计信息
+            stats = {
                 "vector_store_count": vector_count,
-                "enhanced_indexing": vector_count > 0,
+                "total_files": code_stats.get("total_files", 0),
+                "files_by_language": code_stats.get("files_by_language", {}),
+                "total_chunks": code_stats.get("total_chunks", 0),
+                "enhanced_indexing": True,
                 "hybrid_search_enabled": True,
+                "intelligent_filter_enabled": self.use_intelligent_filter,
                 "vector_weight": self.vector_weight,
                 "keyword_weight": self.keyword_weight,
             }
+
+            return stats
+
         except Exception as e:
             logger.error(f"获取统计信息失败: {e}")
             return {"error": str(e)}
