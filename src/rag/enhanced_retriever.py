@@ -409,7 +409,14 @@ class EnhancedRAGRetriever(Retriever):
 
             # 构建代码索引
             logger.info(f"开始索引 {len(files_to_index)} 个文件...")
-            index_stats = self.code_indexer.index_repository()
+            
+            # 如果之前没有索引任何文件，强制重新索引
+            existing_stats = self.code_indexer.get_statistics()
+            force_reindex = existing_stats.get("total_files", 0) == 0
+            if force_reindex:
+                logger.info("检测到空索引，强制重新索引...")
+            
+            index_stats = self.code_indexer.index_repository(force_reindex=force_reindex)
             
             # 获取所有代码块
             documents = []

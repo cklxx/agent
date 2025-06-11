@@ -765,7 +765,47 @@ class CodeIndexer:
         else:
             return self.scan_repository()
 
-    def index_file(self, file_path: str) -> bool:
+    def index_repository(self, force_reindex: bool = False) -> Dict[str, int]:
+        """索引整个仓库"""
+        logger.info(f"Starting repository indexing: {self.repo_path}")
+
+        files = self.scan_repository()
+        stats = {
+            "total_files": len(files),
+            "indexed_files": 0,
+            "skipped_files": 0,
+            "failed_files": 0,
+        }
+
+        # 如果强制重新索引，清理现有数据
+        if force_reindex:
+            logger.info("强制重新索引，清理现有数据...")
+            self._clear_index()
+
+        for file_path in files:
+            try:
+                if self.index_file(file_path, force_update=force_reindex):
+                    stats["indexed_files"] += 1
+                else:
+                    stats["skipped_files"] += 1
+            except Exception as e:
+                logger.error(f"Failed to index file {file_path}: {e}")
+                stats["failed_files"] += 1
+
+        logger.info(f"Indexing completed: {stats}")
+        return stats
+
+    def _clear_index(self):
+        """清理索引数据"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM code_chunks")
+        cursor.execute("DELETE FROM files")
+        conn.commit()
+        conn.close()
+        logger.info("索引数据已清理")
+
+    def index_file(self, file_path: str, force_update: bool = False) -> bool:
         """索引单个文件"""
         full_path = self.repo_path / file_path
 
@@ -779,10 +819,10 @@ class CodeIndexer:
                 return False
 
             # 检查文件是否已更新
-            if self._is_file_updated(file_info):
+            if force_update or self._is_file_updated(file_info):
                 self._store_file_info(file_info)
                 self._store_code_chunks(chunks)
-                logger.info(f"Indexed file: {file_path}")
+                logger.debug(f"Indexed file: {file_path}")
                 return True
             else:
                 logger.debug(f"File unchanged, skipping: {file_path}")
@@ -867,31 +907,6 @@ class CodeIndexer:
 
         conn.commit()
         conn.close()
-
-    def index_repository(self) -> Dict[str, int]:
-        """索引整个仓库"""
-        logger.info(f"Starting repository indexing: {self.repo_path}")
-
-        files = self.scan_repository()
-        stats = {
-            "total_files": len(files),
-            "indexed_files": 0,
-            "skipped_files": 0,
-            "failed_files": 0,
-        }
-
-        for file_path in files:
-            try:
-                if self.index_file(file_path):
-                    stats["indexed_files"] += 1
-                else:
-                    stats["skipped_files"] += 1
-            except Exception as e:
-                logger.error(f"Failed to index file {file_path}: {e}")
-                stats["failed_files"] += 1
-
-        logger.info(f"Indexing completed: {stats}")
-        return stats
 
     def search_code(
         self,

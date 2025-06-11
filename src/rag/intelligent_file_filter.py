@@ -256,6 +256,7 @@ class IntelligentFileFilter:
             from src.prompts.template import apply_prompt_template
             
             prompt_messages = apply_prompt_template("intelligent_file_classification", {
+                "messages": [],  # 添加必需的messages字段
                 "files": file_info,
                 "task_context": task_context or "一般代码开发任务",
                 "repo_path": str(self.repo_path)

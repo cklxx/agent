@@ -82,10 +82,25 @@ class WorkspaceStateManager:
         """保存状态数据"""
         try:
             self.state_data["last_updated"] = datetime.now().isoformat()
+            
+            # 确保所有datetime对象都被序列化为ISO字符串
+            safe_state_data = self._serialize_datetime_objects(self.state_data)
+            
             with open(self.state_file, 'w', encoding='utf-8') as f:
-                json.dump(self.state_data, f, indent=2, ensure_ascii=False)
+                json.dump(safe_state_data, f, indent=2, ensure_ascii=False)
         except Exception as e:
             logger.error(f"保存状态文件失败: {e}")
+    
+    def _serialize_datetime_objects(self, obj):
+        """递归地将datetime对象转换为ISO字符串"""
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        elif isinstance(obj, dict):
+            return {key: self._serialize_datetime_objects(value) for key, value in obj.items()}
+        elif isinstance(obj, list):
+            return [self._serialize_datetime_objects(item) for item in obj]
+        else:
+            return obj
     
     def is_first_run(self, force_check: bool = False) -> bool:
         """
