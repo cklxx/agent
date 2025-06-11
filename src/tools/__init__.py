@@ -41,4 +41,23 @@ __all__ = [
     "append_to_file",
     "create_new_file",
     "generate_file_diff",
+    # Writing Tools
+    "get_current_datetime",
+    "generate_random_inspiration_theme",
+    "save_content_to_file",
+    "list_saved_content",
+    "generate_character_elements",
+    "generate_plot_outline_elements",
+    "retrieve_relevant_inspirations", # Added new tool
 ]
+
+# Import writing tools
+from .writing_tools import (
+    get_current_datetime,
+    generate_random_inspiration_theme,
+    save_content_to_file,
+    list_saved_content,
+    generate_character_elements,
+    generate_plot_outline_elements,
+    retrieve_relevant_inspirations, # Added new tool
+)
