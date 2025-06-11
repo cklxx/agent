@@ -27,6 +27,7 @@ from src.rag.code_retriever import CodeRetriever
 # Context components
 from src.context.manager import ContextManager
 from src.context.base import ContextType, Priority
+from src.context.intelligent_workspace_analyzer import IntelligentWorkspaceAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,9 @@ class RAGEnhancedCodeTaskPlanner:
         self.repo_path = repo_path
         self.context_manager = context_manager or ContextManager()
         self.use_enhanced_retriever = use_enhanced_retriever
+        
+        # Initialize intelligent workspace analyzer
+        self.workspace_analyzer = IntelligentWorkspaceAnalyzer(repo_path)
 
         # Initialize RAG components with enhanced retriever
         if use_enhanced_retriever:
@@ -83,10 +87,7 @@ class RAGEnhancedCodeTaskPlanner:
 
     async def plan_task_with_context(self, description: str) -> List[Dict[str, Any]]:
         """
-        Plan tasks based on RAG and Context information
-
-        Note: RAG context analysis and environment assessment are performed automatically
-        and do not appear as explicit steps in the generated plan.
+        Plan tasks based on RAG and Context information with intelligent analysis decisions
 
         Args:
             description: Task description
@@ -94,7 +95,7 @@ class RAGEnhancedCodeTaskPlanner:
         Returns:
             LLM-generated task step list focused on core implementation
         """
-        logger.info(f"🧠 Starting RAG-based task planning: {description[:50]}...")
+        logger.info(f"🧠 Starting intelligent RAG-based task planning: {description[:50]}...")
 
         # 1. Add task to context manager
         task_context_id = await self.context_manager.add_context(
@@ -109,18 +110,47 @@ class RAGEnhancedCodeTaskPlanner:
             tags=["code_task", "planning"],
         )
 
-        # 2. Automatic RAG retrieval (not shown in plan steps)
-        relevant_code = await self._retrieve_relevant_code(description)
+        # 2. Intelligent decision on whether to perform analysis and indexing
+        should_analyze_env, should_build_rag, decision_context = await self.workspace_analyzer.should_perform_analysis(description)
+        
+        logger.info(f"🤖 智能决策结果: 环境分析={should_analyze_env}, RAG索引={should_build_rag}")
+        logger.info(f"🧠 决策理由: {decision_context.get('reasoning', 'N/A')}")
 
-        # 3. Automatic environment analysis (not shown in plan steps)
-        project_info = await self._analyze_project_structure()
+        # 3. Conditional environment analysis
+        if should_analyze_env:
+            logger.info("🔍 执行环境分析...")
+            project_info = await self._analyze_project_structure()
+        else:
+            logger.info("⏭️ 跳过环境分析，使用现有上下文...")
+            # Try to get existing workspace context
+            workspace_context = self.workspace_analyzer.get_workspace_context_for_retrieval()
+            if workspace_context:
+                project_info = workspace_context.get("latest_analysis", {}).get("project_structure", {})
+            else:
+                # Fallback to basic analysis
+                project_info = await self._analyze_project_structure()
 
-        # 4. LLM generates core implementation plan only
+        # 4. Conditional RAG retrieval and indexing
+        if should_build_rag:
+            logger.info("🏗️ 执行RAG索引和检索...")
+            # Ensure indexing is complete before retrieval
+            await self._ensure_rag_indexing()
+            relevant_code = await self._retrieve_relevant_code(description)
+        else:
+            logger.info("⏭️ 跳过RAG索引，尝试使用现有索引...")
+            try:
+                # Try to retrieve with existing index
+                relevant_code = await self._retrieve_relevant_code(description)
+            except Exception as e:
+                logger.warning(f"现有索引检索失败，使用空上下文: {e}")
+                relevant_code = []
+
+        # 5. LLM generates core implementation plan
         enhanced_plan = await self._generate_enhanced_plan(
             description, relevant_code, project_info
         )
 
-        # 5. Store planning context for later reference
+        # 6. Store planning context for later reference
         await self.context_manager.add_context(
             content={
                 "plan": enhanced_plan,
@@ -129,16 +159,35 @@ class RAGEnhancedCodeTaskPlanner:
                 "retriever_type": (
                     "enhanced" if self.use_enhanced_retriever else "basic"
                 ),
+                "decision_context": decision_context,
+                "analysis_performed": should_analyze_env,
+                "indexing_performed": should_build_rag,
             },
             context_type=ContextType.PLANNING,
             metadata={"task_id": task_context_id},
             priority=Priority.HIGH,
-            tags=["code_plan", "rag_enhanced"],
+            tags=["code_plan", "rag_enhanced", "intelligent_decision"],
         )
+
+        # 7. Save analysis results if performed
+        if should_analyze_env or should_build_rag:
+            try:
+                indexed_files_count = len(relevant_code) if relevant_code else 0
+                rag_status = "indexed" if should_build_rag and relevant_code else "partial" if should_build_rag else "none"
+                
+                self.workspace_analyzer.save_analysis_result(
+                    project_structure=project_info,
+                    environment_info=decision_context.get("workspace_context", {}).get("workspace_status", {}),
+                    indexed_files_count=indexed_files_count,
+                    rag_status=rag_status
+                )
+            except Exception as e:
+                logger.warning(f"保存分析结果失败: {e}")
 
         self.tasks = enhanced_plan
         logger.info(
-            f"✅ RAG-enhanced planning completed, generated {len(enhanced_plan)} implementation steps"
+            f"✅ 智能RAG增强规划完成，生成{len(enhanced_plan)}个实现步骤 "
+            f"(环境分析: {'是' if should_analyze_env else '否'}, RAG索引: {'是' if should_build_rag else '否'})"
         )
 
         return enhanced_plan
@@ -201,6 +250,33 @@ class RAGEnhancedCodeTaskPlanner:
         except Exception as e:
             logger.error(f"❌ Failed to retrieve relevant code: {str(e)}")
             return []
+
+    async def _ensure_rag_indexing(self):
+        """确保RAG索引已构建"""
+        try:
+            if self.use_enhanced_retriever:
+                # For enhanced retriever, check if indexing is needed
+                stats = self.rag_retriever.get_statistics()
+                if stats.get("total_files", 0) == 0:
+                    logger.info("🏗️ 构建增强RAG索引...")
+                    await self.rag_retriever.build_index_async()
+                    stats = self.rag_retriever.get_statistics()
+                    self.workspace_analyzer.state_manager.mark_indexing_complete(
+                        stats.get("total_files", 0), "indexed"
+                    )
+            else:
+                # For basic retriever, ensure repository is indexed
+                stats = self.code_indexer.get_statistics()
+                if stats.get("total_files", 0) == 0:
+                    logger.info("🏗️ 构建基础代码索引...")
+                    index_stats = self.code_indexer.index_repository()
+                    self.workspace_analyzer.state_manager.mark_indexing_complete(
+                        index_stats.get("indexed_files", 0), "indexed"
+                    )
+                    
+        except Exception as e:
+            logger.error(f"RAG索引构建失败: {e}")
+            self.workspace_analyzer.state_manager.mark_indexing_complete(0, "partial")
 
     async def _analyze_project_structure(self) -> Dict[str, Any]:
         """Analyze project structure"""

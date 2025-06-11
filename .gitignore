@@ -37,3 +37,5 @@ mcp.json
 temp/
 # Benchmark 临时文件
 benckmark/runner/temp_generated/
+
+temp_generated/
