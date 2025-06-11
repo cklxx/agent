@@ -49,6 +49,15 @@ class RetrieverTool(BaseTool):
 
 
 def get_retriever_tool(resources: List[Resource]) -> RetrieverTool | None:
+    """
+    创建RAG检索工具
+
+    Args:
+        resources: 资源列表，包含要检索的数据源
+
+    Returns:
+        RetrieverTool实例，如果无资源或无法创建检索器则返回None
+    """
     if not resources:
         return None
     logger.info(f"create retriever tool: {SELECTED_RAG_PROVIDER}")

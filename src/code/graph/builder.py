@@ -6,46 +6,37 @@ from langgraph.checkpoint.memory import MemorySaver
 from .types import State
 from .nodes import (
     context_node,
-    coordinator_node,
-    planner_node,
-    reporter_node,
-    team_node,
-    researcher_node,
-    coder_node,
+    code_coordinator_node,
+    code_task_planner_node,
+    code_reporter_node,
+    code_team_node,
+    code_researcher_node,
+    code_coder_node,
     human_feedback_node,
 )
 
 
 def _build_base_graph():
-    """构建并返回带有基本节点和边的状态图。
-
-    此函数构建基础的LangGraph StateGraph，添加核心节点：
-    'context', 'coordinator', 'planner', 'reporter', 'team', 'researcher',
-    'coder', 'human_feedback'等。定义了从START到'context'的入口点
-    和从'reporter'到END的出口点。
-    
-    节点流转逻辑：
-    START → context → coordinator → planner → team → (researcher/coder) → team → reporter → END
-    """
+    """构建并返回带有基本节点和边的状态图。"""
     builder = StateGraph(State)
-    
+
     # 设置入口点：START → context
     builder.add_edge(START, "context")
-    
+
     # 添加所有节点
     builder.add_node("context", context_node)
-    builder.add_node("code_coordinator", coordinator_node)
-    builder.add_node("code_planner", planner_node)
-    builder.add_node("code_reporter", reporter_node)
-    builder.add_node("code_team", team_node)
-    builder.add_node("code_researcher", researcher_node)
-    builder.add_node("code_coder", coder_node)
-    #目前没有使用
+    builder.add_node("code_coordinator", code_coordinator_node)
+    builder.add_node("code_task_planner", code_task_planner_node)
+    builder.add_node("code_reporter", code_reporter_node)
+    builder.add_node("code_team", code_team_node)
+    builder.add_node("code_researcher", code_researcher_node)
+    builder.add_node("code_coder", code_coder_node)
+    # 目前没有使用
     builder.add_node("human_feedback", human_feedback_node)
-    
-    # 设置出口点：reporter → END
-    builder.add_edge("code_reporter", END)
-    
+
+    # 不设置固定的出口边，让reporter节点动态决定流向
+    # reporter可以选择结束流程(__end__)或返回coordinator重新规划
+
     return builder
 
 

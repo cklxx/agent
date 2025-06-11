@@ -352,28 +352,30 @@ class EnhancedRAGRetriever(Retriever):
         self.embedding_client = EmbeddingClient(embedding_config)
         self.vector_store = VectorStore(f"{db_path}/vector")
         self.keyword_index = KeywordIndex(f"{db_path}/keyword.db")
-        
+
         # 使用智能文件过滤的代码索引器
         self.code_indexer = CodeIndexer(
-            repo_path=repo_path, 
+            repo_path=repo_path,
             db_path=f"{db_path}/code_index.db",
-            use_intelligent_filter=use_intelligent_filter
+            use_intelligent_filter=use_intelligent_filter,
         )
-        
+
         # 创建基础检索器作为fallback
         self.base_retriever = CodeRetriever(repo_path, f"{db_path}/base.db")
-        
+
         # 权重配置
         self.vector_weight = 0.6  # 向量召回权重
         self.keyword_weight = 0.4  # 关键词召回权重
-        
+
         # 标记是否需要构建索引
         self._needs_indexing = False
 
         # 检查是否需要构建索引
         self._ensure_indexed()
 
-        logger.info(f"增强RAG检索器初始化完成: {repo_path}, 智能过滤: {use_intelligent_filter}")
+        logger.info(
+            f"增强RAG检索器初始化完成: {repo_path}, 智能过滤: {use_intelligent_filter}"
+        )
 
     def _ensure_indexed(self):
         """确保增强索引已构建"""
@@ -393,51 +395,61 @@ class EnhancedRAGRetriever(Retriever):
     async def build_index_async(self, task_context: str = ""):
         """异步构建增强索引，支持智能文件分类"""
         logger.info("开始构建增强RAG索引...")
-        
+
         try:
             # 使用智能扫描获取文件列表
             if self.use_intelligent_filter:
                 logger.info("使用智能文件分类扫描仓库...")
-                files_to_index = await self.code_indexer.scan_repository_intelligent(task_context)
+                files_to_index = await self.code_indexer.scan_repository_intelligent(
+                    task_context
+                )
             else:
                 logger.info("使用基础扫描仓库...")
                 files_to_index = self.code_indexer.scan_repository()
-            
+
             if not files_to_index:
                 logger.warning("没有找到需要索引的文件")
                 return
 
             # 构建代码索引
             logger.info(f"开始索引 {len(files_to_index)} 个文件...")
-            
+
             # 如果之前没有索引任何文件，强制重新索引
             existing_stats = self.code_indexer.get_statistics()
             force_reindex = existing_stats.get("total_files", 0) == 0
             if force_reindex:
                 logger.info("检测到空索引，强制重新索引...")
-            
-            index_stats = self.code_indexer.index_repository(force_reindex=force_reindex)
-            
+
+            index_stats = self.code_indexer.index_repository(
+                force_reindex=force_reindex
+            )
+
             # 获取所有代码块
             documents = []
             for file_path in files_to_index:
                 try:
                     file_info = self.code_indexer.get_file_info(file_path)
                     if file_info:
-                        chunks = self.code_indexer.search_code("", file_type=file_info["language"], limit=1000)
+                        chunks = self.code_indexer.search_code(
+                            "", file_type=file_info["language"], limit=1000
+                        )
                         for chunk in chunks:
                             if chunk["file_path"] == file_path:
-                                documents.append({
-                                    "id": f"{file_path}:{chunk['start_line']}",
-                                    "content": chunk["content"],
-                                    "metadata": {
-                                        "file_path": file_path,
-                                        "chunk_type": chunk.get("chunk_type", "code"),
-                                        "start_line": chunk.get("start_line", 0),
-                                        "end_line": chunk.get("end_line", 0),
-                                        "language": file_info["language"],
+                                documents.append(
+                                    {
+                                        "id": f"{file_path}:{chunk['start_line']}",
+                                        "content": chunk["content"],
+                                        "metadata": {
+                                            "file_path": file_path,
+                                            "chunk_type": chunk.get(
+                                                "chunk_type", "code"
+                                            ),
+                                            "start_line": chunk.get("start_line", 0),
+                                            "end_line": chunk.get("end_line", 0),
+                                            "language": file_info["language"],
+                                        },
                                     }
-                                })
+                                )
                 except Exception as e:
                     logger.warning(f"处理文件 {file_path} 失败: {e}")
 
@@ -626,10 +638,10 @@ class EnhancedRAGRetriever(Retriever):
         try:
             # 获取向量存储统计
             vector_count = self.vector_store.count()
-            
+
             # 获取代码索引器统计
             code_stats = self.code_indexer.get_statistics()
-            
+
             # 组合统计信息
             stats = {
                 "vector_store_count": vector_count,
@@ -642,9 +654,9 @@ class EnhancedRAGRetriever(Retriever):
                 "vector_weight": self.vector_weight,
                 "keyword_weight": self.keyword_weight,
             }
-            
+
             return stats
-            
+
         except Exception as e:
             logger.error(f"获取统计信息失败: {e}")
             return {"error": str(e)}

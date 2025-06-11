@@ -26,6 +26,18 @@ LoggedArxivSearch = create_logged_tool(ArxivQueryRun)
 
 # Get the selected search tool
 def get_web_search_tool(max_search_results: int):
+    """
+    获取配置的网络搜索工具
+
+    Args:
+        max_search_results: 最大搜索结果数量
+
+    Returns:
+        配置的搜索工具实例
+
+    Raises:
+        ValueError: 当搜索引擎配置不支持时
+    """
     if SELECTED_SEARCH_ENGINE == SearchEngine.TAVILY.value:
         return LoggedTavilySearch(
             name="web_search",

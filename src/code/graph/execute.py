@@ -17,19 +17,25 @@ from .types import State
 
 logger = logging.getLogger(__name__)
 
+
 # 保持原有的辅助函数
 async def execute_agent_step(
     state: State, agent, agent_name: str
-) -> Command[Literal["team"]]:
+) -> Command[Literal["code_team"]]:
     """Helper function to execute a step using the specified agent."""
     current_plan = state.get("current_plan")
     observations = state.get("observations", [])
+
+    # Check if current_plan exists and has steps
+    if not current_plan or not hasattr(current_plan, "steps") or not current_plan.steps:
+        logger.warning("No valid plan or steps found in execute_agent_step")
+        return Command(goto="code_team")
 
     # Find the first unexecuted step
     current_step = None
     completed_steps = []
     for step in current_plan.steps:
-        if not (hasattr(step, 'execution_res') and step.execution_res):
+        if not (hasattr(step, "execution_res") and step.execution_res):
             current_step = step
             break
         else:
@@ -37,17 +43,23 @@ async def execute_agent_step(
 
     if not current_step:
         logger.warning("No unexecuted step found")
-        return Command(goto="team")
+        return Command(goto="code_team")
 
-    logger.info(f"Executing step: {getattr(current_step, 'title', '未知')}, agent: {agent_name}")
+    logger.info(
+        f"Executing step: {getattr(current_step, 'title', '未知')}, agent: {agent_name}"
+    )
 
     # Format completed steps information
     completed_steps_info = ""
     if completed_steps:
         completed_steps_info = "# 已完成的研究发现\n\n"
         for i, step in enumerate(completed_steps):
-            completed_steps_info += f"## 已完成发现 {i + 1}: {getattr(step, 'title', '未知')}\n\n"
-            completed_steps_info += f"<finding>\n{getattr(step, 'execution_res', '无结果')}\n</finding>\n\n"
+            completed_steps_info += (
+                f"## 已完成发现 {i + 1}: {getattr(step, 'title', '未知')}\n\n"
+            )
+            completed_steps_info += (
+                f"<finding>\n{getattr(step, 'execution_res', '无结果')}\n</finding>\n\n"
+            )
 
     # Prepare the input for the agent with completed steps info
     agent_input = {
@@ -59,7 +71,7 @@ async def execute_agent_step(
     }
 
     # Add citation reminder for researcher agent
-    if agent_name == "researcher":
+    if agent_name == "code_researcher":
         if state.get("resources"):
             resources_info = "**用户提到的以下资源文件：**\n\n"
             for resource in state.get("resources"):
@@ -138,7 +150,9 @@ async def execute_agent_step(
 
     # Update the step with the execution result
     current_step.execution_res = response_content
-    logger.info(f"Step '{getattr(current_step, 'title', '未知')}' execution completed by {agent_name}")
+    logger.info(
+        f"Step '{getattr(current_step, 'title', '未知')}' execution completed by {agent_name}"
+    )
 
     return Command(
         update={
@@ -150,7 +164,7 @@ async def execute_agent_step(
             ],
             "observations": observations + [response_content],
         },
-        goto="team",
+        goto="code_team",
     )
 
 
@@ -159,7 +173,7 @@ async def setup_and_execute_agent_step(
     config: RunnableConfig,
     agent_type: str,
     default_tools: list,
-) -> Command[Literal["team"]]:
+) -> Command[Literal["code_team"]]:
     """Helper function to set up an agent with appropriate tools and execute a step."""
     configurable = Configuration.from_runnable_config(config)
     mcp_servers = {}
