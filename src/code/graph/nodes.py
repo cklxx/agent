@@ -90,13 +90,11 @@ def context_node(
     # 获取配置信息
     configurable = Configuration.from_runnable_config(config)
     # 初始化环境信息
-    environment_info = {
-        "current_directory": state.get("workspace", os.getcwd()),
-        "python_version": (
-            f"{os.sys.version_info.major}.{os.sys.version_info.minor}.{os.sys.version_info.micro}"
-        ),
-        "platform": os.name,
-    }
+    current_directory = state.get("workspace", os.getcwd())
+    python_version = f"{os.sys.version_info.major}.{os.sys.version_info.minor}.{os.sys.version_info.micro}"
+    platform = os.name
+    
+    environment_info = f"Working directory: {current_directory}\nPython version: {python_version}\nSystem platform: {platform}"
 
     # 初始化RAG上下文（如果配置了资源）
     rag_context = ""
@@ -105,7 +103,7 @@ def context_node(
             [f"{res.title} ({res.description})" for res in configurable.resources]
         )
 
-    logger.info(f"✅ 环境初始化完成，工作目录: {environment_info['current_directory']}")
+    logger.info(f"✅ 环境初始化完成，工作目录: {environment_info}")
 
     return Command(
         update={
@@ -165,12 +163,12 @@ def architect_node(
 
     # 调用agent执行任务
     try:
-        logger.info("🚀 开始执行智能架构师任务...")
+        logger.info(f"🚀 开始执行智能架构师任务... {state}")
         
         # 准备完整的状态信息用于模板渲染
         full_state = {
             "messages": messages,
-            "environment_info": state.get("environment_info", {}),
+            "environment_info": state.get("environment_info", "Environment information not available"),
             "rag_context": state.get("rag_context", ""),
             "locale": state.get("locale", "zh-CN"),
             "recursion_depth": state.get("recursion_depth", 0),

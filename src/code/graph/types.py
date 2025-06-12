@@ -10,6 +10,7 @@ class State(MessagesState):
     """State for the agent system, extends MessagesState with next field."""
 
     # Runtime Variables
+    environment_info: str = ""
     workspace: str = ""
     locale: str = "en-US"
     observations: list[str] = []
