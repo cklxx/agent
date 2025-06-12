@@ -12,12 +12,8 @@ class State(MessagesState):
     # Runtime Variables
     environment_info: str = ""
     workspace: str = ""
-    locale: str = "en-US"
+    task_description: str = ""
     observations: list[str] = []
+    recursion_limit: int = 20
     resources: list[Resource] = []
-    plan_iterations: int = 0
-    current_plan: Plan | str = None
     final_report: str = ""
-    auto_accepted_plan: bool = False
-    enable_background_investigation: bool = True
-    background_investigation_results: str = None

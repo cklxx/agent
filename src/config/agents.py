@@ -20,4 +20,6 @@ AGENT_LLM_MAP: dict[str, LLMType] = {
     "code_coder": "reasoning",
     # Architect agent (new unified agent)
     "architect": "reasoning",
+    # Dispatch agent for analysis tasks
+    "dispatch_agent": "basic",
 }

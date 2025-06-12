@@ -15,11 +15,11 @@ logger = logging.getLogger(__name__)
 CONVERSATION_HISTORY = []
 
 
-@tool  
+@tool
 def clear_conversation() -> str:
     """
     Clear conversation history and free up context.
-    
+
     This tool removes all conversation history to free up context window space.
     Use this when you want to start fresh or when context is getting too large.
 
@@ -28,15 +28,15 @@ def clear_conversation() -> str:
     """
     try:
         global CONVERSATION_HISTORY
-        
+
         # Store count before clearing
         message_count = len(CONVERSATION_HISTORY)
-        
+
         # Clear the conversation history
         CONVERSATION_HISTORY.clear()
-        
+
         logger.info("Conversation history cleared")
-        
+
         if message_count > 0:
             return f"Conversation history cleared. Removed {message_count} messages from context."
         else:
@@ -51,8 +51,8 @@ def clear_conversation() -> str:
 def compact_conversation() -> str:
     """
     Clear conversation history but keep a summary in context.
-    
-    This tool compacts the conversation history by creating a summary of the important 
+
+    This tool compacts the conversation history by creating a summary of the important
     information and clearing the detailed history, helping to manage context window size
     while preserving key information.
 
@@ -61,25 +61,30 @@ def compact_conversation() -> str:
     """
     try:
         global CONVERSATION_HISTORY
-        
+
         if not CONVERSATION_HISTORY:
             return "Conversation history is empty. Nothing to compact."
 
         # Use project's LLM infrastructure for summarization
         from src.llms.llm import get_llm_by_type
         from src.config.agents import AGENT_LLM_MAP
-        
+
         try:
             llm = get_llm_by_type(AGENT_LLM_MAP["basic"])
         except Exception as e:
             logger.error(f"Failed to get LLM for conversation compacting: {e}")
-            return f"Error: Unable to initialize LLM for conversation compacting: {str(e)}"
+            return (
+                f"Error: Unable to initialize LLM for conversation compacting: {str(e)}"
+            )
 
         # Create summary prompt
-        conversation_text = "\n".join([
-            f"Message {i+1}: {msg}" for i, msg in enumerate(CONVERSATION_HISTORY[-20:])  # Last 20 messages
-        ])
-        
+        conversation_text = "\n".join(
+            [
+                f"Message {i+1}: {msg}"
+                for i, msg in enumerate(CONVERSATION_HISTORY[-20:])  # Last 20 messages
+            ]
+        )
+
         summary_prompt = f"""Please create a concise summary of this conversation that preserves the key information, decisions made, and current context. Focus on:
 
 1. Main topics discussed
@@ -95,22 +100,29 @@ Provide a clear, structured summary that can serve as context for continuing the
         try:
             # Generate summary using project's LLM infrastructure
             messages = [
-                {"role": "system", "content": "You are a helpful assistant that creates concise conversation summaries."},
-                {"role": "user", "content": summary_prompt}
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a helpful assistant that creates concise conversation summaries."
+                    ),
+                },
+                {"role": "user", "content": summary_prompt},
             ]
-            
+
             response = llm.invoke(messages)
             summary = response.content.strip()
-            
+
             # Store message count before clearing
             message_count = len(CONVERSATION_HISTORY)
-            
+
             # Clear history and replace with summary
             CONVERSATION_HISTORY.clear()
             CONVERSATION_HISTORY.append(f"CONVERSATION_SUMMARY: {summary}")
-            
-            logger.info(f"Conversation history compacted: {message_count} messages -> summary")
-            
+
+            logger.info(
+                f"Conversation history compacted: {message_count} messages -> summary"
+            )
+
             result = f"""# Conversation Compacted
 
 Successfully compacted {message_count} messages into a summary.
@@ -120,7 +132,7 @@ Successfully compacted {message_count} messages into a summary.
 
 ---
 *Conversation history has been compacted to preserve context while reducing size.*"""
-            
+
             return result
 
         except Exception as e:
@@ -145,5 +157,5 @@ def get_conversation_context() -> str:
     global CONVERSATION_HISTORY
     if not CONVERSATION_HISTORY:
         return "No conversation history available."
-    
-    return "\n".join(CONVERSATION_HISTORY) 
+
+    return "\n".join(CONVERSATION_HISTORY)

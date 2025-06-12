@@ -208,10 +208,15 @@ class IntelligentWorkspaceAnalyzer:
             # 分析环境信息
             environment_info = await self._analyze_environment()
 
+            # 生成文本格式的环境分析报告
+            text_summary = self._generate_text_summary(
+                project_structure, environment_info
+            )
+
             analysis_result = {
                 "project_structure": project_structure,
                 "environment_info": environment_info,
-                "analysis_time": datetime.now(),
+                "text_summary": text_summary,  # 新增：文本格式摘要
                 "success": True,
             }
 
@@ -223,7 +228,7 @@ class IntelligentWorkspaceAnalyzer:
             return {
                 "project_structure": {},
                 "environment_info": {},
-                "analysis_time": datetime.now(),
+                "text_summary": f"环境分析失败: {str(e)}",
                 "success": False,
                 "error": str(e),
             }
@@ -231,81 +236,105 @@ class IntelligentWorkspaceAnalyzer:
     async def _analyze_project_structure(self) -> Dict[str, Any]:
         """分析项目结构"""
         workspace_path = Path(self.workspace_path)
-
         structure_info = {
             "total_files": 0,
+            "total_directories": 0,
             "file_types": {},
-            "main_languages": [],
-            "project_type": "unknown",
-            "directories": [],
             "config_files": [],
+            "directories": [],
+            "main_languages": [],
         }
 
-        try:
-            # 扫描文件
-            for item in workspace_path.rglob("*"):
-                if item.is_file():
-                    structure_info["total_files"] += 1
+        # 只扫描根目录和第一层子目录，避免扫描.venv等深层目录
+        exclude_dirs = {
+            ".git",
+            ".venv",
+            "venv",
+            "__pycache__",
+            "node_modules",
+            "dist",
+            "build",
+            ".pytest_cache",
+            ".coverage",
+            "temp",
+        }
 
-                    # 统计文件类型
-                    suffix = item.suffix.lower()
-                    if suffix:
-                        structure_info["file_types"][suffix] = (
-                            structure_info["file_types"].get(suffix, 0) + 1
-                        )
+        # 扫描根目录的直接文件
+        for item in workspace_path.iterdir():
+            if item.is_file():
+                structure_info["total_files"] += 1
 
-                    # 识别配置文件
-                    if item.name in [
-                        "package.json",
-                        "requirements.txt",
-                        "pyproject.toml",
-                        "Cargo.toml",
-                        "go.mod",
-                    ]:
-                        structure_info["config_files"].append(
-                            str(item.relative_to(workspace_path))
-                        )
-
-                elif item.is_dir() and not item.name.startswith("."):
-                    structure_info["directories"].append(
-                        str(item.relative_to(workspace_path))
+                # 统计文件类型
+                suffix = item.suffix.lower()
+                if suffix:
+                    structure_info["file_types"][suffix] = (
+                        structure_info["file_types"].get(suffix, 0) + 1
                     )
 
-            # 确定主要语言
-            common_extensions = {
-                ".py": "Python",
-                ".js": "JavaScript",
-                ".ts": "TypeScript",
-                ".java": "Java",
-                ".go": "Go",
-                ".rs": "Rust",
-                ".cpp": "C++",
-                ".c": "C",
-            }
+                # 识别配置文件
+                if item.name in [
+                    "package.json",
+                    "requirements.txt",
+                    "pyproject.toml",
+                    "Cargo.toml",
+                    "go.mod",
+                    "conf.yaml",
+                    "docker-compose.yml",
+                    "Dockerfile",
+                    "Makefile",
+                ]:
+                    structure_info["config_files"].append(item.name)
 
-            for ext, count in sorted(
-                structure_info["file_types"].items(), key=lambda x: x[1], reverse=True
-            ):
-                if ext in common_extensions:
-                    structure_info["main_languages"].append(common_extensions[ext])
-                if len(structure_info["main_languages"]) >= 3:
-                    break
+            elif item.is_dir() and item.name not in exclude_dirs:
+                structure_info["total_directories"] += 1
+                structure_info["directories"].append(item.name)
 
-            # 推断项目类型
-            if "package.json" in structure_info["config_files"]:
-                structure_info["project_type"] = "Node.js"
-            elif (
-                "requirements.txt" in structure_info["config_files"]
-                or "pyproject.toml" in structure_info["config_files"]
-            ):
-                structure_info["project_type"] = "Python"
-            elif "Cargo.toml" in structure_info["config_files"]:
-                structure_info["project_type"] = "Rust"
-            elif "go.mod" in structure_info["config_files"]:
-                structure_info["project_type"] = "Go"
+                # 扫描第一层子目录的文件（不再深入）
+                try:
+                    for subitem in item.iterdir():
+                        if subitem.is_file():
+                            structure_info["total_files"] += 1
+                            suffix = subitem.suffix.lower()
+                            if suffix:
+                                structure_info["file_types"][suffix] = (
+                                    structure_info["file_types"].get(suffix, 0) + 1
+                                )
+                except (PermissionError, OSError):
+                    # 跳过无法访问的目录
+                    continue
 
-        except Exception as e:
-            logger.error(f"项目结构分析失败: {e}")
+        # 确定主要语言
+        common_extensions = {
+            ".py": "Python",
+            ".js": "JavaScript",
+            ".ts": "TypeScript",
+            ".java": "Java",
+            ".go": "Go",
+            ".rs": "Rust",
+            ".cpp": "C++",
+            ".c": "C",
+        }
+
+        for ext, count in sorted(
+            structure_info["file_types"].items(), key=lambda x: x[1], reverse=True
+        ):
+            if ext in common_extensions:
+                structure_info["main_languages"].append(common_extensions[ext])
+            if len(structure_info["main_languages"]) >= 3:
+                break
+
+        # 推断项目类型
+        if "package.json" in structure_info["config_files"]:
+            structure_info["project_type"] = "Node.js"
+        elif (
+            "requirements.txt" in structure_info["config_files"]
+            or "pyproject.toml" in structure_info["config_files"]
+        ):
+            structure_info["project_type"] = "Python"
+        elif "Cargo.toml" in structure_info["config_files"]:
+            structure_info["project_type"] = "Rust"
+        elif "go.mod" in structure_info["config_files"]:
+            structure_info["project_type"] = "Go"
 
         return structure_info
 
@@ -317,7 +346,7 @@ class IntelligentWorkspaceAnalyzer:
         env_info = {
             "platform": platform.system(),
             "python_version": sys.version,
-            "working_directory": str(Path.cwd()),
+            "working_directory": self.workspace_path,  # 使用用户指定的工作目录
             "workspace_path": self.workspace_path,
             "timestamp": datetime.now().isoformat(),
         }
@@ -349,6 +378,105 @@ class IntelligentWorkspaceAnalyzer:
                 env_info["package_managers"].append(manager)
 
         return env_info
+
+    def _generate_text_summary(
+        self, project_structure: Dict[str, Any], environment_info: Dict[str, Any]
+    ) -> str:
+        """生成环境分析结果的文本格式摘要"""
+        try:
+            # 提取关键信息
+            total_files = project_structure.get("total_files", 0)
+            total_dirs = project_structure.get("total_directories", 0)
+            file_types = project_structure.get("file_types", {})
+            config_files = project_structure.get("config_files", [])
+            directories = project_structure.get("directories", [])
+            main_languages = project_structure.get("main_languages", [])
+            project_type = project_structure.get("project_type", "Unknown")
+
+            platform = environment_info.get("platform", "Unknown")
+            python_version = environment_info.get("python_version", "Unknown")
+            working_dir = environment_info.get("working_directory", "Unknown")
+            venv = environment_info.get("virtual_environment")
+            package_managers = environment_info.get("package_managers", [])
+            timestamp = environment_info.get("timestamp", "Unknown")
+
+            # 构建文本摘要
+            text_lines = []
+
+            # === 项目概览 ===
+            text_lines.append("=== 项目环境分析报告 ===")
+            text_lines.append(f"分析时间: {timestamp}")
+            text_lines.append(f"工作目录: {working_dir}")
+            text_lines.append("")
+
+            # === 项目结构 ===
+            text_lines.append("=== 项目结构 ===")
+            text_lines.append(f"项目类型: {project_type}")
+            text_lines.append(f"总文件数: {total_files}")
+            text_lines.append(f"总目录数: {total_dirs}")
+
+            if main_languages:
+                text_lines.append(f"主要编程语言: {', '.join(main_languages)}")
+
+            # 文件类型分布
+            if file_types:
+                text_lines.append("")
+                text_lines.append("文件类型分布:")
+                for ext, count in sorted(
+                    file_types.items(), key=lambda x: x[1], reverse=True
+                )[:10]:
+                    text_lines.append(f"  {ext}: {count}个文件")
+
+            # 配置文件
+            if config_files:
+                text_lines.append("")
+                text_lines.append(f"配置文件: {', '.join(config_files)}")
+
+            # 主要目录
+            if directories:
+                text_lines.append("")
+                text_lines.append(f"主要目录: {', '.join(directories[:10])}")
+                if len(directories) > 10:
+                    text_lines.append(f"  (还有{len(directories)-10}个其他目录)")
+
+            text_lines.append("")
+
+            # === 运行环境 ===
+            text_lines.append("=== 运行环境 ===")
+            text_lines.append(f"操作系统: {platform}")
+            text_lines.append(
+                f"Python版本: {python_version.split()[0] if python_version != 'Unknown' else 'Unknown'}"
+            )
+
+            # 虚拟环境
+            if venv:
+                text_lines.append(f"虚拟环境: {venv}")
+            else:
+                text_lines.append("虚拟环境: 未检测到")
+
+            # 包管理器
+            if package_managers:
+                text_lines.append(f"包管理器: {', '.join(package_managers)}")
+            else:
+                text_lines.append("包管理器: 未检测到")
+
+            # === 总结 ===
+            text_lines.append("")
+            text_lines.append("=== 环境总结 ===")
+            if project_type != "Unknown":
+                text_lines.append(f"这是一个{project_type}项目")
+            if main_languages:
+                text_lines.append(f"主要使用{main_languages[0]}进行开发")
+            if total_files > 0:
+                text_lines.append(f"项目规模：{total_files}个文件，{total_dirs}个目录")
+            if venv:
+                text_lines.append(f"开发环境：配置了{venv}虚拟环境")
+
+            return "\n".join(text_lines)
+
+        except Exception as e:
+            logger.error(f"生成文本摘要失败: {e}")
+            return f"无法生成文本摘要: {str(e)}"
 
     def save_analysis_result(
         self,

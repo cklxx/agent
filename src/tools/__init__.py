@@ -18,7 +18,7 @@ from .search import get_web_search_tool
 __all__ = [
     # Agent tools
     "dispatch_agent",
-    "clear_conversation", 
+    "clear_conversation",
     "compact_conversation",
     # Architecture tool
     "architect_plan",
@@ -28,7 +28,7 @@ __all__ = [
     "edit_file",
     "replace_file",
     "view_file",
-    "list_files", 
+    "list_files",
     "glob_search",
     "grep_search",
     # Notebook tools
@@ -39,7 +39,7 @@ __all__ = [
     # External tools
     "crawl_tool",
     "search_location",
-    "get_route", 
+    "get_route",
     "get_nearby_places",
     "python_repl_tool",
     "get_retriever_tool",

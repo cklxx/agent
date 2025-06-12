@@ -11,6 +11,7 @@ from typing import Optional
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage
 
+from prompts.template import apply_prompt_template
 from src.agents.agents import create_agent
 from src.config.agents import AGENT_LLM_MAP
 from src.llms.llm import get_llm_by_type
@@ -50,14 +51,14 @@ IMPORTANT: Do not attempt to write the code or use any string modification tools
 def architect_plan(prompt: str, context: Optional[str] = None) -> str:
     """
     Advanced architecture planning tool that analyzes technical requirements and creates detailed implementation plans.
-    
+
     This tool excels at:
     - Breaking down complex technical problems into manageable steps
     - Designing system architectures and choosing appropriate technologies
     - Creating actionable implementation roadmaps
     - Recommending tools and approaches for each phase
     - Planning for testing, validation, and deployment
-    
+
     Use this tool when you need to:
     - Plan how to implement a new feature or system
     - Design technical solutions for complex problems
@@ -75,7 +76,7 @@ def architect_plan(prompt: str, context: Optional[str] = None) -> str:
     try:
         # Use project's LLM infrastructure
         llm = get_llm_by_type(AGENT_LLM_MAP["architect"])
-        
+
         # Prepare the full prompt with enhanced context
         if context:
             full_prompt = f"""## Context Information
@@ -94,7 +95,7 @@ Please provide a detailed implementation plan following the three-step approach 
         # Create messages for direct LLM invocation
         messages = [
             {"role": "system", "content": ARCHITECT_SYSTEM_PROMPT},
-            {"role": "user", "content": full_prompt}
+            {"role": "user", "content": full_prompt},
         ]
 
         # Generate response using project's LLM
@@ -116,10 +117,12 @@ Please provide a detailed implementation plan following the three-step approach 
 
 
 @tool
-def dispatch_agent(prompt: str) -> str:
+def dispatch_agent(
+    prompt: str, environment_info: Optional[str] = None, workspace: Optional[str] = None
+) -> str:
     """
-    Launch a new agent that has access to read-only tools for exploration and analysis.
-    
+    Launch a new agent that has comprehensive tools for exploration, analysis, and intelligent modifications.
+
     This tool creates an intelligent agent with access to:
     - view_file: Read file contents (supports images and text files)
     - list_files: List directory contents with detailed information
@@ -127,70 +130,80 @@ def dispatch_agent(prompt: str) -> str:
     - grep_search: Search file contents using regex patterns
     - think: Log thoughts and reasoning processes
     - notebook_read: Read Jupyter notebook contents
-    
+    - edit_file: Create new files or modify existing files
+    - replace_file: Replace specific content in files
+    - bash_command: Execute shell commands for testing and validation
+
     Use this tool when you need to:
     - Search for keywords or files with uncertain matches
     - Explore codebases and understand project structures
     - Gather information from multiple sources
     - Perform analysis that requires multiple investigation steps
-    
-    The agent CANNOT modify files, execute commands, or make changes to the system.
-    It focuses on information gathering, code exploration, and analysis tasks.
+    - Make targeted improvements to code or documentation
+    - Validate changes with testing commands
 
     Args:
         prompt: The task for the agent to perform - be specific about what information you need
+        environment_info: Optional environment information (Python version, platform, etc.)
+        workspace: Optional workspace directory path
 
     Returns:
-        The agent's comprehensive analysis and findings
+        The agent's comprehensive analysis, findings, and any improvements made
     """
     try:
         # Import available tools for the dispatch agent
-        from src.tools import view_file, list_files, glob_search, grep_search, think, notebook_read
-        
+        from src.tools import (
+            view_file,
+            list_files,
+            glob_search,
+            grep_search,
+            think,
+            bash_command,
+            replace_file,
+            edit_file,
+        )
+
         # Define available tools for the dispatch agent (read-only tools)
-        available_tools = [view_file, list_files, glob_search, grep_search, think, notebook_read]
-        
+        available_tools = [
+            view_file,
+            list_files,
+            glob_search,
+            grep_search,
+            think,
+            bash_command,
+            replace_file,
+            edit_file,
+        ]
+
         # Create agent using project's infrastructure
         agent = create_agent(
             agent_name="dispatch_agent",
-            agent_type="basic",  # Use basic LLM for analysis tasks
+            agent_type="dispatch_agent",  # Use dispatch_agent LLM configuration
             tools=available_tools,
-            prompt_template="dispatch_agent"  # This would need to be added to prompts
+            prompt_template="dispatch_agent",
         )
-        
-        # Create the agent prompt
-        agent_prompt = f"""Task: {prompt}
-
-Instructions:
-1. Use the available tools to thoroughly investigate this request
-2. Document your reasoning process using the think tool
-3. Provide a comprehensive final report with all relevant findings
-4. Remember you only get to send one response, so be thorough
-
-Available tools: view_file, list_files, glob_search, grep_search, think, notebook_read
-
-Begin your investigation now."""
-
-        # Create input for the agent
-        agent_input = {
-            "messages": [HumanMessage(content=agent_prompt)]
+        # Create input for the agent with environment information
+        agent_state = {
+            "messages": [HumanMessage(content=prompt)],
+            "task_description": prompt,
         }
+
+        # Add environment information if provided
+        if environment_info:
+            agent_state["environment_info"] = environment_info
+
+        # Add workspace information if provided
+        if workspace:
+            agent_state["workspace"] = workspace
+
+        agent_input = {"messages": apply_prompt_template("dispatch_agent", agent_state)}
 
         try:
             # Execute the agent
-            result = agent.invoke(agent_input)
-            
-            # Extract the agent's response
-            if hasattr(result, 'messages') and result.messages:
-                agent_result = result.messages[-1].content
-            elif hasattr(result, 'content'):
-                agent_result = result.content
-            else:
-                agent_result = str(result)
-
+            result = agent.invoke(agent_input, config={"recursion_limit": 20})
             # Format the result
-            formatted_result = f"# Dispatch Agent Report\n\n{agent_result}\n\n---\n*Report generated by dispatch agent using project infrastructure*"
-            
+            formatted_result = f"# Dispatch Agent Report\n\n{result.messages[-1].content}\n\n---\n*Report generated by dispatch agent using project infrastructure*"
+
             logger.info(f"Dispatch agent completed task: {prompt[:100]}...")
             return formatted_result
 
@@ -200,4 +213,4 @@ Begin your investigation now."""
 
     except Exception as e:
         logger.error(f"Dispatch agent tool error: {e}")
-        return f"Error: Failed to launch dispatch agent: {str(e)}" 
+        return f"Error: Failed to launch dispatch agent: {str(e)}"
