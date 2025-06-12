@@ -18,4 +18,6 @@ AGENT_LLM_MAP: dict[str, LLMType] = {
     # Code-specific agents
     "code_researcher": "basic",
     "code_coder": "reasoning",
+    # Architect agent (new unified agent)
+    "architect": "reasoning",
 }

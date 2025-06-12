@@ -1,18 +1,12 @@
 # SPDX-License-Identifier: MIT
 
-from langgraph.graph import StateGraph, START, END
+from langgraph.graph import StateGraph, START
 from langgraph.checkpoint.memory import MemorySaver
 
 from .types import State
 from .nodes import (
     context_node,
-    code_coordinator_node,
-    code_task_planner_node,
-    code_reporter_node,
-    code_team_node,
-    code_researcher_node,
-    code_coder_node,
-    human_feedback_node,
+    architect_node,
 )
 
 
@@ -23,19 +17,12 @@ def _build_base_graph():
     # 设置入口点：START → context
     builder.add_edge(START, "context")
 
-    # 添加所有节点
+    # 添加核心节点
     builder.add_node("context", context_node)
-    builder.add_node("code_coordinator", code_coordinator_node)
-    builder.add_node("code_task_planner", code_task_planner_node)
-    builder.add_node("code_reporter", code_reporter_node)
-    builder.add_node("code_team", code_team_node)
-    builder.add_node("code_researcher", code_researcher_node)
-    builder.add_node("code_coder", code_coder_node)
-    # 目前没有使用
-    builder.add_node("human_feedback", human_feedback_node)
+    builder.add_node("architect_node", architect_node)
 
-    # 不设置固定的出口边，让reporter节点动态决定流向
-    # reporter可以选择结束流程(__end__)或返回coordinator重新规划
+    # architect_node 可以递归调用自己或结束流程
+    # 不设置固定的出口边，让architect_node动态决定流向
 
     return builder
 
