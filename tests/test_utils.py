@@ -7,6 +7,7 @@ Utils模块测试
 
 import pytest
 import json
+import logging # Added for caplog
 from src.utils.json_utils import repair_json_output
 
 
@@ -87,3 +88,28 @@ class TestJsonUtils:
         result = repair_json_output(content)
         # 如果修复失败，应该返回原内容
         assert result == content
+
+    def test_repair_json_output_more_unicode_chars(self):
+        """测试包含更多Unicode字符的JSON确保ensure_ascii=False"""
+        content = '{"sign": "✔", "currency": "€", "text": "你好世界"}'
+        expected = {"sign": "✔", "currency": "€", "text": "你好世界"}
+        result = repair_json_output(content)
+        # Parse the result back to a Python dict for comparison
+        # to avoid issues with key order or whitespace differences in the string representation
+        assert json.loads(result) == expected, f"Expected {expected}, got {json.loads(result)}"
+
+    def test_repair_json_output_logs_warning_on_repair_failure(self, caplog):
+        """测试在JSON修复失败时记录警告日志"""
+        # This content (unpaired high surrogate) should cause json_repair.loads() to raise an exception.
+        malformed_content = '{"key": "\uD800"}'
+
+        # Set the level for the specific logger and caplog.
+        # Pytest's caplog should capture logs from loggers that propagate to root.
+        logging.getLogger("src.utils.json_utils").setLevel(logging.WARNING)
+        caplog.set_level(logging.WARNING)
+
+        result = repair_json_output(malformed_content)
+
+        assert result == malformed_content # Should return original content
+        assert len(caplog.records) == 1
+        assert "JSON repair failed" in caplog.records[0].message
