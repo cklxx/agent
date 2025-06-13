@@ -17,3 +17,4 @@ class State(MessagesState):
     recursion_limit: int = 20
     resources: list[Resource] = []
     final_report: str = ""
+    tool_calls: list[dict] = []

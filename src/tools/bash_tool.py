@@ -10,41 +10,39 @@ import logging
 import re
 import json
 import time
-from typing import Optional, List, Set, Dict
+import tempfile
+from typing import Optional, List, Set, Dict, Any
 from pathlib import Path
 from langchain_core.tools import tool
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
 # Banned commands for security
 BANNED_COMMANDS = {
-    "alias",
     "curl",
-    "curlie",
     "wget",
-    "axel",
-    "aria2c",
-    "nc",
     "telnet",
-    "lynx",
-    "w3m",
-    "links",
-    "httpie",
-    "xh",
-    "http-prompt",
-    "chrome",
-    "firefox",
-    "safari",
+    "nc",
+    "ssh",
+    "scp",
+    "ftp",
+    "sftp",
+    "rm -rf",
+    "mkfs",
+    "dd",
+    "format",
+    "chmod 777",
 }
 
 # Commands that should use specialized tools instead
 DISCOURAGED_COMMANDS = {
-    "find": "Use GrepTool or SearchGlobTool instead",
+    "find": "Use SearchGlobTool instead",
     "grep": "Use GrepTool instead",
-    "cat": "Use View tool instead",
-    "head": "Use View tool instead",
-    "tail": "Use View tool instead",
-    "ls": "Use List tool instead",
+    "cat": "Use ViewTool instead",
+    "head": "Use ViewTool instead",
+    "tail": "Use ViewTool instead",
+    "ls": "Use ListTool instead",
 }
 
 MAX_OUTPUT_LENGTH = 30000
@@ -53,7 +51,7 @@ MAX_OUTPUT_LENGTH = 30000
 BACKGROUND_PROCESSES_FILE = Path("/tmp/agent_background_processes.json")
 
 
-def load_background_processes() -> Dict[str, Dict]:
+def load_background_processes() -> Dict[str, Any]:
     """加载后台进程记录"""
     if not BACKGROUND_PROCESSES_FILE.exists():
         return {}
@@ -64,7 +62,7 @@ def load_background_processes() -> Dict[str, Dict]:
         return {}
 
 
-def save_background_processes(processes: Dict[str, Dict]):
+def save_background_processes(processes: Dict[str, Any]):
     """保存后台进程记录"""
     try:
         with open(BACKGROUND_PROCESSES_FILE, "w") as f:
@@ -101,238 +99,149 @@ def is_process_running(pid: str) -> bool:
 
 
 def check_command_security(command: str) -> tuple[bool, str]:
-    """Check if command is allowed based on security policy."""
-    # Extract the first command from the command line
-    first_command = command.strip().split()[0] if command.strip() else ""
-    base_command = os.path.basename(first_command)
+    """检查命令安全性"""
+    # 检查禁用命令
+    for banned in BANNED_COMMANDS:
+        if banned in command:
+            return False, f"Command '{banned}' is banned for security reasons"
 
-    # Check banned commands
-    if base_command in BANNED_COMMANDS:
-        return (
-            False,
-            f"Command '{base_command}' is banned for security reasons. Banned commands: {', '.join(sorted(BANNED_COMMANDS))}",
-        )
-
-    # Check discouraged commands
-    if base_command in DISCOURAGED_COMMANDS:
-        suggestion = DISCOURAGED_COMMANDS[base_command]
-        return False, f"Command '{base_command}' should not be used. {suggestion}"
+    # 检查不推荐命令
+    for discouraged, suggestion in DISCOURAGED_COMMANDS.items():
+        if discouraged in command:
+            return False, f"Command '{discouraged}' is discouraged. {suggestion}"
 
     return True, "Command is allowed"
 
 
-def execute_bash_command(
-    command: str,
-    timeout_ms: Optional[int] = None,
-    cwd: Optional[str] = None,
-    run_in_background: bool = False,
-) -> str:
-    """Execute a bash command with proper error handling and output truncation."""
+def execute_foreground_command(command: str, timeout: Optional[int] = None) -> str:
+    """执行前台命令"""
     try:
-        # Set timeout (default 30 minutes, max 10 minutes for tool)
-        timeout_seconds = min((timeout_ms or 1800000) / 1000, 600)  # Max 10 minutes
+        # 设置超时
+        if timeout is None:
+            timeout = 1800  # 默认30分钟
 
-        # Use provided cwd or current directory
-        working_dir = cwd or os.getcwd()
-
-        # Check if this is a long-running service command
-        service_indicators = [
-            "python -m",
-            "uvicorn",
-            "flask run",
-            "django runserver",
-            "node",
-            "npm start",
-            "yarn start",
-            "serve",
-            "http-server",
-        ]
-        is_service_command = any(
-            indicator in command.lower() for indicator in service_indicators
-        )
-
-        # If run_in_background is True or this looks like a service command, run in background
-        if run_in_background or is_service_command:
-            # Create unique log file for this service
-            timestamp = int(time.time())
-            log_file = f"/tmp/service_{timestamp}.log"
-
-            # Prepare background command
-            bg_command = f"nohup {command} > {log_file} 2>&1 & echo $!"
-
-            # Start the background process and get PID
-            result = subprocess.run(
-                bg_command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=5,  # Short timeout for background startup
-                cwd=working_dir,
-            )
-
-            if result.returncode == 0:
-                pid = result.stdout.strip()
-                if pid:
-                    # Record the background process
-                    process_id = add_background_process(
-                        pid, command, working_dir, log_file
-                    )
-
-                    output = f"✅ Service started in background\n"
-                    output += f"📋 Process ID: {process_id}\n"
-                    output += f"🔢 System PID: {pid}\n"
-                    output += f"📁 Working Directory: {working_dir}\n"
-                    output += f"📄 Log File: {log_file}\n"
-                    output += f"🛑 To stop this service: bash_command('stop_service {process_id}')\n"
-                    output += f"📊 To check status: bash_command('list_services')\n"
-
-                    return output
-                else:
-                    return f"❌ Failed to get process ID for background service"
-            else:
-                return f"❌ Failed to start background service:\n{result.stderr}"
-
-        # Execute command normally for non-service commands
-        result = subprocess.run(
+        # 执行命令
+        process = subprocess.run(
             command,
             shell=True,
             capture_output=True,
             text=True,
-            timeout=timeout_seconds,
-            cwd=working_dir,
+            timeout=timeout / 1000,  # 转换为秒
         )
 
-        # Combine stdout and stderr
-        output = ""
-        if result.stdout:
-            output += result.stdout
-        if result.stderr:
-            if output:
-                output += "\n" + result.stderr
-            else:
-                output = result.stderr
+        # 处理输出
+        output = process.stdout
+        if process.stderr:
+            output += f"\nError: {process.stderr}"
 
-        # Add exit code information
-        if result.returncode != 0:
-            output += f"\nExit code: {result.returncode}"
+        # 添加退出码
+        output += f"\n\nExit code: {process.returncode}"
 
-        # Truncate output if too long
-        if len(output) > MAX_OUTPUT_LENGTH:
-            truncated_length = (
-                MAX_OUTPUT_LENGTH - 200
-            )  # Leave space for truncation message
-            output = (
-                output[:truncated_length]
-                + f"\n\n... (output truncated, showing first {truncated_length} characters of {len(output)} total)"
-            )
+        # 截断输出
+        if len(output) > 30000:
+            output = output[:30000] + "\n... (output truncated)"
 
-        return output or "(no output)"
+        return output
 
     except subprocess.TimeoutExpired:
-        return f"Command timed out after {timeout_seconds} seconds"
+        return "Error: Command timed out"
     except Exception as e:
-        return f"Error executing command: {str(e)}"
+        return f"Error: {str(e)}"
 
 
-@tool
+def execute_background_command(command: str) -> str:
+    """执行后台命令"""
+    try:
+        # 创建日志文件
+        log_file = tempfile.NamedTemporaryFile(delete=False, suffix=".log")
+        log_path = log_file.name
+        log_file.close()
+
+        # 启动进程
+        process = subprocess.Popen(
+            command,
+            shell=True,
+            stdout=open(log_path, "w"),
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+
+        # 保存进程信息
+        process_info = {
+            "pid": str(process.pid),
+            "command": command,
+            "log_file": log_path,
+            "start_time": time.time(),
+            "status": "running",
+        }
+
+        save_background_process(process_info)
+
+        return f"Started background process\nPID: {process.pid}\nLog file: {log_path}"
+
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+
+def save_background_process(process_info: Dict[str, Any]) -> None:
+    """保存后台进程信息"""
+    processes_file = Path("/tmp/agent_background_processes.json")
+
+    # 加载现有进程
+    if processes_file.exists():
+        with open(processes_file) as f:
+            processes = json.load(f)
+    else:
+        processes = {}
+
+    # 更新进程信息
+    processes[str(process_info["pid"])] = process_info
+
+    # 保存进程信息
+    with open(processes_file, "w") as f:
+        json.dump(processes, f, indent=2)
+
+
+class BashCommandInput(BaseModel):
+    command: str = Field(..., description="The bash command to execute")
+
+
+@tool("bash_command", args_schema=BashCommandInput)
 def bash_command(
     command: str,
     timeout: Optional[int] = None,
     working_directory: Optional[str] = None,
     run_in_background: bool = False,
 ) -> str:
-    """
-    Executes a given bash command in a persistent shell session with optional timeout, ensuring proper
-    handling and security measures.
-
-    Before executing the command, please follow these steps:
-    1. Directory Verification:
-       - If the command will create new directories or files, first use the LS tool to verify the parent directory exists and is the correct location
-       - For example, before running "mkdir foo/bar", first use LS to check that "foo" exists and is the intended parent directory
-    2. Security Check:
-       - For security and to limit the threat of a prompt injection attack, some commands are limited or banned. If you use a disallowed command, you will receive an error message explaining the restriction. Explain the error to the User.
-       - Verify that the command is not one of the banned commands: alias, curl, curlie, wget, axel, aria2c, nc, telnet, lynx, w3m, links, httpie, xh, http-prompt, chrome, firefox, safari.
-    3. Command Execution:
-       - After ensuring proper quoting, execute the command.
-       - Capture the output of the command.
-    4. Output Processing:
-       - If the output exceeds 30000 characters, output will be truncated before being returned to you.
-       - Prepare the output for display to the user.
-    5. Return Result:
-       - Provide the processed output of the command.
-       - If any errors occurred during execution, include those in the output.
-
-    Usage notes:
-      - The command argument is required.
-      - You can specify an optional timeout in milliseconds (up to 600000ms / 10 minutes). If not specified, commands will timeout after 30 minutes.
-      - You can specify an optional working_directory to execute the command in a specific directory.
-      - You can specify run_in_background=True to run long-running services in background. The tool also auto-detects common service commands.
-      - VERY IMPORTANT: You MUST avoid using search commands like `find` and `grep`. Instead use GrepTool, SearchGlobTool, or dispatch_agent to search. You MUST avoid read tools like `cat`, `head`, `tail`, and `ls`, and use View and List to read files.
-      - When issuing multiple commands, use the ';' or '&&' operator to separate them. DO NOT use newlines (newlines are ok in quoted strings).
-      - IMPORTANT: All commands share the same shell session. Shell state (environment variables, virtual environments, current directory, etc.) persist between commands. For example, if you set an environment variable as part of a command, the environment variable will persist for subsequent commands.
-      - Try to maintain your current working directory throughout the session by using absolute paths and avoiding usage of `cd`. You may use `cd` if the User explicitly requests it.
-
-    Background Service Management:
-      - list_services: Show all running background services
-      - stop_service <process_id>: Stop a specific background service
-      - restart_service <process_id>: Restart a background service
-      - service_logs <process_id>: View logs of a background service
+    """Executes a given bash command in a persistent shell session with optional timeout and working directory.
 
     Args:
-        command: The command to execute
-        timeout: Optional timeout in milliseconds (max 600000)
-        working_directory: Optional working directory to execute the command in
-        run_in_background: Whether to run the command in background (useful for long-running services)
+        command: The bash command to execute
+        timeout: Command timeout in milliseconds
+        working_directory: Working directory for command execution
+        run_in_background: Whether to run the command in background
 
     Returns:
-        The command output and any error messages
+        str: Command output or error message
     """
     try:
-        # Security check
+        # 安全检查
         is_allowed, security_message = check_command_security(command)
         if not is_allowed:
             return f"Security Error: {security_message}"
 
-        # Handle service management commands
-        if command.startswith("list_services"):
-            return handle_list_services()
-        elif command.startswith("stop_service "):
-            process_id = command.replace("stop_service ", "").strip()
-            return handle_stop_service(process_id)
-        elif command.startswith("restart_service "):
-            process_id = command.replace("restart_service ", "").strip()
-            return handle_restart_service(process_id)
-        elif command.startswith("service_logs "):
-            process_id = command.replace("service_logs ", "").strip()
-            return handle_service_logs(process_id)
+        # 设置工作目录
+        if working_directory:
+            command = f"cd {working_directory} && {command}"
 
-        # Log command execution
-        working_dir_info = f" in {working_directory}" if working_directory else ""
-        logger.info(f"Executing bash command: {command[:100]}...{working_dir_info}")
-
-        # Execute command with the specified working directory
-        output = execute_bash_command(
-            command, timeout, working_directory, run_in_background
-        )
-
-        # Handle git-specific commands with special formatting
-        if command.strip().startswith(("git ", "gh ")):
-            # For git commands, format output nicely
-            if "git status" in command:
-                output = f"Git Status:\n{output}"
-            elif "git log" in command:
-                output = f"Git Log:\n{output}"
-            elif "git diff" in command:
-                output = f"Git Diff:\n{output}"
-            elif "gh pr create" in command:
-                output = f"Pull Request Created:\n{output}"
-
-        return output
+        # 执行命令
+        if run_in_background:
+            return execute_background_command(command)
+        else:
+            return execute_foreground_command(command, timeout)
 
     except Exception as e:
-        error_msg = f"Bash tool error: {str(e)}"
-        logger.error(error_msg)
-        return error_msg
+        return f"Error: {str(e)}"
 
 
 # Helper function for git operations
@@ -441,7 +350,7 @@ def handle_restart_service(process_id: str) -> str:
 
     try:
         # Start new process
-        restart_output = execute_bash_command(command, None, working_dir, True)
+        restart_output = bash_command(command, None, working_dir, True)
         return (
             f"🔄 Restart completed for {process_id}\n{stop_result}\n\n{restart_output}"
         )

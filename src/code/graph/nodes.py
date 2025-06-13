@@ -6,10 +6,12 @@ import os
 import sys
 from typing import Literal
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
+from config.agents import AGENT_LLM_MAP
+from llms.llm import get_llm_by_type
 from src.agents.agents import create_agent
 from src.tools import (
     # 架构师工具
@@ -72,8 +74,6 @@ ALL_TOOLS = [
     bash_command,
     # 搜索和网络工具
     crawl_tool,
-    get_web_search_tool,
-    get_retriever_tool,
     # 地图工具
     search_location,
     get_route,
@@ -87,6 +87,9 @@ ALL_TOOLS = [
     # 思考工具
     think,
 ]
+
+# 创建工具名称到工具对象的映射，便于快速查找
+TOOL_MAP = {tool.name: tool for tool in ALL_TOOLS if hasattr(tool, "name")}
 
 
 def context_node(state: State) -> Command[Literal["architect_node"]]:
@@ -155,51 +158,65 @@ def architect_node(state: State) -> Command[Literal["__end__", "architect_node"]
 
     task_description = state.get("task_description", "Unknown task")
 
+    tool_calls = state.get("tool_calls", [])
+    for tool_call in tool_calls:
+        tool_name = tool_call.get("name", "")
+        tool_input = tool_call.get("args", {})
+        tool_result = tool_call.get("result", "")
+        logger.info(f"🔍 工具调用: {tool_name} 输入: {tool_input} ")
+
+        if tool_name in TOOL_MAP:
+            tool_result = TOOL_MAP[tool_name](tool_input)
+            logger.info(f"🔍 工具调用结果: {tool_result}")
+        else:
+            logger.error(f"❌ 工具调用失败: {tool_name}")
+            continue
+        state["messages"].append(tool_result)
     try:
         # 创建架构师代理
-        architect = create_agent(
-            agent_name="architect",
-            agent_type="architect",
-            tools=ALL_TOOLS,
-            prompt_template="architect_agent",
-        )
+        llm = get_llm_by_type(AGENT_LLM_MAP["architect"])
+        logger.info(f"🔧 创建LLM: {llm}")
+
+        # 先绑定工具
+        logger.info(f"🔧 准备绑定工具: {ALL_TOOLS}")
+        llm = llm.bind_tools(ALL_TOOLS)
+        logger.info("🔧 工具绑定完成")
 
         # 构建输入消息
         print(
-            f"🔍 任务描述: {task_description} 环境信息: {state.get("environment_info", "Environment information not available")} workspace: {state.get("workspace", "")}"
+            f"🔍 任务描述: {task_description} 环境信息: {state.get("environment_info", "Environment information not available")}"
         )
 
-        # 准备架构师的输入，包含所有必要的状态信息
-        architect_input = {
-            "messages": apply_prompt_template("architect_agent", state),
-            "task_description": state.get("task_description", "Unknown task"),
-            "environment_info": state.get(
-                "environment_info", "Environment information not available"
-            ),
-            "workspace": state.get("workspace", ""),
-        }
+        messages = apply_prompt_template("architect_agent", state)
+        logger.info(f"🔧 构建的消息: {messages}")
 
         logger.info("🚀 调用架构师执行任务...")
 
         # 调用架构师代理
-        result = architect.invoke(
-            input=architect_input,
-            config={"recursion_limit": state.get("max_iterations", 20)},
-            debug=True,
-        )
+        result = llm.invoke(messages)
+        logger.info(f"🔧 LLM返回结果: {result}")
+        logger.info(f"🔧 LLM返回结果类型: {type(result)}")
+        logger.info(f"🔧 LLM返回结果属性: {dir(result)}")
 
-        logger.info(f"🔍 架构师返回结果类型: {result.keys()}")
-        if result.get("tool_calls", None):
+        if hasattr(result, "tool_calls") and result.tool_calls:
+            logger.info(f"🔧 检测到工具调用: {result.tool_calls}")
+            # 创建工具调用消息
+            tool_call_message = AIMessage(
+                content=result.content, tool_calls=result.tool_calls
+            )
             return Command(
                 update={
-                    "messages": state.get("messages", []) + result.get("messages", []),
-                    "final_report": result.get("tool_calls", []),
+                    "messages": state.get("messages", []) + [tool_call_message],
+                    "tool_calls": result.tool_calls,
                     "execution_completed": True,
                 },
                 goto="architect_node",
             )
+        else:
+            logger.info("🔧 未检测到工具调用")
+
         # 提取响应内容
-        final_content = result["messages"][-1].content
+        final_content = result.content
 
         logger.info("✅ 架构师任务执行完成")
 
@@ -215,22 +232,9 @@ def architect_node(state: State) -> Command[Literal["__end__", "architect_node"]
         error_msg = str(e)
         logger.error(f"❌ 架构师节点执行错误: {error_msg}")
 
-        # 特殊处理JWT认证错误
-        if "JWT" in error_msg or "token-invalid" in error_msg or "Clerk" in error_msg:
-            error_suggestion = (
-                f"检测到JWT认证错误: {error_msg}\n\n"
-                "可能的解决方案:\n"
-                "1. 检查搜索引擎API密钥配置是否正确\n"
-                "2. 尝试切换到DuckDuckGo搜索引擎 (无需API密钥)\n"
-                "3. 设置环境变量 SEARCH_API=duckduckgo\n"
-                "4. 检查网络连接和防火墙设置"
-            )
-        else:
-            error_suggestion = f"执行过程中发生错误: {error_msg}"
-
         return Command(
             update={
-                "final_report": error_suggestion,
+                "final_report": error_msg,
                 "execution_failed": True,
             },
             goto="__end__",
