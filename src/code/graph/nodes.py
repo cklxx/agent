@@ -2,37 +2,22 @@
 
 import json
 import logging
-import os
-import sys
 from typing import Literal
 
-from langchain_core.messages import AIMessage
-from langchain_core.runnables import RunnableConfig
+from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.types import Command
+from langchain_core.tools import tool
 
-from config.agents import AGENT_LLM_MAP
-from llms.llm import get_llm_by_type
+from src.prompts.planner_model import Plan
 from src.agents.agents import create_agent
+from src.config.agents import AGENT_LLM_MAP
+from src.llms.llm import get_llm_by_type
 from src.tools import (
-    # 架构师工具
-    architect_plan,
-    # 代理调度工具
-    dispatch_agent,
-    # 文件操作工具
-    view_file,
-    list_files,
-    glob_search,
-    grep_search,
-    edit_file,
-    replace_file,
     # 代码执行工具
     python_repl_tool,
-    bash_command,
     # 搜索和网络工具
     crawl_tool,
     get_web_search_tool,
-    get_retriever_tool,
-    # 地图工具
     search_location,
     get_route,
     get_nearby_places,
@@ -46,53 +31,61 @@ from src.tools import (
     think,
 )
 
-from src.config.configuration import Configuration
 from src.prompts.template import apply_prompt_template
 
 # 导入上下文管理相关模块
 from src.context.intelligent_workspace_analyzer import (
     IntelligentWorkspaceAnalyzer,
 )
-from .types import State
+from src.tools.workspace_tools import get_workspace_tools
+from src.utils.json_utils import repair_json_output
+from src.code.graph.types import State
 
 logger = logging.getLogger(__name__)
 
-# 所有可用工具列表
-ALL_TOOLS = [
-    # 架构师和代理工具
-    architect_plan,
-    dispatch_agent,
-    # 文件操作工具
-    view_file,
-    list_files,
-    glob_search,
-    grep_search,
-    edit_file,
-    replace_file,
-    # 代码执行工具
-    python_repl_tool,
-    bash_command,
-    # 搜索和网络工具
-    crawl_tool,
-    # 地图工具
-    search_location,
-    get_route,
-    get_nearby_places,
-    # 笔记本工具
-    notebook_read,
-    notebook_edit_cell,
-    # 对话管理工具
-    clear_conversation,
-    compact_conversation,
-    # 思考工具
-    think,
-]
-
 # 创建工具名称到工具对象的映射，便于快速查找
-TOOL_MAP = {tool.name: tool for tool in ALL_TOOLS if hasattr(tool, "name")}
 
 
-def context_node(state: State) -> Command[Literal["architect_node"]]:
+def get_workspace_aware_agent_tools(state: State) -> list:
+    """
+    Helper function to get a complete list of workspace-aware tools for an agent.
+
+    Args:
+        state: Current state containing workspace information
+
+    Returns:
+        List of tools including both workspace-aware and original tools
+    """
+    workspace = state.get("workspace", "")
+    workspace_tools = get_workspace_tools(workspace)
+
+    # Convert tools dictionary to list
+    workspace_tool_list = list(workspace_tools.values())
+
+    other_tools = [
+        think,
+        crawl_tool,
+        get_web_search_tool(5),  # Web search with limit
+        search_location,
+        get_route,
+        get_nearby_places,
+        python_repl_tool,
+        clear_conversation,
+        compact_conversation,
+    ]
+
+    return workspace_tool_list + other_tools
+
+
+@tool
+def plan_tool(
+    plan: Plan,
+):
+    """Plan tool to do plan."""
+    return plan
+
+
+def context_node(state: State) -> Command[Literal["leader"]]:
     """上下文节点：负责环境感知和RAG索引构建"""
     logger.info("🔍 启动上下文分析和环境感知...")
 
@@ -101,13 +94,7 @@ def context_node(state: State) -> Command[Literal["architect_node"]]:
 
         # 获取任务描述
         user_messages = state.get("messages", [])
-        task_description = ""
-        if user_messages:
-            last_message = user_messages[-1]
-            if hasattr(last_message, "content"):
-                task_description = last_message.content
-            else:
-                task_description = str(last_message)
+        task_description = user_messages[-1].content
 
         logger.info(f"📝 分析任务: {task_description[:100]}...")
 
@@ -117,25 +104,18 @@ def context_node(state: State) -> Command[Literal["architect_node"]]:
         import asyncio
 
         environment_result = asyncio.run(analyzer.perform_environment_analysis())
-
-        # 优先使用文本格式的环境信息，如果没有则回退到JSON
-        if environment_result.get("success") and environment_result.get("text_summary"):
-            environment_info = environment_result["text_summary"]
-            logger.info(f"🧠 环境分析完成，使用文本格式结果")
-        else:
-            # 回退到JSON格式
-            environment_info = json.dumps(environment_result, indent=2)
-            logger.info(f"🧠 环境分析完成，使用JSON格式结果")
+        environment_info = environment_result["text_summary"]
 
         logger.info("✅ 上下文准备完成，转向架构师节点")
 
         return Command(
             update={
                 "context": [],
+                "plan_iterations": 0,
                 "environment_info": environment_info,
                 "task_description": task_description,
             },
-            goto="architect_node",
+            goto="leader",
         )
 
     except Exception as e:
@@ -148,94 +128,182 @@ def context_node(state: State) -> Command[Literal["architect_node"]]:
                 "environment_info": environment_info,
                 "task_description": task_description,
             },
-            goto="architect_node",
+            goto="leader",
         )
 
 
-def architect_node(state: State) -> Command[Literal["__end__", "architect_node"]]:
-    """架构师节点：基于上下文信息执行主要任务"""
-    logger.info("🏗️ 架构师开始执行任务...")
-
+def leader_node(state: State) -> Command[Literal["__end__", "team"]]:
+    """领导节点：理解用户意图, 产出规划"""
+    logger.info("🏗️ 领导节点开始执行任务...")
+    plan_iterations = state.get("plan_iterations", 0)
     task_description = state.get("task_description", "Unknown task")
-
-    tool_calls = state.get("tool_calls", [])
-    for tool_call in tool_calls:
-        tool_name = tool_call.get("name", "")
-        tool_input = tool_call.get("args", {})
-        tool_result = tool_call.get("result", "")
-        logger.info(f"🔍 工具调用: {tool_name} 输入: {tool_input} ")
-
-        if tool_name in TOOL_MAP:
-            tool_result = TOOL_MAP[tool_name](tool_input)
-            logger.info(f"🔍 工具调用结果: {tool_result}")
-        else:
-            logger.error(f"❌ 工具调用失败: {tool_name}")
-            continue
-        state["messages"].append(tool_result)
+    agent_type = "leader"
+    iterations_limit = 4
+    if plan_iterations > iterations_limit:
+        return Command(
+            update={
+                "report": (
+                    f"Plan iterations limit reached: {iterations_limit} times, please check the plan and observations. {Plan.model_validate(state.get('plan',{})).report}"
+                ),
+            },
+            goto="__end__",
+        )
     try:
         # 创建架构师代理
-        llm = get_llm_by_type(AGENT_LLM_MAP["architect"])
+        llm = get_llm_by_type(AGENT_LLM_MAP[agent_type])
         logger.info(f"🔧 创建LLM: {llm}")
-
+        all_tools = get_workspace_aware_agent_tools(state)
         # 先绑定工具
-        logger.info(f"🔧 准备绑定工具: {ALL_TOOLS}")
-        llm = llm.bind_tools(ALL_TOOLS)
+        llm = llm.bind_tools(all_tools)
         logger.info("🔧 工具绑定完成")
 
         # 构建输入消息
         print(
             f"🔍 任务描述: {task_description} 环境信息: {state.get("environment_info", "Environment information not available")}"
         )
-
-        messages = apply_prompt_template("architect_agent", state)
+        messages = apply_prompt_template(agent_type, state)
+        observations = state.get("observations", [])
+        plan = state.get("plan", None)
+        if plan is not None and len(observations) >= len(plan.steps):
+            messages += [
+                HumanMessage(content=f"# Existing Observations\n\n{observations[-1]}")
+            ]
         logger.info(f"🔧 构建的消息: {messages}")
 
-        logger.info("🚀 调用架构师执行任务...")
+        logger.info("🚀 leader执行任务...")
 
         # 调用架构师代理
-        result = llm.invoke(messages)
-        logger.info(f"🔧 LLM返回结果: {result}")
-        logger.info(f"🔧 LLM返回结果类型: {type(result)}")
-        logger.info(f"🔧 LLM返回结果属性: {dir(result)}")
+        response = llm.invoke(messages)
+        logger.info(f"🔍 leader原始响应: {response}")
 
-        if hasattr(result, "tool_calls") and result.tool_calls:
-            logger.info(f"🔧 检测到工具调用: {result.tool_calls}")
-            # 创建工具调用消息
-            tool_call_message = AIMessage(
-                content=result.content, tool_calls=result.tool_calls
-            )
+        # 从响应中提取content字段
+        if hasattr(response, "content"):
+            plan_content = response.content
+        else:
+            full_response = response.model_dump_json(indent=4, exclude_none=True)
+            response_data = json.loads(full_response)
+            plan_content = response_data.get("content", full_response)
+
+        # 解析计划内容
+        try:
+            plan_json = repair_json_output(plan_content)
+            logger.info(f"🔍 leader执行结果: {plan_json}")
+
+            current_plan = Plan.model_validate(json.loads(plan_json))
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.error(f"❌ JSON解析失败: {e}")
+            logger.error(f"原始内容: {plan_content}")
+            logger.error(f"修复后内容: {plan_json}")
+            raise ValueError(f"无法解析leader的响应为有效的JSON格式: {e}")
+        if state.get("execution_completed"):
             return Command(
                 update={
-                    "messages": state.get("messages", []) + [tool_call_message],
-                    "tool_calls": result.tool_calls,
-                    "execution_completed": True,
+                    "report": current_plan.report,
                 },
-                goto="architect_node",
+                goto="__end__",
             )
-        else:
-            logger.info("🔧 未检测到工具调用")
 
-        # 提取响应内容
-        final_content = result.content
-
-        logger.info("✅ 架构师任务执行完成")
+        logger.info("✅ leader执行完成")
 
         return Command(
             update={
-                "final_report": final_content,
-                "execution_completed": True,
+                "plan": current_plan,
+                "plan_iterations": plan_iterations + 1,
             },
-            goto="__end__",
+            goto="team",
         )
 
     except Exception as e:
         error_msg = str(e)
-        logger.error(f"❌ 架构师节点执行错误: {error_msg}")
+        logger.error(f"❌ leader节点执行错误: {error_msg}")
 
         return Command(
             update={
-                "final_report": error_msg,
+                "report": error_msg,
                 "execution_failed": True,
             },
             goto="__end__",
         )
+
+
+def team_node(
+    state: State,
+) -> Command[Literal["leader", "execute"]]:
+    """Research team node that collaborates on tasks."""
+    logger.info("Research team is collaborating on tasks.")
+    current_plan = state.get("plan")
+    if not current_plan or not current_plan.steps:
+        return Command(
+            goto="leader",
+        )
+    if all(step.execution_res for step in current_plan.steps):
+        return Command(goto="leader")
+    for step in current_plan.steps:
+        if not step.execution_res:
+            break
+    if step.step_type:
+        return Command(goto="execute")
+    return Command(goto="leader")
+
+
+def execute_node(state: State) -> Command[Literal["team"]]:
+    """编码节点：基于上下文信息执行主要任务，并输出执行结果报告"""
+    logger.info("🚀 编码节点开始执行任务...")
+
+    current_plan = state.get("plan")
+    observations = state.get("observations", [])
+
+    # Find the first unexecuted step
+    current_step = None
+    completed_steps = []
+    for step in current_plan.steps:
+        if not step.execution_res:
+            current_step = step
+            break
+        else:
+            completed_steps.append(step)
+
+    if not current_step:
+        logger.warning("No unexecuted step found")
+        return Command(goto="research_team")
+
+    logger.info(f"Executing step: {current_step.title}, agent: execute")
+
+    # Format completed steps information
+    completed_steps_info = ""
+    if completed_steps:
+        completed_steps_info = "# Existing Research Findings\n\n"
+        for i, step in enumerate(completed_steps):
+            completed_steps_info += f"## Existing Finding {i + 1}: {step.title}\n\n"
+            completed_steps_info += f"<finding>\n{step.execution_res}\n</finding>\n\n"
+
+    ALL_TOOLS = get_workspace_aware_agent_tools(state)
+    agent = create_agent("execute", "execute", ALL_TOOLS, "execute")
+    # Prepare the input for the agent with completed steps info
+    agent_input = {
+        "messages": [
+            HumanMessage(
+                content=f"{completed_steps_info}# Current Task\n\n## Title\n\n{current_step.title}\n\n## Description\n\n{current_step.description}\n\n## Locale\n\n{state.get('locale', 'en-US')}"
+            )
+        ]
+    }
+    # Invoke the agent
+    default_recursion_limit = 20
+    result = agent.invoke(
+        input=agent_input, config={"recursion_limit": default_recursion_limit}
+    )
+    logger.info(f"🔍 执行代理节点执行结果: {result}")
+    observations = state.get("observations", [])
+
+    response_content = result["messages"][-1].content
+
+    logger.debug(f"execute full response: {response_content}")
+    # Update the step with the execution result
+    current_step.execution_res = response_content
+    return Command(
+        update={
+            "observations": observations + [response_content],
+            "plan": current_plan,
+        },
+        goto="team",
+    )

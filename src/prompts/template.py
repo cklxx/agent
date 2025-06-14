@@ -64,13 +64,13 @@ def apply_prompt_template(
     """
     # Convert state to dict for template rendering
     # Handle both dict and AddableValuesDict types
-    if hasattr(state, 'keys'):
+    if hasattr(state, "keys"):
         # Convert AddableValuesDict or dict to regular dict
         state_dict = {key: state[key] for key in state.keys()}
     else:
         # Fallback for other types
         state_dict = dict(state) if state else {}
-    
+
     state_vars = {
         "CURRENT_TIME": datetime.now().strftime("%a %b %d %Y %H:%M:%S %z"),
         **state_dict,
@@ -83,7 +83,7 @@ def apply_prompt_template(
     try:
         template = env.get_template(f"{prompt_name}.md")
         system_prompt = template.render(**state_vars)
-        
+
         # Safely extract messages from state
         messages = state_dict.get("messages", [])
         return [{"role": "system", "content": system_prompt}] + messages

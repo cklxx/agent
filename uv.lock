@@ -96,6 +96,7 @@ test = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "langgraph-cli", extra = ["inmem"] },
     { name = "pyinstaller" },
 ]
 
@@ -179,7 +180,10 @@ requires-dist = [
 provides-extras = ["dev", "test"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pyinstaller", specifier = ">=6.14.0" }]
+dev = [
+    { name = "langgraph-cli", extras = ["inmem"], specifier = ">=0.2.10" },
+    { name = "pyinstaller", specifier = ">=6.14.0" },
+]
 
 [[package]]
 name = "aiohappyeyeballs"

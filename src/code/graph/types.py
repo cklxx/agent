@@ -11,10 +11,11 @@ class State(MessagesState):
 
     # Runtime Variables
     environment_info: str = ""
+    plan_iterations: int = 0
     workspace: str = ""
+    plan: Plan = None
     task_description: str = ""
     observations: list[str] = []
     recursion_limit: int = 20
     resources: list[Resource] = []
-    final_report: str = ""
-    tool_calls: list[dict] = []
+    report: str = ""

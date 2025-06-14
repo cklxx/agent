@@ -3,10 +3,12 @@
 from langgraph.graph import StateGraph, START
 from langgraph.checkpoint.memory import MemorySaver
 
-from .types import State
-from .nodes import (
+from src.code.graph.types import State
+from src.code.graph.nodes import (
     context_node,
-    architect_node,
+    execute_node,
+    leader_node,
+    team_node,
 )
 
 
@@ -19,10 +21,9 @@ def _build_base_graph():
 
     # 添加核心节点
     builder.add_node("context", context_node)
-    builder.add_node("architect_node", architect_node)
-
-    # architect_node 可以递归调用自己或结束流程
-    # 不设置固定的出口边，让architect_node动态决定流向
+    builder.add_node("leader", leader_node)
+    builder.add_node("team", team_node)
+    builder.add_node("execute", execute_node)
 
     return builder
 

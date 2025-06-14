@@ -15,11 +15,8 @@ AGENT_LLM_MAP: dict[str, LLMType] = {
     "podcast_script_writer": "reasoning",
     "ppt_composer": "reasoning",
     "prose_writer": "reasoning",
-    # Code-specific agents
-    "code_researcher": "basic",
-    "code_coder": "reasoning",
-    # Architect agent (new unified agent)
-    "architect": "reasoning",
-    # Dispatch agent for analysis tasks
-    "dispatch_agent": "basic",
+    # Leader agent (new unified agent)
+    "leader": "reasoning",
+    # Execute agent for analysis tasks
+    "execute": "reasoning",
 }

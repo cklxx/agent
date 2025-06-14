@@ -127,9 +127,6 @@ def planner_node(
     logger.info("🧠 LLM规划中...")
 
     full_response = ""
-    import time
-
-    start_time = time.time()
 
     if AGENT_LLM_MAP["planner"] == "basic":
         response = llm.invoke(messages)
@@ -138,8 +135,6 @@ def planner_node(
         response = llm.stream(messages)
         for chunk in response:
             full_response += chunk.content
-
-    duration_ms = (time.time() - start_time) * 1000
 
     logger.debug(f"Current state messages: {state['messages']}")
     logger.debug(

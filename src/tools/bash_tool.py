@@ -213,16 +213,16 @@ def bash_command(
     working_directory: Optional[str] = None,
     run_in_background: bool = False,
 ) -> str:
-    """Executes a given bash command in a persistent shell session with optional timeout and working directory.
+    """Execute shell commands with optional timeout and working directory.
 
     Args:
-        command: The bash command to execute
-        timeout: Command timeout in milliseconds
-        working_directory: Working directory for command execution
-        run_in_background: Whether to run the command in background
+        command: Shell command to execute
+        timeout: Timeout in milliseconds
+        working_directory: Working directory path
+        run_in_background: Run as background process
 
     Returns:
-        str: Command output or error message
+        Command output or error message
     """
     try:
         # 安全检查

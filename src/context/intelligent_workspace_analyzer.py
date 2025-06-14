@@ -213,15 +213,13 @@ class IntelligentWorkspaceAnalyzer:
                 project_structure, environment_info
             )
 
-            analysis_result = {
+            logger.info("环境分析完成")
+            return {
                 "project_structure": project_structure,
                 "environment_info": environment_info,
                 "text_summary": text_summary,  # 新增：文本格式摘要
                 "success": True,
             }
-
-            logger.info("环境分析完成")
-            return analysis_result
 
         except Exception as e:
             logger.error(f"环境分析失败: {e}")
@@ -382,9 +380,9 @@ class IntelligentWorkspaceAnalyzer:
     def _generate_text_summary(
         self, project_structure: Dict[str, Any], environment_info: Dict[str, Any]
     ) -> str:
-        """生成环境分析结果的文本格式摘要"""
+        """Generate environment analysis summary in English Markdown format"""
         try:
-            # 提取关键信息
+            # Extract key information
             total_files = project_structure.get("total_files", 0)
             total_dirs = project_structure.get("total_directories", 0)
             file_types = project_structure.get("file_types", {})
@@ -400,83 +398,103 @@ class IntelligentWorkspaceAnalyzer:
             package_managers = environment_info.get("package_managers", [])
             timestamp = environment_info.get("timestamp", "Unknown")
 
-            # 构建文本摘要
-            text_lines = []
+            # Build Markdown summary
+            md_lines = []
 
-            # === 项目概览 ===
-            text_lines.append("=== 项目环境分析报告 ===")
-            text_lines.append(f"分析时间: {timestamp}")
-            text_lines.append(f"工作目录: {working_dir}")
-            text_lines.append("")
+            # === Project Overview ===
+            md_lines.append("# Project Environment Analysis Report")
+            md_lines.append("")
+            md_lines.append(f"**Analysis Time:** {timestamp}")
+            md_lines.append(f"**Working Directory:** `{working_dir}`")
+            md_lines.append("")
 
-            # === 项目结构 ===
-            text_lines.append("=== 项目结构 ===")
-            text_lines.append(f"项目类型: {project_type}")
-            text_lines.append(f"总文件数: {total_files}")
-            text_lines.append(f"总目录数: {total_dirs}")
+            # === Project Structure ===
+            md_lines.append("## 📁 Project Structure")
+            md_lines.append("")
+            md_lines.append(f"- **Project Type:** {project_type}")
+            md_lines.append(f"- **Total Files:** {total_files}")
+            md_lines.append(f"- **Total Directories:** {total_dirs}")
 
             if main_languages:
-                text_lines.append(f"主要编程语言: {', '.join(main_languages)}")
+                md_lines.append(f"- **Primary Languages:** {', '.join(main_languages)}")
 
-            # 文件类型分布
+            # File type distribution
             if file_types:
-                text_lines.append("")
-                text_lines.append("文件类型分布:")
+                md_lines.append("")
+                md_lines.append("### File Type Distribution")
+                md_lines.append("")
+                md_lines.append("| Extension | File Count |")
+                md_lines.append("|-----------|------------|")
                 for ext, count in sorted(
                     file_types.items(), key=lambda x: x[1], reverse=True
                 )[:10]:
-                    text_lines.append(f"  {ext}: {count}个文件")
+                    md_lines.append(f"| `{ext}` | {count} |")
 
-            # 配置文件
+            # Configuration files
             if config_files:
-                text_lines.append("")
-                text_lines.append(f"配置文件: {', '.join(config_files)}")
+                md_lines.append("")
+                md_lines.append("### Configuration Files")
+                md_lines.append("")
+                for config_file in config_files:
+                    md_lines.append(f"- `{config_file}`")
 
-            # 主要目录
+            # Main directories
             if directories:
-                text_lines.append("")
-                text_lines.append(f"主要目录: {', '.join(directories[:10])}")
+                md_lines.append("")
+                md_lines.append("### Main Directories")
+                md_lines.append("")
+                for directory in directories[:10]:
+                    md_lines.append(f"- `{directory}/`")
                 if len(directories) > 10:
-                    text_lines.append(f"  (还有{len(directories)-10}个其他目录)")
+                    md_lines.append(
+                        f"- *...and {len(directories)-10} more directories*"
+                    )
 
-            text_lines.append("")
+            md_lines.append("")
 
-            # === 运行环境 ===
-            text_lines.append("=== 运行环境 ===")
-            text_lines.append(f"操作系统: {platform}")
-            text_lines.append(
-                f"Python版本: {python_version.split()[0] if python_version != 'Unknown' else 'Unknown'}"
+            # === Runtime Environment ===
+            md_lines.append("## 🔧 Runtime Environment")
+            md_lines.append("")
+            md_lines.append(f"- **Operating System:** {platform}")
+            md_lines.append(
+                f"- **Python Version:** {python_version.split()[0] if python_version != 'Unknown' else 'Unknown'}"
             )
 
-            # 虚拟环境
+            # Virtual environment
             if venv:
-                text_lines.append(f"虚拟环境: {venv}")
+                md_lines.append(f"- **Virtual Environment:** `{venv}`")
             else:
-                text_lines.append("虚拟环境: 未检测到")
+                md_lines.append("- **Virtual Environment:** Not detected")
 
-            # 包管理器
+            # Package managers
             if package_managers:
-                text_lines.append(f"包管理器: {', '.join(package_managers)}")
+                md_lines.append(
+                    f"- **Package Managers:** {', '.join(package_managers)}"
+                )
             else:
-                text_lines.append("包管理器: 未检测到")
+                md_lines.append("- **Package Managers:** Not detected")
 
-            # === 总结 ===
-            text_lines.append("")
-            text_lines.append("=== 环境总结 ===")
+            # === Summary ===
+            md_lines.append("")
+            md_lines.append("## 📋 Environment Summary")
+            md_lines.append("")
+
             if project_type != "Unknown":
-                text_lines.append(f"这是一个{project_type}项目")
+                md_lines.append(f"- **{project_type}** project")
             if main_languages:
-                text_lines.append(f"主要使用{main_languages[0]}进行开发")
+                md_lines.append(f"- **{main_languages[0]}** development")
             if total_files > 0:
-                text_lines.append(f"项目规模：{total_files}个文件，{total_dirs}个目录")
+                md_lines.append(
+                    f"- **{total_files}** files, **{total_dirs}** directories"
+                )
             if venv:
-                text_lines.append(f"开发环境：配置了{venv}虚拟环境")
+                md_lines.append(f"- **{venv}** virtual environment")
 
-            return "\n".join(text_lines)
+            return "\n".join(md_lines)
 
         except Exception as e:
-            logger.error(f"生成文本摘要失败: {e}")
-            return f"无法生成文本摘要: {str(e)}"
+            logger.error(f"Failed to generate text summary: {e}")
+            return f"# Error\n\nUnable to generate text summary: {str(e)}"
 
     def save_analysis_result(
         self,

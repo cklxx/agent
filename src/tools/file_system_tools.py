@@ -21,19 +21,15 @@ def view_file(
     file_path: str, offset: Optional[int] = None, limit: Optional[int] = None
 ) -> str:
     """
-    Reads a file from the local filesystem. The file_path parameter must be an absolute path, not a relative path.
-    By default, it reads up to 2000 lines starting from the beginning of the file. You can optionally specify
-    a line offset and limit (especially handy for long files), but it's recommended to read the whole file by
-    not providing these parameters. Any lines longer than 2000 characters will be truncated. For image files,
-    the tool will display the image for you.
+    Read file contents (text, image, or binary files).
 
     Args:
-        file_path: The absolute path to the file to read
-        offset: The line number to start reading from. Only provide if the file is too large to read at once
-        limit: The number of lines to read. Only provide if the file is too large to read at once
+        file_path: Absolute path to file
+        offset: Start line number (from 1)
+        limit: Maximum lines to read
 
     Returns:
-        The file content as a string
+        File contents or metadata
     """
     try:
         # Validate absolute path
@@ -107,14 +103,13 @@ def view_file(
 @tool
 def list_files(path: str) -> str:
     """
-    Lists files and directories in a given path. The path parameter must be an absolute path, not a relative path.
-    You should generally prefer the Glob and Grep tools, if you know which directories to search.
+    List files and directories in given path.
 
     Args:
-        path: The absolute path to the directory to list (must be absolute, not relative)
+        path: Absolute directory path to list
 
     Returns:
-        A formatted list of files and directories
+        Formatted list of files and directories
     """
     try:
         # Validate absolute path
@@ -185,16 +180,14 @@ def list_files(path: str) -> str:
 @tool
 def glob_search(pattern: str, path: Optional[str] = None) -> str:
     """
-    Fast file pattern matching tool that works with any codebase size. Supports glob patterns like "**/*.js"
-    or "src/**/*.ts". Returns matching file paths sorted by modification time. Use this tool when you need
-    to find files by name patterns.
+    Find files matching glob pattern (e.g. **/*.js, src/**/*.py).
 
     Args:
-        pattern: The glob pattern to match files against
-        path: The directory to search in. Defaults to the current working directory
+        pattern: Glob pattern to match
+        path: Directory to search in
 
     Returns:
-        A list of matching file paths
+        List of matching file paths
     """
     try:
         # Use current working directory if path not provided
@@ -255,18 +248,15 @@ def grep_search(
     pattern: str, path: Optional[str] = None, include: Optional[str] = None
 ) -> str:
     """
-    Fast content search tool that works with any codebase size. Searches file contents using regular expressions.
-    Supports full regex syntax (eg. "log.*Error", "function\\s+\\w+", etc.). Filter files by pattern with the
-    include parameter (eg. "*.js", "*.{ts,tsx}"). Returns matching file paths sorted by modification time.
-    Use this tool when you need to find files containing specific patterns.
+    Search text content inside files using regex.
 
     Args:
-        pattern: The regular expression pattern to search for in file contents
-        path: The directory to search in. Defaults to the current working directory
-        include: File pattern to include in the search (e.g. "*.js", "*.{ts,tsx}")
+        pattern: Regex pattern to search for
+        path: Directory to search in
+        include: File pattern filter (e.g. *.js, *.{ts,tsx})
 
     Returns:
-        Files containing the pattern with line numbers and context
+        Files containing pattern with line numbers
     """
     try:
         # Use current working directory if path not provided

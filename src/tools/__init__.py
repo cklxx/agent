@@ -8,6 +8,14 @@ from .file_system_tools import view_file, list_files, glob_search, grep_search
 from .notebook_tools import notebook_read, notebook_edit_cell
 from .thinking_tool import think
 
+# Import workspace-aware tool factory
+from .workspace_tools import (
+    create_workspace_aware_tools,
+    create_workspace_tool_factory,
+    get_workspace_tools,
+    resolve_workspace_path,
+)
+
 # Import existing tools (maintained for compatibility)
 from .crawl import crawl_tool
 from .maps import search_location, get_route, get_nearby_places
@@ -36,6 +44,11 @@ __all__ = [
     "notebook_edit_cell",
     # Thinking tool
     "think",
+    # Workspace-aware tool factory
+    "create_workspace_aware_tools",
+    "create_workspace_tool_factory",
+    "get_workspace_tools",
+    "resolve_workspace_path",
     # External tools
     "crawl_tool",
     "search_location",
