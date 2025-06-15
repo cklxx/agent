@@ -2,6 +2,7 @@
 
 """
 Bash command execution tool with security restrictions and git integration.
+Background processes automatically terminate when tool call ends to prevent orphaned processes.
 """
 
 import os
@@ -149,35 +150,45 @@ def execute_foreground_command(command: str, timeout: Optional[int] = None) -> s
         return f"Error: {str(e)}"
 
 
-def execute_background_command(command: str) -> str:
-    """执行后台命令"""
+def execute_background_command(
+    command: str, working_directory: Optional[str] = None
+) -> str:
+    """执行后台命令（会在工具调用结束时自动停止）"""
     try:
         # 创建日志文件
         log_file = tempfile.NamedTemporaryFile(delete=False, suffix=".log")
         log_path = log_file.name
         log_file.close()
 
-        # 启动进程
+        # 设置工作目录
+        if working_directory:
+            full_command = f"cd {working_directory} && {command}"
+        else:
+            full_command = command
+
+        # 启动进程（不创建新会话，保持与父进程关联）
         process = subprocess.Popen(
-            command,
+            full_command,
             shell=True,
             stdout=open(log_path, "w"),
             stderr=subprocess.STDOUT,
-            start_new_session=True,
+            # 移除 start_new_session=True，让进程与父进程保持关联
         )
 
-        # 保存进程信息
+        # 保存进程信息（用于临时管理）
         process_info = {
             "pid": str(process.pid),
             "command": command,
+            "working_dir": working_directory or os.getcwd(),
             "log_file": log_path,
             "start_time": time.time(),
             "status": "running",
+            "auto_cleanup": True,  # 标记为自动清理
         }
 
         save_background_process(process_info)
 
-        return f"Started background process\nPID: {process.pid}\nLog file: {log_path}"
+        return f"Started background process (will auto-stop when tool call ends)\nPID: {process.pid}\nLog file: {log_path}\nWorking directory: {working_directory or os.getcwd()}"
 
     except Exception as e:
         return f"Error: {str(e)}"
@@ -219,10 +230,15 @@ def bash_command(
         command: Shell command to execute
         timeout: Timeout in milliseconds
         working_directory: Working directory path
-        run_in_background: Run as background process
+        run_in_background: Run as background process (auto-stops when tool call ends)
 
     Returns:
         Command output or error message
+
+    Note:
+        Background processes will automatically terminate when the tool call ends.
+        This prevents orphaned processes and ensures clean resource management.
+        Use service management commands (list_services, stop_service) for monitoring.
     """
     try:
         # 安全检查
@@ -236,7 +252,7 @@ def bash_command(
 
         # 执行命令
         if run_in_background:
-            return execute_background_command(command)
+            return execute_background_command(command, working_directory)
         else:
             return execute_foreground_command(command, timeout)
 
@@ -263,16 +279,29 @@ def handle_list_services() -> str:
     output = "📊 Background Services Status:\n"
     output += "=" * 50 + "\n"
 
+    active_processes = {}
+
     for proc_id, proc_info in processes.items():
         pid = proc_info.get("pid", "")
-        status = "🟢 Running" if is_process_running(pid) else "🔴 Stopped"
+        is_running = is_process_running(pid)
+        auto_cleanup = proc_info.get("auto_cleanup", False)
+
+        # 如果进程已停止且标记为自动清理，则不显示
+        if not is_running and auto_cleanup:
+            continue
+
+        status = "🟢 Running" if is_running else "🔴 Stopped"
+        cleanup_mode = "🔄 Auto-cleanup" if auto_cleanup else "🔒 Persistent"
 
         # Update status in records
-        if not is_process_running(pid):
+        if not is_running:
             proc_info["status"] = "stopped"
+        else:
+            active_processes[proc_id] = proc_info
 
         output += f"🔷 ID: {proc_id}\n"
         output += f"   Status: {status}\n"
+        output += f"   Mode: {cleanup_mode}\n"
         output += f"   PID: {pid}\n"
         output += f"   Command: {proc_info.get('command', 'N/A')}\n"
         output += f"   Directory: {proc_info.get('working_dir', 'N/A')}\n"
@@ -280,13 +309,18 @@ def handle_list_services() -> str:
         output += f"   Started: {time.ctime(proc_info.get('start_time', 0))}\n"
         output += "-" * 30 + "\n"
 
-    # Save updated status
-    save_background_processes(processes)
+    # 只保存仍活跃的进程信息
+    if active_processes != processes:
+        save_background_processes(active_processes)
+
+    if not active_processes:
+        return "📭 No active background services currently running"
 
     output += "\n🛠️ Management Commands:\n"
     output += "• stop_service <process_id> - Stop a service\n"
     output += "• restart_service <process_id> - Restart a service\n"
     output += "• service_logs <process_id> - View service logs\n"
+    output += "\n💡 Note: Services with 'Auto-cleanup' mode will stop automatically when the tool call ends\n"
 
     return output
 

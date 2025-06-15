@@ -91,6 +91,7 @@ class ArchitectAgentWorkflow:
         if workspace:
             initial_state["workspace"] = workspace
 
+        recursion_limit = kwargs.get("recursion_limit", 100)
         # 配置参数
         config = {
             "configurable": {
@@ -98,7 +99,7 @@ class ArchitectAgentWorkflow:
                 "max_iterations": max_iterations,
                 **kwargs,
             },
-            "recursion_limit": max_iterations * 2,  # 防止无限递归
+            "recursion_limit": recursion_limit,  # 防止无限递归
         }
 
         try:

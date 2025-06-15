@@ -33,6 +33,10 @@ class Plan(BaseModel):
         default_factory=list,
         description="Research & Processing steps to get more context",
     )
+    report: str = Field(
+        default="",
+        description="The report of the plan",
+    )
 
     class Config:
         json_schema_extra = {

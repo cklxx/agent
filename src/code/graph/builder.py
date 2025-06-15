@@ -5,7 +5,6 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from src.code.graph.types import State
 from src.code.graph.nodes import (
-    context_node,
     execute_node,
     leader_node,
     team_node,
@@ -17,10 +16,9 @@ def _build_base_graph():
     builder = StateGraph(State)
 
     # 设置入口点：START → context
-    builder.add_edge(START, "context")
+    builder.add_edge(START, "leader")
 
     # 添加核心节点
-    builder.add_node("context", context_node)
     builder.add_node("leader", leader_node)
     builder.add_node("team", team_node)
     builder.add_node("execute", execute_node)

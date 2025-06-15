@@ -206,7 +206,7 @@ class IntelligentWorkspaceAnalyzer:
             project_structure = await self._analyze_project_structure()
 
             # 分析环境信息
-            environment_info = await self._analyze_environment()
+            environment_info = await self._analyze_environment(project_structure)
 
             # 生成文本格式的环境分析报告
             text_summary = self._generate_text_summary(
@@ -240,6 +240,7 @@ class IntelligentWorkspaceAnalyzer:
             "file_types": {},
             "config_files": [],
             "directories": [],
+            "directory_structure": {},  # 新增：详细的目录结构
             "main_languages": [],
         }
 
@@ -287,19 +288,53 @@ class IntelligentWorkspaceAnalyzer:
                 structure_info["total_directories"] += 1
                 structure_info["directories"].append(item.name)
 
-                # 扫描第一层子目录的文件（不再深入）
+                # 初始化当前目录结构
+                current_dir_structure = {"files": [], "subdirectories": {}}
+
+                # 扫描第一层和第二层子目录的文件
                 try:
                     for subitem in item.iterdir():
                         if subitem.is_file():
                             structure_info["total_files"] += 1
+                            current_dir_structure["files"].append(subitem.name)
                             suffix = subitem.suffix.lower()
                             if suffix:
                                 structure_info["file_types"][suffix] = (
                                     structure_info["file_types"].get(suffix, 0) + 1
                                 )
+                        elif subitem.is_dir() and subitem.name not in exclude_dirs:
+                            # 初始化子目录结构
+                            subdir_structure = {"files": []}
+
+                            # 扫描第二层子目录的文件
+                            try:
+                                for subsubitem in subitem.iterdir():
+                                    if subsubitem.is_file():
+                                        structure_info["total_files"] += 1
+                                        subdir_structure["files"].append(
+                                            subsubitem.name
+                                        )
+                                        suffix = subsubitem.suffix.lower()
+                                        if suffix:
+                                            structure_info["file_types"][suffix] = (
+                                                structure_info["file_types"].get(
+                                                    suffix, 0
+                                                )
+                                                + 1
+                                            )
+                            except (PermissionError, OSError):
+                                # 跳过无法访问的第二层目录
+                                continue
+
+                            current_dir_structure["subdirectories"][
+                                subitem.name
+                            ] = subdir_structure
                 except (PermissionError, OSError):
                     # 跳过无法访问的目录
                     continue
+
+                # 保存当前目录的详细结构
+                structure_info["directory_structure"][item.name] = current_dir_structure
 
         # 确定主要语言
         common_extensions = {
@@ -336,7 +371,9 @@ class IntelligentWorkspaceAnalyzer:
 
         return structure_info
 
-    async def _analyze_environment(self) -> Dict[str, Any]:
+    async def _analyze_environment(
+        self, project_structure: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
         """分析环境信息"""
         import platform
         import sys
@@ -374,6 +411,19 @@ class IntelligentWorkspaceAnalyzer:
         for file_name, manager in package_files.items():
             if (workspace_path / file_name).exists():
                 env_info["package_managers"].append(manager)
+
+        # 添加项目结构信息到环境信息中
+        if project_structure:
+            env_info["project_structure"] = {
+                "total_files": project_structure.get("total_files", 0),
+                "total_directories": project_structure.get("total_directories", 0),
+                "directories": project_structure.get("directories", []),
+                "directory_structure": project_structure.get("directory_structure", {}),
+                "main_languages": project_structure.get("main_languages", []),
+                "project_type": project_structure.get("project_type", "Unknown"),
+                "config_files": project_structure.get("config_files", []),
+                "file_types": project_structure.get("file_types", {}),
+            }
 
         return env_info
 
@@ -449,6 +499,55 @@ class IntelligentWorkspaceAnalyzer:
                     md_lines.append(
                         f"- *...and {len(directories)-10} more directories*"
                     )
+
+            # Detailed directory structure
+            directory_structure = project_structure.get("directory_structure", {})
+            if directory_structure:
+                md_lines.append("")
+                md_lines.append("### Directory Structure Details")
+                md_lines.append("")
+
+                # 遍历主要目录
+                for dir_name, dir_info in list(directory_structure.items())[
+                    :5
+                ]:  # 只显示前5个目录
+                    md_lines.append(f"#### `{dir_name}/`")
+
+                    # 显示直接文件
+                    files = dir_info.get("files", [])
+                    if files:
+                        md_lines.append(
+                            f"- **Files ({len(files)})**: {', '.join([f'`{f}`' for f in files[:8]])}"
+                        )
+                        if len(files) > 8:
+                            md_lines.append(f"  *(+{len(files)-8} more files)*")
+
+                    # 显示子目录
+                    subdirs = dir_info.get("subdirectories", {})
+                    if subdirs:
+                        md_lines.append(f"- **Subdirectories ({len(subdirs)})**:")
+                        for subdir_name, subdir_info in list(subdirs.items())[
+                            :3
+                        ]:  # 只显示前3个子目录
+                            subdir_files = subdir_info.get("files", [])
+                            if subdir_files:
+                                md_lines.append(
+                                    f"  - `{subdir_name}/` ({len(subdir_files)} files)"
+                                )
+                            else:
+                                md_lines.append(f"  - `{subdir_name}/`")
+                        if len(subdirs) > 3:
+                            md_lines.append(
+                                f"  *(+{len(subdirs)-3} more subdirectories)*"
+                            )
+
+                    md_lines.append("")
+
+                if len(directory_structure) > 5:
+                    md_lines.append(
+                        f"*...and {len(directory_structure)-5} more directories*"
+                    )
+                    md_lines.append("")
 
             md_lines.append("")
 

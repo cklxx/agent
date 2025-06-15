@@ -30,7 +30,7 @@ from src.tools import (
     # 思考工具
     think,
 )
-
+import asyncio
 from src.prompts.template import apply_prompt_template
 
 # 导入上下文管理相关模块
@@ -40,10 +40,13 @@ from src.context.intelligent_workspace_analyzer import (
 from src.tools.workspace_tools import get_workspace_tools
 from src.utils.json_utils import repair_json_output
 from src.code.graph.types import State
+from src.utils.simple_token_tracker import SimpleTokenTracker
 
 logger = logging.getLogger(__name__)
 
 # 创建工具名称到工具对象的映射，便于快速查找
+token_tracker = SimpleTokenTracker()
+token_tracker.start_session("architect_agent")
 
 
 def get_workspace_aware_agent_tools(state: State) -> list:
@@ -59,13 +62,10 @@ def get_workspace_aware_agent_tools(state: State) -> list:
     workspace = state.get("workspace", "")
     workspace_tools = get_workspace_tools(workspace)
 
-    # Convert tools dictionary to list
-    workspace_tool_list = list(workspace_tools.values())
-
     other_tools = [
         think,
         crawl_tool,
-        get_web_search_tool(5),  # Web search with limit
+        get_web_search_tool(3),  # Web search with limit
         search_location,
         get_route,
         get_nearby_places,
@@ -74,7 +74,7 @@ def get_workspace_aware_agent_tools(state: State) -> list:
         compact_conversation,
     ]
 
-    return workspace_tool_list + other_tools
+    return workspace_tools + other_tools
 
 
 @tool
@@ -85,7 +85,7 @@ def plan_tool(
     return plan
 
 
-def context_node(state: State) -> Command[Literal["leader"]]:
+def update_context(state: State):
     """上下文节点：负责环境感知和RAG索引构建"""
     logger.info("🔍 启动上下文分析和环境感知...")
 
@@ -101,42 +101,29 @@ def context_node(state: State) -> Command[Literal["leader"]]:
         # 初始化智能工作区分析器
         analyzer = IntelligentWorkspaceAnalyzer(state.get("workspace", ""))
         # 决定是否需要执行分析
-        import asyncio
-
         environment_result = asyncio.run(analyzer.perform_environment_analysis())
         environment_info = environment_result["text_summary"]
 
-        logger.info("✅ 上下文准备完成，转向架构师节点")
-
-        return Command(
-            update={
-                "context": [],
-                "plan_iterations": 0,
+        state.update(
+            {
                 "environment_info": environment_info,
                 "task_description": task_description,
-            },
-            goto="leader",
+            }
         )
+        logger.info("✅ 上下文准备完成" + str(state))
 
     except Exception as e:
         error_msg = str(e)
         logger.error(f"❌ 上下文节点执行错误: {error_msg}")
 
-        return Command(
-            update={
-                "context": [],
-                "environment_info": environment_info,
-                "task_description": task_description,
-            },
-            goto="leader",
-        )
-
 
 def leader_node(state: State) -> Command[Literal["__end__", "team"]]:
     """领导节点：理解用户意图, 产出规划"""
     logger.info("🏗️ 领导节点开始执行任务...")
+    update_context(state)
     plan_iterations = state.get("plan_iterations", 0)
     task_description = state.get("task_description", "Unknown task")
+
     agent_type = "leader"
     iterations_limit = 4
     if plan_iterations > iterations_limit:
@@ -165,9 +152,11 @@ def leader_node(state: State) -> Command[Literal["__end__", "team"]]:
         observations = state.get("observations", [])
         plan = state.get("plan", None)
         if plan is not None and len(observations) >= len(plan.steps):
-            messages += [
-                HumanMessage(content=f"# Existing Observations\n\n{observations[-1]}")
-            ]
+            print(f"🔍 观察: {observations[-1]}")
+            all_observations = ""
+            for index, observation in enumerate(observations):
+                all_observations += f"# Existing Observations {index}\n\n{observation}"
+            messages += [HumanMessage(content=all_observations)]
         logger.info(f"🔧 构建的消息: {messages}")
 
         logger.info("🚀 leader执行任务...")
@@ -177,13 +166,25 @@ def leader_node(state: State) -> Command[Literal["__end__", "team"]]:
         logger.info(f"🔍 leader原始响应: {response}")
 
         # 从响应中提取content字段
+        response_data = None
         if hasattr(response, "content"):
-            plan_content = response.content
+            response_data = response
         else:
             full_response = response.model_dump_json(indent=4, exclude_none=True)
             response_data = json.loads(full_response)
-            plan_content = response_data.get("content", full_response)
+        plan_content = response_data.content
+        print(f"🔍 plan_content: {plan_content}")
+        # 记录token使用情况
 
+        usage_metadata = response_data.usage_metadata
+        response_metadata = response_data.response_metadata
+
+        token_tracker.add_usage(
+            input_tokens=usage_metadata.get("input_tokens", 0),
+            output_tokens=usage_metadata.get("output_tokens", 0),
+            model=response_metadata.get("model_name", ""),
+        )
+        current_plan = state.get("plan", None)
         # 解析计划内容
         try:
             plan_json = repair_json_output(plan_content)
@@ -194,21 +195,29 @@ def leader_node(state: State) -> Command[Literal["__end__", "team"]]:
             logger.error(f"❌ JSON解析失败: {e}")
             logger.error(f"原始内容: {plan_content}")
             logger.error(f"修复后内容: {plan_json}")
-            raise ValueError(f"无法解析leader的响应为有效的JSON格式: {e}")
-        if state.get("execution_completed"):
             return Command(
                 update={
-                    "report": current_plan.report,
+                    "report": f"{plan_content}",
+                    "execution_failed": True,
+                    "token_usage": token_tracker.get_current_report(),
                 },
                 goto="__end__",
             )
 
-        logger.info("✅ leader执行完成")
+        if current_plan.has_enough_context:
+            return Command(
+                update={
+                    "report": current_plan.report,
+                    "token_usage": token_tracker.get_current_report(),
+                },
+                goto="__end__",
+            )
 
         return Command(
             update={
                 "plan": current_plan,
                 "plan_iterations": plan_iterations + 1,
+                "token_usage": token_tracker.get_current_report(),
             },
             goto="team",
         )
@@ -221,6 +230,7 @@ def leader_node(state: State) -> Command[Literal["__end__", "team"]]:
             update={
                 "report": error_msg,
                 "execution_failed": True,
+                "token_tracker": token_tracker,
             },
             goto="__end__",
         )
@@ -231,6 +241,7 @@ def team_node(
 ) -> Command[Literal["leader", "execute"]]:
     """Research team node that collaborates on tasks."""
     logger.info("Research team is collaborating on tasks.")
+    update_context(state)
     current_plan = state.get("plan")
     if not current_plan or not current_plan.steps:
         return Command(
@@ -252,7 +263,6 @@ def execute_node(state: State) -> Command[Literal["team"]]:
 
     current_plan = state.get("plan")
     observations = state.get("observations", [])
-
     # Find the first unexecuted step
     current_step = None
     completed_steps = []
@@ -292,6 +302,14 @@ def execute_node(state: State) -> Command[Literal["team"]]:
     result = agent.invoke(
         input=agent_input, config={"recursion_limit": default_recursion_limit}
     )
+
+    usage_metadata = result.get("usage_metadata", {})
+    response_metadata = result.get("response_metadata", {})
+    token_tracker.add_usage(
+        input_tokens=usage_metadata.get("input_tokens", 0),
+        output_tokens=usage_metadata.get("output_tokens", 0),
+        model=response_metadata.get("model_name", ""),
+    )
     logger.info(f"🔍 执行代理节点执行结果: {result}")
     observations = state.get("observations", [])
 
@@ -300,10 +318,12 @@ def execute_node(state: State) -> Command[Literal["team"]]:
     logger.debug(f"execute full response: {response_content}")
     # Update the step with the execution result
     current_step.execution_res = response_content
+
     return Command(
         update={
             "observations": observations + [response_content],
             "plan": current_plan,
+            "token_usage": token_tracker.get_current_report(),
         },
         goto="team",
     )

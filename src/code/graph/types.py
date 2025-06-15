@@ -4,6 +4,7 @@ from langgraph.graph import MessagesState
 
 from src.prompts.planner_model import Plan
 from src.rag import Resource
+from src.utils.simple_token_tracker import SimpleTokenTracker
 
 
 class State(MessagesState):
@@ -19,3 +20,4 @@ class State(MessagesState):
     recursion_limit: int = 20
     resources: list[Resource] = []
     report: str = ""
+    token_usage: dict = ""
