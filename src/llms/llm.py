@@ -5,6 +5,7 @@ from typing import Any, Dict
 import os
 import logging
 import json
+import time
 
 from langchain_openai import ChatOpenAI
 
@@ -16,6 +17,91 @@ logger = logging.getLogger(__name__)
 
 # Cache for LLM instances
 _llm_cache: dict[LLMType, ChatOpenAI] = {}
+
+# LLM调试相关导入
+try:
+    from src.config.llm_debug import get_llm_debugger
+
+    LLM_DEBUG_AVAILABLE = True
+except ImportError:
+    LLM_DEBUG_AVAILABLE = False
+    logger.debug("LLM调试模块未找到，跳过调试功能")
+
+
+class DebugChatOpenAI(ChatOpenAI):
+    """带调试功能的ChatOpenAI包装类"""
+
+    def __init__(self, llm_type: str = "unknown", **kwargs):
+        super().__init__(**kwargs)
+        self.llm_type = llm_type
+        self.debugger = get_llm_debugger() if LLM_DEBUG_AVAILABLE else None
+
+    def invoke(self, input, config=None, **kwargs):
+        """重写invoke方法，添加调试日志"""
+        if self.debugger and self.debugger.enabled:
+            # 记录调用开始
+            start_time = time.time()
+
+            # 提取消息内容用于调试
+            messages = self._extract_messages_for_debug(input)
+            if messages:
+                self.debugger.log_llm_call(
+                    agent_name=f"LLM({self.llm_type})",
+                    messages=messages,
+                    model_type=self.llm_type,
+                    extra_context={
+                        "model_name": getattr(self, "model_name", "unknown"),
+                        "temperature": getattr(self, "temperature", "unknown"),
+                    },
+                )
+
+            try:
+                # 执行原始调用
+                result = super().invoke(input, config, **kwargs)
+
+                # 记录响应
+                duration_ms = (time.time() - start_time) * 1000
+                self.debugger.log_llm_response(
+                    agent_name=f"LLM({self.llm_type})",
+                    response=result,
+                    duration_ms=duration_ms,
+                )
+
+                return result
+            except Exception as e:
+                if self.debugger:
+                    self.debugger.logger.error(f"❌ LLM调用失败: {str(e)}")
+                raise
+        else:
+            # 正常调用，无调试
+            return super().invoke(input, config, **kwargs)
+
+    def _extract_messages_for_debug(self, input):
+        """从输入中提取消息用于调试显示"""
+        messages = []
+
+        if isinstance(input, list):
+            for item in input:
+                if hasattr(item, "type") and hasattr(item, "content"):
+                    # LangChain消息对象
+                    messages.append(
+                        {
+                            "role": item.type,
+                            "content": str(item.content),
+                            "name": getattr(item, "name", ""),
+                        }
+                    )
+                elif isinstance(item, dict):
+                    # 字典格式的消息
+                    messages.append(item)
+        elif hasattr(input, "messages"):
+            # 如果input有messages属性
+            return self._extract_messages_for_debug(input.messages)
+        elif isinstance(input, str):
+            # 纯文本输入
+            messages.append({"role": "user", "content": input})
+
+        return messages
 
 
 def _get_env_llm_conf(llm_type: str) -> Dict[str, Any]:
@@ -73,8 +159,17 @@ def _create_llm_use_conf(llm_type: LLMType, conf: Dict[str, Any]) -> ChatOpenAI:
     logger.info(f"LLM configuration: {safe_conf}")
 
     try:
-        llm = ChatOpenAI(**merged_conf)
-        logger.info(f"LLM instance created successfully: {llm_type}")
+        # 创建带调试功能的LLM实例
+        if LLM_DEBUG_AVAILABLE and os.getenv("LLM_DEBUG", "false").lower() in [
+            "true",
+            "1",
+            "yes",
+        ]:
+            llm = DebugChatOpenAI(llm_type=llm_type, **merged_conf)
+            logger.info(f"Debug-enabled LLM instance created successfully: {llm_type}")
+        else:
+            llm = ChatOpenAI(**merged_conf)
+            logger.info(f"LLM instance created successfully: {llm_type}")
         return llm
     except Exception as e:
         logger.error(f"Failed to create LLM instance: {str(e)}")

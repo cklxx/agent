@@ -35,4 +35,17 @@ def repair_json_output(content: str) -> str:
             return json.dumps(repaired_content, ensure_ascii=False)
         except Exception as e:
             logger.warning(f"JSON repair failed: {e}")
+    else:
+        # 尝试使用 { 和 } 正则匹配出 json 的范围
+        logger.warning(f"JSON repair failed: {content}")
+        import re
+
+        json_pattern = re.compile(r"\{.*\}", re.DOTALL)
+        match = json_pattern.search(content)
+        if match:
+            content = match.group(0)
+            repaired_content = json_repair.loads(content)
+            return json.dumps(repaired_content, ensure_ascii=False)
+        else:
+            logger.warning(f"JSON pattern match failed: {content}")
     return content

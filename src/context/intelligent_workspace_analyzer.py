@@ -206,24 +206,27 @@ class IntelligentWorkspaceAnalyzer:
             project_structure = await self._analyze_project_structure()
 
             # 分析环境信息
-            environment_info = await self._analyze_environment()
+            environment_info = await self._analyze_environment(project_structure)
 
-            analysis_result = {
-                "project_structure": project_structure,
-                "environment_info": environment_info,
-                "analysis_time": datetime.now(),
-                "success": True,
-            }
+            # 生成文本格式的环境分析报告
+            text_summary = self._generate_text_summary(
+                project_structure, environment_info
+            )
 
             logger.info("环境分析完成")
-            return analysis_result
+            return {
+                "project_structure": project_structure,
+                "environment_info": environment_info,
+                "text_summary": text_summary,  # 新增：文本格式摘要
+                "success": True,
+            }
 
         except Exception as e:
             logger.error(f"环境分析失败: {e}")
             return {
                 "project_structure": {},
                 "environment_info": {},
-                "analysis_time": datetime.now(),
+                "text_summary": f"环境分析失败: {str(e)}",
                 "success": False,
                 "error": str(e),
             }
@@ -231,85 +234,146 @@ class IntelligentWorkspaceAnalyzer:
     async def _analyze_project_structure(self) -> Dict[str, Any]:
         """分析项目结构"""
         workspace_path = Path(self.workspace_path)
-
         structure_info = {
             "total_files": 0,
+            "total_directories": 0,
             "file_types": {},
-            "main_languages": [],
-            "project_type": "unknown",
-            "directories": [],
             "config_files": [],
+            "directories": [],
+            "directory_structure": {},  # 新增：详细的目录结构
+            "main_languages": [],
         }
 
-        try:
-            # 扫描文件
-            for item in workspace_path.rglob("*"):
-                if item.is_file():
-                    structure_info["total_files"] += 1
+        # 只扫描根目录和第一层子目录，避免扫描.venv等深层目录
+        exclude_dirs = {
+            ".git",
+            ".venv",
+            "venv",
+            "__pycache__",
+            "node_modules",
+            "dist",
+            "build",
+            ".pytest_cache",
+            ".coverage",
+            "temp",
+        }
 
-                    # 统计文件类型
-                    suffix = item.suffix.lower()
-                    if suffix:
-                        structure_info["file_types"][suffix] = (
-                            structure_info["file_types"].get(suffix, 0) + 1
-                        )
+        # 扫描根目录的直接文件
+        for item in workspace_path.iterdir():
+            if item.is_file():
+                structure_info["total_files"] += 1
 
-                    # 识别配置文件
-                    if item.name in [
-                        "package.json",
-                        "requirements.txt",
-                        "pyproject.toml",
-                        "Cargo.toml",
-                        "go.mod",
-                    ]:
-                        structure_info["config_files"].append(
-                            str(item.relative_to(workspace_path))
-                        )
-
-                elif item.is_dir() and not item.name.startswith("."):
-                    structure_info["directories"].append(
-                        str(item.relative_to(workspace_path))
+                # 统计文件类型
+                suffix = item.suffix.lower()
+                if suffix:
+                    structure_info["file_types"][suffix] = (
+                        structure_info["file_types"].get(suffix, 0) + 1
                     )
 
-            # 确定主要语言
-            common_extensions = {
-                ".py": "Python",
-                ".js": "JavaScript",
-                ".ts": "TypeScript",
-                ".java": "Java",
-                ".go": "Go",
-                ".rs": "Rust",
-                ".cpp": "C++",
-                ".c": "C",
-            }
+                # 识别配置文件
+                if item.name in [
+                    "package.json",
+                    "requirements.txt",
+                    "pyproject.toml",
+                    "Cargo.toml",
+                    "go.mod",
+                    "conf.yaml",
+                    "docker-compose.yml",
+                    "Dockerfile",
+                    "Makefile",
+                ]:
+                    structure_info["config_files"].append(item.name)
 
-            for ext, count in sorted(
-                structure_info["file_types"].items(), key=lambda x: x[1], reverse=True
-            ):
-                if ext in common_extensions:
-                    structure_info["main_languages"].append(common_extensions[ext])
-                if len(structure_info["main_languages"]) >= 3:
-                    break
+            elif item.is_dir() and item.name not in exclude_dirs:
+                structure_info["total_directories"] += 1
+                structure_info["directories"].append(item.name)
 
-            # 推断项目类型
-            if "package.json" in structure_info["config_files"]:
-                structure_info["project_type"] = "Node.js"
-            elif (
-                "requirements.txt" in structure_info["config_files"]
-                or "pyproject.toml" in structure_info["config_files"]
-            ):
-                structure_info["project_type"] = "Python"
-            elif "Cargo.toml" in structure_info["config_files"]:
-                structure_info["project_type"] = "Rust"
-            elif "go.mod" in structure_info["config_files"]:
-                structure_info["project_type"] = "Go"
+                # 初始化当前目录结构
+                current_dir_structure = {"files": [], "subdirectories": {}}
 
-        except Exception as e:
-            logger.error(f"项目结构分析失败: {e}")
+                # 扫描第一层和第二层子目录的文件
+                try:
+                    for subitem in item.iterdir():
+                        if subitem.is_file():
+                            structure_info["total_files"] += 1
+                            current_dir_structure["files"].append(subitem.name)
+                            suffix = subitem.suffix.lower()
+                            if suffix:
+                                structure_info["file_types"][suffix] = (
+                                    structure_info["file_types"].get(suffix, 0) + 1
+                                )
+                        elif subitem.is_dir() and subitem.name not in exclude_dirs:
+                            # 初始化子目录结构
+                            subdir_structure = {"files": []}
+
+                            # 扫描第二层子目录的文件
+                            try:
+                                for subsubitem in subitem.iterdir():
+                                    if subsubitem.is_file():
+                                        structure_info["total_files"] += 1
+                                        subdir_structure["files"].append(
+                                            subsubitem.name
+                                        )
+                                        suffix = subsubitem.suffix.lower()
+                                        if suffix:
+                                            structure_info["file_types"][suffix] = (
+                                                structure_info["file_types"].get(
+                                                    suffix, 0
+                                                )
+                                                + 1
+                                            )
+                            except (PermissionError, OSError):
+                                # 跳过无法访问的第二层目录
+                                continue
+
+                            current_dir_structure["subdirectories"][
+                                subitem.name
+                            ] = subdir_structure
+                except (PermissionError, OSError):
+                    # 跳过无法访问的目录
+                    continue
+
+                # 保存当前目录的详细结构
+                structure_info["directory_structure"][item.name] = current_dir_structure
+
+        # 确定主要语言
+        common_extensions = {
+            ".py": "Python",
+            ".js": "JavaScript",
+            ".ts": "TypeScript",
+            ".java": "Java",
+            ".go": "Go",
+            ".rs": "Rust",
+            ".cpp": "C++",
+            ".c": "C",
+        }
+
+        for ext, count in sorted(
+            structure_info["file_types"].items(), key=lambda x: x[1], reverse=True
+        ):
+            if ext in common_extensions:
+                structure_info["main_languages"].append(common_extensions[ext])
+            if len(structure_info["main_languages"]) >= 3:
+                break
+
+        # 推断项目类型
+        if "package.json" in structure_info["config_files"]:
+            structure_info["project_type"] = "Node.js"
+        elif (
+            "requirements.txt" in structure_info["config_files"]
+            or "pyproject.toml" in structure_info["config_files"]
+        ):
+            structure_info["project_type"] = "Python"
+        elif "Cargo.toml" in structure_info["config_files"]:
+            structure_info["project_type"] = "Rust"
+        elif "go.mod" in structure_info["config_files"]:
+            structure_info["project_type"] = "Go"
 
         return structure_info
 
-    async def _analyze_environment(self) -> Dict[str, Any]:
+    async def _analyze_environment(
+        self, project_structure: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
         """分析环境信息"""
         import platform
         import sys
@@ -317,7 +381,7 @@ class IntelligentWorkspaceAnalyzer:
         env_info = {
             "platform": platform.system(),
             "python_version": sys.version,
-            "working_directory": str(Path.cwd()),
+            "working_directory": self.workspace_path,  # 使用用户指定的工作目录
             "workspace_path": self.workspace_path,
             "timestamp": datetime.now().isoformat(),
         }
@@ -348,7 +412,188 @@ class IntelligentWorkspaceAnalyzer:
             if (workspace_path / file_name).exists():
                 env_info["package_managers"].append(manager)
 
+        # 添加项目结构信息到环境信息中
+        if project_structure:
+            env_info["project_structure"] = {
+                "total_files": project_structure.get("total_files", 0),
+                "total_directories": project_structure.get("total_directories", 0),
+                "directories": project_structure.get("directories", []),
+                "directory_structure": project_structure.get("directory_structure", {}),
+                "main_languages": project_structure.get("main_languages", []),
+                "project_type": project_structure.get("project_type", "Unknown"),
+                "config_files": project_structure.get("config_files", []),
+                "file_types": project_structure.get("file_types", {}),
+            }
+
         return env_info
+
+    def _generate_text_summary(
+        self, project_structure: Dict[str, Any], environment_info: Dict[str, Any]
+    ) -> str:
+        """Generate environment analysis summary in English Markdown format"""
+        try:
+            # Extract key information
+            total_files = project_structure.get("total_files", 0)
+            total_dirs = project_structure.get("total_directories", 0)
+            file_types = project_structure.get("file_types", {})
+            config_files = project_structure.get("config_files", [])
+            directories = project_structure.get("directories", [])
+            main_languages = project_structure.get("main_languages", [])
+            project_type = project_structure.get("project_type", "Unknown")
+
+            platform = environment_info.get("platform", "Unknown")
+            python_version = environment_info.get("python_version", "Unknown")
+            working_dir = environment_info.get("working_directory", "Unknown")
+            venv = environment_info.get("virtual_environment")
+            package_managers = environment_info.get("package_managers", [])
+            timestamp = environment_info.get("timestamp", "Unknown")
+
+            # Build Markdown summary
+            md_lines = []
+
+            # === Project Overview ===
+            md_lines.append("# Project Environment Analysis Report")
+            md_lines.append("")
+            md_lines.append(f"**Analysis Time:** {timestamp}")
+            md_lines.append(f"**Working Directory:** `{working_dir}`")
+            md_lines.append("")
+
+            # === Project Structure ===
+            md_lines.append("## 📁 Project Structure")
+            md_lines.append("")
+            md_lines.append(f"- **Project Type:** {project_type}")
+            md_lines.append(f"- **Total Files:** {total_files}")
+            md_lines.append(f"- **Total Directories:** {total_dirs}")
+
+            if main_languages:
+                md_lines.append(f"- **Primary Languages:** {', '.join(main_languages)}")
+
+            # File type distribution
+            if file_types:
+                md_lines.append("")
+                md_lines.append("### File Type Distribution")
+                md_lines.append("")
+                md_lines.append("| Extension | File Count |")
+                md_lines.append("|-----------|------------|")
+                for ext, count in sorted(
+                    file_types.items(), key=lambda x: x[1], reverse=True
+                )[:10]:
+                    md_lines.append(f"| `{ext}` | {count} |")
+
+            # Configuration files
+            if config_files:
+                md_lines.append("")
+                md_lines.append("### Configuration Files")
+                md_lines.append("")
+                for config_file in config_files:
+                    md_lines.append(f"- `{config_file}`")
+
+            # Main directories
+            if directories:
+                md_lines.append("")
+                md_lines.append("### Main Directories")
+                md_lines.append("")
+                for directory in directories[:10]:
+                    md_lines.append(f"- `{directory}/`")
+                if len(directories) > 10:
+                    md_lines.append(
+                        f"- *...and {len(directories)-10} more directories*"
+                    )
+
+            # Detailed directory structure
+            directory_structure = project_structure.get("directory_structure", {})
+            if directory_structure:
+                md_lines.append("")
+                md_lines.append("### Directory Structure Details")
+                md_lines.append("")
+
+                # 遍历主要目录
+                for dir_name, dir_info in list(directory_structure.items())[
+                    :5
+                ]:  # 只显示前5个目录
+                    md_lines.append(f"#### `{dir_name}/`")
+
+                    # 显示直接文件
+                    files = dir_info.get("files", [])
+                    if files:
+                        md_lines.append(
+                            f"- **Files ({len(files)})**: {', '.join([f'`{f}`' for f in files[:8]])}"
+                        )
+                        if len(files) > 8:
+                            md_lines.append(f"  *(+{len(files)-8} more files)*")
+
+                    # 显示子目录
+                    subdirs = dir_info.get("subdirectories", {})
+                    if subdirs:
+                        md_lines.append(f"- **Subdirectories ({len(subdirs)})**:")
+                        for subdir_name, subdir_info in list(subdirs.items())[
+                            :3
+                        ]:  # 只显示前3个子目录
+                            subdir_files = subdir_info.get("files", [])
+                            if subdir_files:
+                                md_lines.append(
+                                    f"  - `{subdir_name}/` ({len(subdir_files)} files)"
+                                )
+                            else:
+                                md_lines.append(f"  - `{subdir_name}/`")
+                        if len(subdirs) > 3:
+                            md_lines.append(
+                                f"  *(+{len(subdirs)-3} more subdirectories)*"
+                            )
+
+                    md_lines.append("")
+
+                if len(directory_structure) > 5:
+                    md_lines.append(
+                        f"*...and {len(directory_structure)-5} more directories*"
+                    )
+                    md_lines.append("")
+
+            md_lines.append("")
+
+            # === Runtime Environment ===
+            md_lines.append("## 🔧 Runtime Environment")
+            md_lines.append("")
+            md_lines.append(f"- **Operating System:** {platform}")
+            md_lines.append(
+                f"- **Python Version:** {python_version.split()[0] if python_version != 'Unknown' else 'Unknown'}"
+            )
+
+            # Virtual environment
+            if venv:
+                md_lines.append(f"- **Virtual Environment:** `{venv}`")
+            else:
+                md_lines.append("- **Virtual Environment:** Not detected")
+
+            # Package managers
+            if package_managers:
+                md_lines.append(
+                    f"- **Package Managers:** {', '.join(package_managers)}"
+                )
+            else:
+                md_lines.append("- **Package Managers:** Not detected")
+
+            # === Summary ===
+            md_lines.append("")
+            md_lines.append("## 📋 Environment Summary")
+            md_lines.append("")
+
+            if project_type != "Unknown":
+                md_lines.append(f"- **{project_type}** project")
+            if main_languages:
+                md_lines.append(f"- **{main_languages[0]}** development")
+            if total_files > 0:
+                md_lines.append(
+                    f"- **{total_files}** files, **{total_dirs}** directories"
+                )
+            if venv:
+                md_lines.append(f"- **{venv}** virtual environment")
+
+            return "\n".join(md_lines)
+
+        except Exception as e:
+            logger.error(f"Failed to generate text summary: {e}")
+            return f"# Error\n\nUnable to generate text summary: {str(e)}"
 
     def save_analysis_result(
         self,

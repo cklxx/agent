@@ -55,19 +55,13 @@ class Route(BaseModel):
 
 @tool
 def search_location(keyword: str) -> List[Location]:
-    """Search for locations, places, landmarks, or addresses using keywords globally.
-    Use this tool when you need to find specific locations, tourist attractions, restaurants, hotels, or any places without city restriction.
+    """Search for locations, places, and landmarks globally.
 
     Args:
-        keyword: The search keyword (e.g., "故宫", "天安门", "北京大学", "餐厅", "酒店")
+        keyword: Search keyword (e.g., "故宫", "餐厅", "机场")
 
     Returns:
-        List of locations with names, addresses, and coordinates matching the search criteria
-
-    Examples:
-        - search_location("故宫") - Find the Forbidden City
-        - search_location("美食街") - Find food streets
-        - search_location("机场") - Find airports
+        List of locations with names, addresses, and coordinates
     """
     api_key = get_api_key()
     base_url = "https://restapi.amap.com/v3/place/text"
@@ -181,20 +175,15 @@ def search_location_in_city(keyword: str, city: str) -> List[Location]:
 
 @tool
 def get_route(origin: str, destination: str, mode: str = "driving") -> Route:
-    """Get route directions and travel information between two locations.
-    Use this tool when you need to plan routes, calculate travel time, or get directions between places.
+    """Get route directions and travel time between two locations.
 
     Args:
-        origin: Starting location name or address (e.g., "北京站", "天安门广场")
-        destination: Destination location name or address (e.g., "故宫", "王府井")
-        mode: Transportation mode - currently supports "driving" (default)
+        origin: Starting location name or address
+        destination: Destination location name or address
+        mode: Transportation mode (default: "driving")
 
     Returns:
-        Route information including total distance (meters), duration (seconds), and step-by-step directions
-
-    Examples:
-        - get_route("天安门", "故宫") - Get driving directions from Tiananmen to Forbidden City
-        - get_route("机场", "市中心", "driving") - Get route from airport to city center
+        Route with distance, duration, and directions
     """
     api_key = get_api_key()
     base_url = "https://restapi.amap.com/v3/direction/driving"
@@ -248,21 +237,15 @@ def get_route(origin: str, destination: str, mode: str = "driving") -> Route:
 def get_nearby_places(
     location: str, radius: int = 1000, types: str = None
 ) -> List[Location]:
-    """Search for places and points of interest near a specific location.
-    Use this tool when you need to find nearby restaurants, hotels, attractions, services, or facilities around a location.
+    """Find places and points of interest near a location.
 
     Args:
-        location: Center location name or address (e.g., "天安门", "北京大学", "海口市政府")
-        radius: Search radius in meters (default: 1000m, max: 50000m)
-        types: Optional POI types to filter results (e.g., "餐饮服务", "住宿服务", "旅游景点")
+        location: Center location name or address
+        radius: Search radius in meters (default: 1000m)
+        types: Optional POI types filter (e.g., "餐饮服务", "旅游景点")
 
     Returns:
-        List of nearby places with names, addresses, and coordinates
-
-    Examples:
-        - get_nearby_places("故宫") - Find all places near the Forbidden City
-        - get_nearby_places("海口火车站", 2000, "餐饮服务") - Find restaurants within 2km of Haikou Station
-        - get_nearby_places("天安门广场", 500, "旅游景点") - Find tourist attractions within 500m of Tiananmen Square
+        List of nearby places with details
     """
     api_key = get_api_key()
     base_url = "https://restapi.amap.com/v3/place/around"
