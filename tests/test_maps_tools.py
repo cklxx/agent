@@ -206,8 +206,10 @@ class TestGetRoute:
         assert len(result.steps) == 2
 
     @patch("src.tools.maps.search_location")
-    def test_get_route_no_origin_found(self, mock_search_location):
+    @patch("src.tools.maps.get_api_key")
+    def test_get_route_no_origin_found(self, mock_get_api_key, mock_search_location):
         """测试找不到起点"""
+        mock_get_api_key.return_value = "test_api_key"
         mock_search_location.invoke.side_effect = [
             [],  # 起点搜索无结果
             [Location(name="dest", address="addr", longitude=116.0, latitude=39.0)],
@@ -219,8 +221,12 @@ class TestGetRoute:
         assert "Could not find coordinates" in str(exc_info.value)
 
     @patch("src.tools.maps.search_location")
-    def test_get_route_no_destination_found(self, mock_search_location):
+    @patch("src.tools.maps.get_api_key")
+    def test_get_route_no_destination_found(
+        self, mock_get_api_key, mock_search_location
+    ):
         """测试找不到终点"""
+        mock_get_api_key.return_value = "test_api_key"
         mock_search_location.invoke.side_effect = [
             [Location(name="origin", address="addr", longitude=116.0, latitude=39.0)],
             [],  # 终点搜索无结果
@@ -363,8 +369,12 @@ class TestGetNearbyPlaces:
         assert isinstance(result, list)
 
     @patch("src.tools.maps.search_location")
-    def test_get_nearby_places_center_not_found(self, mock_search_location):
+    @patch("src.tools.maps.get_api_key")
+    def test_get_nearby_places_center_not_found(
+        self, mock_get_api_key, mock_search_location
+    ):
         """测试中心位置未找到"""
+        mock_get_api_key.return_value = "test_api_key"
         mock_search_location.invoke.return_value = []
 
         with pytest.raises(Exception) as exc_info:
