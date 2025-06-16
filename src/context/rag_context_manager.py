@@ -151,7 +151,9 @@ class RAGContextManager:
                 )
                 context_ids.append(context_id)
 
-            logger.info(f"函数搜索 '{function_name}' 添加了 {len(context_ids)} 个上下文")
+            logger.info(
+                f"函数搜索 '{function_name}' 添加了 {len(context_ids)} 个上下文"
+            )
             return context_ids
 
         except Exception as e:
@@ -295,7 +297,7 @@ class RAGContextManager:
     def _build_enhanced_tags(self, result, query: str) -> List[str]:
         """构建增强检索结果的标签"""
         tags = ["rag", "enhanced", result.retrieval_method]
-        
+
         # 从文件路径提取语言标签
         doc = result.document
         file_path = getattr(doc, "id", "")
@@ -308,7 +310,7 @@ class RAGContextManager:
     def _build_document_tags(self, doc, query: str) -> List[str]:
         """构建文档检索结果的标签"""
         tags = ["rag", "code"]
-        
+
         # 从文件路径提取语言标签
         file_path = getattr(doc, "id", "")
         if file_path:
@@ -324,7 +326,7 @@ class RAGContextManager:
             rag_contexts = await self.context_manager.search_contexts(
                 query="", context_type=ContextType.RAG_CODE, limit=100
             )
-            
+
             # 统计信息
             summary = {
                 "total_rag_contexts": len(rag_contexts),
@@ -335,34 +337,41 @@ class RAGContextManager:
 
             for context in rag_contexts:
                 metadata = context.metadata
-                
+
                 # 统计来源
                 source = metadata.get("source", "unknown")
                 summary["sources"][source] = summary["sources"].get(source, 0) + 1
-                
+
                 # 统计搜索类型
                 search_type = metadata.get("search_type", "general")
-                summary["search_types"][search_type] = summary["search_types"].get(search_type, 0) + 1
-                
+                summary["search_types"][search_type] = (
+                    summary["search_types"].get(search_type, 0) + 1
+                )
+
                 # 统计文件类型
                 file_path = metadata.get("file_path", "")
                 if file_path:
-                    suffix = Path(file_path).suffix[1:] if Path(file_path).suffix else "unknown"
-                    summary["file_types"][suffix] = summary["file_types"].get(suffix, 0) + 1
+                    suffix = (
+                        Path(file_path).suffix[1:]
+                        if Path(file_path).suffix
+                        else "unknown"
+                    )
+                    summary["file_types"][suffix] = (
+                        summary["file_types"].get(suffix, 0) + 1
+                    )
 
             return summary
-        
-        
+
         except Exception as e:
             logger.error(f"获取RAG上下文摘要失败: {e}")
             return {"error": str(e)}
-        
+
     async def get_rag_context_summary_text(self) -> str:
-            summary = await self.get_rag_context_summary()
-            # 将summary转换为markdown格式, 英文格式
-            markdown_summary = ""
-            markdown_summary += f"## Context Summary\n"
-            markdown_summary += f"### Sources: {summary['sources']}\n"
-            markdown_summary += f"### Search Types: {summary['search_types']}\n"
-            markdown_summary += f"### File Types: {summary['file_types']}\n"
-            return markdown_summary
+        summary = await self.get_rag_context_summary()
+        # 将summary转换为markdown格式, 英文格式
+        markdown_summary = ""
+        markdown_summary += f"## Context Summary\n"
+        markdown_summary += f"### Sources: {summary['sources']}\n"
+        markdown_summary += f"### Search Types: {summary['search_types']}\n"
+        markdown_summary += f"### File Types: {summary['file_types']}\n"
+        return markdown_summary

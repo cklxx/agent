@@ -86,7 +86,9 @@ def plan_tool(
     """Plan tool to do plan."""
     return plan
 
+
 context_manager_cache = None
+
 
 def update_context(state: State):
     """上下文节点：负责环境感知和RAG索引构建"""
@@ -115,7 +117,7 @@ def update_context(state: State):
             )
         context = asyncio.run(context_manager_cache.get_rag_context_summary_text())
         logger.info(f"🔍 上下文: {context}")
-        
+
         state.update(
             {
                 "environment_info": environment_info,

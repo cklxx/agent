@@ -53,7 +53,9 @@ class Resource(BaseModel):
 
     uri: str = Field(..., description="The URI of the resource")
     title: str = Field(..., description="The title of the resource")
-    description: Optional[str] = Field("", description="The description of the resource")
+    description: Optional[str] = Field(
+        "", description="The description of the resource"
+    )
 
 
 class Retriever(abc.ABC):

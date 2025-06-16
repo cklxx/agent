@@ -88,7 +88,9 @@ class RAGEnhancedSearchTools:
                     return str(resolved_path)
                 else:
                     # 路径不在workspace下，使用workspace
-                    logger.warning(f"路径 {file_path} 不在workspace {self.workspace} 下，使用workspace")
+                    logger.warning(
+                        f"路径 {file_path} 不在workspace {self.workspace} 下，使用workspace"
+                    )
                     return self.workspace
             except Exception:
                 return self.workspace
@@ -100,57 +102,66 @@ class RAGEnhancedSearchTools:
         """检查文件路径是否在workspace下"""
         if not self.workspace_path:
             return True  # 没有workspace限制
-            
+
         try:
             resolved_path = Path(file_path).resolve()
             # 检查路径是否在workspace下或是workspace本身
             return (
-                resolved_path == self.workspace_path or 
-                self.workspace_path in resolved_path.parents
+                resolved_path == self.workspace_path
+                or self.workspace_path in resolved_path.parents
             )
         except Exception:
             return False
 
-    def _filter_rag_results_by_workspace(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _filter_rag_results_by_workspace(
+        self, results: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         """过滤RAG结果，只保留workspace下的文件"""
         if not self.workspace_path:
             return results
-            
+
         filtered_results = []
         for result in results:
-            file_path = result.get('file_path', '')
-            
+            file_path = result.get("file_path", "")
+
             # 如果file_path是相对路径，转换为绝对路径
             if not os.path.isabs(file_path) and self.workspace:
                 file_path = str(Path(self.workspace) / file_path)
-            
+
             # 检查是否在workspace下
             if self._is_path_in_workspace(file_path):
                 # 更新为相对于workspace的路径（如果可能）
                 try:
                     if self.workspace_path:
                         abs_path = Path(file_path).resolve()
-                        if self.workspace_path in abs_path.parents or abs_path == self.workspace_path:
+                        if (
+                            self.workspace_path in abs_path.parents
+                            or abs_path == self.workspace_path
+                        ):
                             relative_path = abs_path.relative_to(self.workspace_path)
-                            result['file_path'] = str(relative_path)
+                            result["file_path"] = str(relative_path)
                 except Exception:
                     pass  # 保持原始路径
-                    
+
                 filtered_results.append(result)
             else:
                 logger.debug(f"过滤掉workspace外的文件: {file_path}")
-                
+
         return filtered_results
 
-    async def _get_rag_results(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
+    async def _get_rag_results(
+        self, query: str, max_results: int = 5
+    ) -> List[Dict[str, Any]]:
         """获取RAG检索结果，确保只返回workspace下的文件"""
         if not self.rag_retriever:
             return []
 
         try:
             # 在查询中明确workspace限制
-            workspace_query = f"{query} in {self.workspace}" if self.workspace else query
-            
+            workspace_query = (
+                f"{query} in {self.workspace}" if self.workspace else query
+            )
+
             # 如果使用增强检索器
             if hasattr(self.rag_retriever, "hybrid_search"):
                 retrieval_results = await self.rag_retriever.hybrid_search(
@@ -160,32 +171,38 @@ class RAGEnhancedSearchTools:
                 for result in retrieval_results:
                     doc = result.document
                     file_path = getattr(doc, "id", "unknown")
-                    results.append({
-                        "file_path": file_path,
-                        "title": doc.title,
-                        "content": doc.chunks[0].content if doc.chunks else "",
-                        "similarity": result.combined_score,
-                        "source": "rag_enhanced",
-                        "url": getattr(doc, "url", ""),
-                    })
+                    results.append(
+                        {
+                            "file_path": file_path,
+                            "title": doc.title,
+                            "content": doc.chunks[0].content if doc.chunks else "",
+                            "similarity": result.combined_score,
+                            "source": "rag_enhanced",
+                            "url": getattr(doc, "url", ""),
+                        }
+                    )
             else:
                 # 使用基础检索器
                 documents = self.rag_retriever.query_relevant_documents(workspace_query)
                 results = []
                 for doc in documents:
                     file_path = getattr(doc, "id", "unknown")
-                    results.append({
-                        "file_path": file_path,
-                        "title": doc.title,
-                        "content": doc.chunks[0].content if doc.chunks else "",
-                        "similarity": doc.chunks[0].similarity if doc.chunks else 0.0,
-                        "source": "rag_basic",
-                        "url": getattr(doc, "url", ""),
-                    })
+                    results.append(
+                        {
+                            "file_path": file_path,
+                            "title": doc.title,
+                            "content": doc.chunks[0].content if doc.chunks else "",
+                            "similarity": (
+                                doc.chunks[0].similarity if doc.chunks else 0.0
+                            ),
+                            "source": "rag_basic",
+                            "url": getattr(doc, "url", ""),
+                        }
+                    )
 
             # 过滤结果，确保只返回workspace下的文件
             filtered_results = self._filter_rag_results_by_workspace(results)
-            
+
             # 限制最终结果数量
             return filtered_results[:max_results]
 
@@ -207,18 +224,24 @@ class RAGEnhancedSearchTools:
 
         # RAG检索结果
         if rag_results:
-            output_parts.append(f"\n## 🧠 RAG智能检索结果 (workspace: {self.workspace})")
-            output_parts.append(f"基于查询 '{query}' 的语义搜索结果 (共{len(rag_results)}个结果):\n")
+            output_parts.append(
+                f"\n## 🧠 RAG智能检索结果 (workspace: {self.workspace})"
+            )
+            output_parts.append(
+                f"基于查询 '{query}' 的语义搜索结果 (共{len(rag_results)}个结果):\n"
+            )
 
             for i, result in enumerate(rag_results, 1):
-                output_parts.append(f"### {i}. {result['title']} (相关性: {result['similarity']:.3f})")
+                output_parts.append(
+                    f"### {i}. {result['title']} (相关性: {result['similarity']:.3f})"
+                )
                 output_parts.append(f"**文件路径**: {result['file_path']}")
-                if result.get('url'):
+                if result.get("url"):
                     output_parts.append(f"**URL**: {result['url']}")
                 output_parts.append(f"**来源**: {result['source']}")
-                
+
                 # 显示代码片段预览
-                content = result['content']
+                content = result["content"]
                 if len(content) > 200:
                     content = content[:200] + "..."
                 output_parts.append(f"**代码预览**:")
@@ -227,7 +250,9 @@ class RAGEnhancedSearchTools:
                 output_parts.append("```")
                 output_parts.append("")
         else:
-            output_parts.append(f"\n## 🧠 RAG智能检索结果 (workspace: {self.workspace})")
+            output_parts.append(
+                f"\n## 🧠 RAG智能检索结果 (workspace: {self.workspace})"
+            )
             output_parts.append("未找到workspace内相关的代码片段")
 
         return "\n".join(output_parts)
@@ -269,7 +294,9 @@ class RAGEnhancedSearchTools:
                 except Exception as e:
                     logger.warning(f"添加RAG上下文失败: {e}")
 
-            return self._format_combined_results(traditional_results, rag_results, query)
+            return self._format_combined_results(
+                traditional_results, rag_results, query
+            )
         else:
             return traditional_results
 
@@ -315,7 +342,9 @@ class RAGEnhancedSearchTools:
                 except Exception as e:
                     logger.warning(f"添加RAG上下文失败: {e}")
 
-            return self._format_combined_results(traditional_results, rag_results, query)
+            return self._format_combined_results(
+                traditional_results, rag_results, query
+            )
         else:
             return traditional_results
 
@@ -346,16 +375,18 @@ class RAGEnhancedSearchTools:
         output_parts.append(f"找到 {len(rag_results)} 个相关代码片段\n")
 
         for i, result in enumerate(rag_results, 1):
-            output_parts.append(f"### {i}. {result['title']} (相关性: {result['similarity']:.3f})")
+            output_parts.append(
+                f"### {i}. {result['title']} (相关性: {result['similarity']:.3f})"
+            )
             output_parts.append(f"**文件路径**: {result['file_path']}")
-            if result.get('url'):
+            if result.get("url"):
                 output_parts.append(f"**URL**: {result['url']}")
             output_parts.append(f"**来源**: {result['source']}")
-            
+
             # 显示完整代码片段
             output_parts.append("**代码内容**:")
             output_parts.append("```")
-            output_parts.append(result['content'])
+            output_parts.append(result["content"])
             output_parts.append("```")
             output_parts.append("")
 
@@ -363,7 +394,9 @@ class RAGEnhancedSearchTools:
         if self.rag_context_manager:
             try:
                 await self.rag_context_manager.add_rag_search_context(
-                    query=query, max_results=max_results, context_type=ContextType.RAG_SEMANTIC
+                    query=query,
+                    max_results=max_results,
+                    context_type=ContextType.RAG_SEMANTIC,
                 )
             except Exception as e:
                 logger.warning(f"添加RAG上下文失败: {e}")
@@ -375,13 +408,18 @@ class RAGEnhancedSearchTools:
 _global_rag_search_tools: Optional[RAGEnhancedSearchTools] = None
 
 
-def get_rag_enhanced_search_tools(workspace: Optional[str] = None) -> RAGEnhancedSearchTools:
+def get_rag_enhanced_search_tools(
+    workspace: Optional[str] = None,
+) -> RAGEnhancedSearchTools:
     """获取RAG增强搜索工具实例"""
     global _global_rag_search_tools
-    
-    if _global_rag_search_tools is None or _global_rag_search_tools.workspace != workspace:
+
+    if (
+        _global_rag_search_tools is None
+        or _global_rag_search_tools.workspace != workspace
+    ):
         _global_rag_search_tools = RAGEnhancedSearchTools(workspace=workspace)
-    
+
     return _global_rag_search_tools
 
 
@@ -444,4 +482,4 @@ async def semantic_code_search(
         格式化的语义搜索结果
     """
     tools = get_rag_enhanced_search_tools(workspace)
-    return await tools.semantic_code_search(query, max_results) 
+    return await tools.semantic_code_search(query, max_results)

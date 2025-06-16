@@ -111,15 +111,18 @@ def create_workspace_aware_tools(workspace: Optional[str] = None) -> Dict[str, A
             if loop.is_running():
                 # 如果已经在事件循环中，创建任务
                 import concurrent.futures
+
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(
-                        asyncio.run, 
-                        rag_enhanced_glob_search.func(pattern, path, workspace)
+                        asyncio.run,
+                        rag_enhanced_glob_search.func(pattern, path, workspace),
                     )
                     return future.result()
             else:
                 # 如果没有事件循环，直接运行
-                return asyncio.run(rag_enhanced_glob_search.func(pattern, path, workspace))
+                return asyncio.run(
+                    rag_enhanced_glob_search.func(pattern, path, workspace)
+                )
         except Exception as e:
             # RAG增强失败时，回退到传统搜索
             if path:
@@ -146,15 +149,20 @@ def create_workspace_aware_tools(workspace: Optional[str] = None) -> Dict[str, A
             if loop.is_running():
                 # 如果已经在事件循环中，创建任务
                 import concurrent.futures
+
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(
-                        asyncio.run, 
-                        rag_enhanced_grep_search.func(pattern, path, include, workspace)
+                        asyncio.run,
+                        rag_enhanced_grep_search.func(
+                            pattern, path, include, workspace
+                        ),
                     )
                     return future.result()
             else:
                 # 如果没有事件循环，直接运行
-                return asyncio.run(rag_enhanced_grep_search.func(pattern, path, include, workspace))
+                return asyncio.run(
+                    rag_enhanced_grep_search.func(pattern, path, include, workspace)
+                )
         except Exception as e:
             # RAG增强失败时，回退到传统搜索
             if path:
@@ -179,15 +187,18 @@ def create_workspace_aware_tools(workspace: Optional[str] = None) -> Dict[str, A
             if loop.is_running():
                 # 如果已经在事件循环中，创建任务
                 import concurrent.futures
+
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(
-                        asyncio.run, 
-                        semantic_code_search.func(query, max_results, workspace)
+                        asyncio.run,
+                        semantic_code_search.func(query, max_results, workspace),
                     )
                     return future.result()
             else:
                 # 如果没有事件循环，直接运行
-                return asyncio.run(semantic_code_search.func(query, max_results, workspace))
+                return asyncio.run(
+                    semantic_code_search.func(query, max_results, workspace)
+                )
         except Exception as e:
             return f"语义搜索不可用: {str(e)}"
 
