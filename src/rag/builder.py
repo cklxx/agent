@@ -1,9 +1,10 @@
+from typing import Optional
 from src.config.tools import SELECTED_RAG_PROVIDER, RAGProvider
 from src.rag.ragflow import RAGFlowProvider
 from src.rag.retriever import Retriever
 
 
-def build_retriever() -> Retriever | None:
+def build_retriever() -> Optional[Retriever]:
     if SELECTED_RAG_PROVIDER == RAGProvider.RAGFLOW.value:
         return RAGFlowProvider()
     elif SELECTED_RAG_PROVIDER:

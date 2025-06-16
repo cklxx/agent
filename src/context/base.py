@@ -25,6 +25,9 @@ class ContextType(Enum):
     EXECUTION_RESULT = "execution_result"  # 执行结果上下文
     PLANNING = "planning"  # 规划上下文
     TASK_RESULT = "task_result"  # 任务结果上下文
+    RAG = "rag"  # RAG检索上下文
+    RAG_CODE = "rag_code"  # RAG代码检索上下文
+    RAG_SEMANTIC = "rag_semantic"  # RAG语义检索上下文
 
 
 class Priority(Enum):

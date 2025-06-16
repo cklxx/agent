@@ -8,6 +8,8 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.types import Command
 from langchain_core.tools import tool
 
+from src.context.manager import ContextManager
+from src.context.rag_context_manager import RAGContextManager
 from src.prompts.planner_model import Plan
 from src.agents.agents import create_agent
 from src.config.agents import AGENT_LLM_MAP
@@ -85,6 +87,9 @@ def plan_tool(
     return plan
 
 
+context_manager_cache = None
+
+
 def update_context(state: State):
     """上下文节点：负责环境感知和RAG索引构建"""
     logger.info("🔍 启动上下文分析和环境感知...")
@@ -103,6 +108,15 @@ def update_context(state: State):
         # 决定是否需要执行分析
         environment_result = asyncio.run(analyzer.perform_environment_analysis())
         environment_info = environment_result["text_summary"]
+
+        if context_manager_cache is None:
+            context_manager_cache = RAGContextManager(
+                context_manager=ContextManager(),
+                repo_path=".",
+                use_enhanced_retriever=True,
+            )
+        context = asyncio.run(context_manager_cache.get_rag_context_summary_text())
+        logger.info(f"🔍 上下文: {context}")
 
         state.update(
             {

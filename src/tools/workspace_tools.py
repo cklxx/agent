@@ -7,8 +7,9 @@ These tools provide a workspace-specific interface to file system operations.
 """
 
 import os
+import asyncio
 from pathlib import Path
-from typing import Optional, Dict, Any, Callable
+from typing import Optional, Dict, Any, Callable, List
 from langchain_core.tools import tool
 
 # Import raw tools
@@ -27,6 +28,13 @@ from src.tools.notebook_tools import (
     notebook_edit_cell as notebook_edit_cell_raw,
 )
 from src.tools.bash_tool import bash_command as bash_command_raw
+
+# 导入RAG增强搜索工具
+from src.tools.rag_enhanced_search_tools import (
+    rag_enhanced_glob_search,
+    rag_enhanced_grep_search,
+    semantic_code_search,
+)
 
 
 def resolve_workspace_path(file_path: str, workspace: Optional[str] = None) -> str:
@@ -91,35 +99,108 @@ def create_workspace_aware_tools(workspace: Optional[str] = None) -> Dict[str, A
     @tool
     def glob_search(pattern: str, path: Optional[str] = None) -> str:
         """
-        Find files matching glob pattern (e.g. *.py, **/*.js).
+        Find files matching glob pattern with RAG enhancement.
 
         Args:
-            pattern: Glob pattern to match
+            pattern: Glob pattern to match (e.g. *.py, **/*.js)
             path: Directory to search in
         """
-        if path:
-            resolved_path = resolve_workspace_path(path, workspace)
-        else:
-            resolved_path = workspace
-        return glob_search_raw.func(pattern, resolved_path)
+        try:
+            # 使用事件循环运行异步RAG增强搜索
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # 如果已经在事件循环中，创建任务
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(
+                        asyncio.run,
+                        rag_enhanced_glob_search.func(pattern, path, workspace),
+                    )
+                    return future.result()
+            else:
+                # 如果没有事件循环，直接运行
+                return asyncio.run(
+                    rag_enhanced_glob_search.func(pattern, path, workspace)
+                )
+        except Exception as e:
+            # RAG增强失败时，回退到传统搜索
+            if path:
+                resolved_path = resolve_workspace_path(path, workspace)
+            else:
+                resolved_path = workspace
+            basic_result = glob_search_raw.func(pattern, resolved_path)
+            return f"{basic_result}\n\n[注意: RAG增强搜索不可用 ({str(e)}), 显示基础搜索结果]"
 
     @tool
     def grep_search(
         pattern: str, path: Optional[str] = None, include: Optional[str] = None
     ) -> str:
         """
-        Search text content inside files using regex.
-
+        Search text content inside files.
         Args:
-            pattern: Text pattern to search for
+            pattern: Text pattern to search for (regex supported)
             path: Directory to search in
             include: File pattern filter (e.g. *.py)
         """
-        if path:
-            resolved_path = resolve_workspace_path(path, workspace)
-        else:
-            resolved_path = workspace
-        return grep_search_raw.func(pattern, resolved_path, include)
+        try:
+            # 使用事件循环运行异步RAG增强搜索
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # 如果已经在事件循环中，创建任务
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(
+                        asyncio.run,
+                        rag_enhanced_grep_search.func(
+                            pattern, path, include, workspace
+                        ),
+                    )
+                    return future.result()
+            else:
+                # 如果没有事件循环，直接运行
+                return asyncio.run(
+                    rag_enhanced_grep_search.func(pattern, path, include, workspace)
+                )
+        except Exception as e:
+            # RAG增强失败时，回退到传统搜索
+            if path:
+                resolved_path = resolve_workspace_path(path, workspace)
+            else:
+                resolved_path = workspace
+            basic_result = grep_search_raw.func(pattern, resolved_path, include)
+            return f"{basic_result}\n\n[注意: RAG增强搜索不可用 ({str(e)}), 显示基础搜索结果]"
+
+    @tool
+    def semantic_search(query: str, max_results: int = 5) -> str:
+        """
+        Semantic code search using RAG.
+
+        Args:
+            query: Semantic query (e.g. "database connection", "user authentication")
+            max_results: Maximum number of results
+        """
+        try:
+            # 使用事件循环运行异步语义搜索
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # 如果已经在事件循环中，创建任务
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(
+                        asyncio.run,
+                        semantic_code_search.func(query, max_results, workspace),
+                    )
+                    return future.result()
+            else:
+                # 如果没有事件循环，直接运行
+                return asyncio.run(
+                    semantic_code_search.func(query, max_results, workspace)
+                )
+        except Exception as e:
+            return f"语义搜索不可用: {str(e)}"
 
     @tool
     def edit_file(file_path: str, old_string: str, new_string: str) -> str:
@@ -197,6 +278,7 @@ def create_workspace_aware_tools(workspace: Optional[str] = None) -> Dict[str, A
         list_files,
         glob_search,
         grep_search,
+        semantic_search,
         edit_file,
         replace_file,
         notebook_read,
