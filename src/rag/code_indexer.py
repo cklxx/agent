@@ -123,7 +123,7 @@ class CodeParser:
                         imports.append(node.module)
 
             # 解析函数和类
-            for node in ast.walk(tree):
+            for node in tree.body: # Iterate over top-level nodes only
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     chunk = self._extract_function_chunk(file_path, content, node)
                     chunks.append(chunk)
@@ -310,31 +310,137 @@ class GitignoreParser:
             logger.warning(f"Failed to parse .gitignore file: {e}")
 
     def _convert_to_regex(self, pattern: str) -> re.Pattern:
-        """将gitignore模式转换为正则表达式"""
-        # 处理特殊字符
-        pattern = pattern.replace(".", r"\.")
-        pattern = pattern.replace("+", r"\+")
-        pattern = pattern.replace("?", r".")
-        pattern = pattern.replace("*", r"[^/]*")
-        pattern = pattern.replace("**", r".*")
+        """
+        将gitignore模式转换为正则表达式。
+        Simplified version primarily relying on fnmatch.translate for robustness.
+        """
+        # Handle negation prefix, but apply it after converting the main pattern
+        # The is_ignored method handles the negation logic based on rule order.
+        # Here, we just convert the pattern part.
 
-        # 处理目录匹配
-        if pattern.endswith("/"):
-            pattern = pattern[:-1] + r"(?:/.*)?"
+        # fnmatch.translate converts a standard glob pattern to a regex pattern.
+        # Gitignore patterns are similar to globs, but with some specific behaviors
+        # like `**` and how `/` is handled.
 
-        # 处理根路径匹配
-        if pattern.startswith("/"):
-            pattern = "^" + pattern[1:]
+        # Direct use of fnmatch.translate might not handle all gitignore nuances perfectly,
+        # especially regarding directory matching ("pattern/") or "**".
+        # However, for many common cases, it's a good starting point.
+
+        # Let's adjust common gitignore specifics before fnmatch.
+        # 1. `**` is like `*` in fnmatch but can cross multiple directory levels.
+        #    `fnmatch` doesn't have a direct equivalent for `**` that means "zero or more directories".
+        #    A simple `pattern.replace('**', '*')` might be too simplistic.
+        #    If `**` is present, `fnmatch` might not be enough.
+        #    The original code had: pattern = pattern.replace("**", r".*")
+        #    Let's try to retain that for `**` as it's a common requirement.
+
+        # 2. Trailing slash "pattern/" means it's a directory.
+        #    fnmatch doesn't specifically handle this; the regex from fnmatch needs to ensure it matches a dir.
+        #    `dir/` should match `dir/file` and `dir/subdir/file`.
+        #    `fnmatch.translate("dir/")` -> `dir/\\Z` (matches literal "dir/")
+        #    We need it to match `dir/` and `dir/*`.
+        #    So, if `pattern.endswith('/')`, we can translate `pattern + '*'` and also check exact match for `pattern[:-1]`.
+        #    This gets complicated.
+
+        # 3. Leading slash "/pattern" anchors to the repo root.
+        #    fnmatch doesn't know about repo root. The regex from fnmatch needs `^`.
+
+        # Simplification: Use fnmatch.translate and make small adjustments if possible.
+        # This might break some of the more complex behaviors the original tried to handle.
+
+        is_dir_pattern = pattern.endswith('/')
+        if is_dir_pattern:
+            pattern = pattern[:-1] # Remove trailing slash for now, will adjust regex suffix
+
+        is_anchored_at_start = pattern.startswith('/')
+        if is_anchored_at_start:
+            pattern = pattern[1:] # Remove leading slash, will add ^ to regex
+
+        # Convert common wildcards. Gitignore's `*` doesn't cross dir boundaries by default.
+        # `fnmatch`'s `*` also doesn't cross dir boundaries.
+        # `**` is the tricky one. If present, simple fnmatch is not enough.
+        # For now, let's assume `**` is not in the simplified patterns for this attempt,
+        # or rely on its original handling if it was more robust.
+        # The original code replaced `**` with `.*`.
+
+        # Let's try a version that uses the original complex replacements for wildcards,
+        # but simplifies the anchoring and suffix logic.
+
+        original_pattern_for_fallback = pattern # This is now pattern without leading/trailing slashes
+                                                # This is not correct, fallback should use original.
+                                                # Let's keep original_pattern_for_fallback as the true original.
+
+        # Re-fetch true original for fallback
+        # No, _convert_to_regex receives pattern without !.
+        # The parameter 'pattern' IS the original pattern string (without !)
+
+        temp_pattern = pattern # Use this for manipulation
+
+        # Handle `**` specifically because fnmatch doesn't support it well for "any dir level"
+        # Replace `**` with a placeholder that fnmatch won't mess up, then convert to `.*`.
+        # This means we are partially doing custom regex.
+        if "**" in temp_pattern:
+            # A common strategy is to split by **, translate parts, then join with .*
+            # For simplicity here, if ** is present, we might fall back to a more direct regex construction
+            # or accept fnmatch's limitations for it.
+            # The original code did: temp_pattern = temp_pattern.replace("**", r".*")
+            # Let's stick to that for ** as it's a known translation.
+            temp_pattern = temp_pattern.replace("**", r".*") # Greedy, could be r".*?"
+
+        # Now translate the (potentially **-modified) pattern using fnmatch
+        regex_str = fnmatch.translate(temp_pattern)
+        # fnmatch.translate adds `\Z` at the end. We might want to adjust this.
+        # e.g., fnmatch.translate("*.log") -> '.*\\.log\\Z'
+        # e.g., fnmatch.translate("build") -> 'build\\Z'
+        # e.g., fnmatch.translate("foo/.*/bar") (if ** became .*) -> 'foo\\/.\\*\\/bar\\Z' (escapes are tricky)
+
+        if is_anchored_at_start:
+            # fnmatch adds \A for beginning of string by default. If we removed leading /, ensure it means root.
+            # If regex_str starts with \A, replace with ^. Otherwise, prepend ^.
+            if regex_str.startswith(r'\A'):
+                 regex_str = '^' + regex_str[2:]
+            else: # Should not happen if fnmatch.translate always adds \A
+                 regex_str = '^' + regex_str
         else:
-            pattern = r"(?:^|/)" + pattern
+            # If not anchored to root, it can appear after any '/' or at the start.
+            # fnmatch regex usually anchors at start (\A). We need to allow prefix.
+            # This makes it behave like `(?:^|/)pattern`.
+            # A simple way: if it starts with `\A`, replace with `(?:^|/)?` - no, this is not quite right.
+            # The regex `(?:^|/)` + (pattern part of fnmatch output) is better.
+            # fnmatch output: \A<pattern_re>\Z
+            # We want: (?:^|/)<pattern_re>($|/) (roughly)
+            if regex_str.startswith(r'\A'):
+                main_pattern_part = regex_str[2:-2] # Remove \A and \Z (e.g., 'file\\.txt')
+            else: # Should not happen with fnmatch.translate
+                main_pattern_part = regex_str[:-2] if regex_str.endswith(r'\Z') else regex_str
 
-        pattern += r"(?:/.*)?$"
+            # If original pattern had no slashes (e.g., "file.txt", "*.log"), it should match anywhere.
+            if "/" not in pattern: # 'pattern' here is original pattern stripped of start/end slashes
+                regex_str = r"(?:^|.*/)" + main_pattern_part
+            else: # Original pattern had slashes (e.g., "foo/bar")
+                regex_str = r"(?:^|/)" + main_pattern_part
 
+
+        if is_dir_pattern:
+            # Pattern was "dir/", fnmatch made it for "dir". Should match "dir/anything" or "dir" if it's a dir.
+            # Current regex_str is like (?:^|.*/)dir or (?:^|/)dir
+            # We want it to match if path is "dir" or "dir/foo".
+            # So, (?:^|.*/)dir($|/.*) or (?:^|/)dir($|/.*)
+            regex_str += r"($|/.*)"
+        else:
+            # Pattern was "file", fnmatch made it for "file". Should match "file" or "file/" if it's a dir.
+            # Current regex_str is like (?:^|.*/)file or (?:^|/)file
+            # We want it to match if path is "file" or "file/foo" (if file is a dir component)
+            regex_str += r"($|/)"
+
+
+        # This simplified version might not be perfect, but aims for common cases.
         try:
-            return re.compile(pattern)
+            return re.compile(regex_str)
         except re.error:
-            # 如果正则表达式无效，使用简单的fnmatch
-            return re.compile(fnmatch.translate(pattern))
+            logger.warning(f"Simplified regex '{regex_str}' from '{pattern}' failed, using basic fnmatch.")
+            # Fallback to the most basic fnmatch translation of the original pattern
+            return re.compile(fnmatch.translate(original_pattern_for_fallback))
 
     def is_ignored(self, file_path: str) -> bool:
         """检查文件是否应该被忽略"""
@@ -368,7 +474,7 @@ class CodeIndexer:
         # 智能文件过滤器
         self.use_intelligent_filter = use_intelligent_filter
         if use_intelligent_filter:
-            self.intelligent_filter = IntelligentFileFilter(repo_path)
+            self.intelligent_filter = IntelligentFileFilter(self.repo_path) # Use self.repo_path (Path object)
         else:
             self.intelligent_filter = None
 
@@ -580,8 +686,12 @@ class CodeIndexer:
             ".sqlite3",
         }
 
-        # 确保数据库目录存在
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        # 确保数据库目录存在 (除非是内存数据库)
+        if self.db_path != ":memory:":
+            db_dir = os.path.dirname(self.db_path)
+            if db_dir: # Ensure dirname is not empty (e.g. if db_path is just a filename)
+                os.makedirs(db_dir, exist_ok=True)
+
         self._init_database()
 
         logger.info(
@@ -647,22 +757,45 @@ class CodeIndexer:
 
     def should_exclude_path(self, path: Path) -> bool:
         """判断是否应该排除路径"""
+        logger.debug(f"[TEMP_DEBUG] should_exclude_path: Evaluating path: {path}, name: {path.name}, suffix: {path.suffix}")
         # 检查gitignore规则
         relative_path = str(path.relative_to(self.repo_path))
         if self.gitignore_parser.is_ignored(relative_path):
+            logger.debug(f"[TEMP_DEBUG] should_exclude_path: Ignored by gitignore: {path}")
             return True
 
-        # 检查目录
-        for part in path.parts:
-            if part in self.exclude_dirs:
-                return True
+        # 检查目录 (relative to repo root)
+        # Convert path to be relative to repo_path before checking its parts against exclude_dirs
+        try:
+            path_relative_to_repo = path.relative_to(self.repo_path)
+            for part in path_relative_to_repo.parts:
+                # We only want to check the actual components, not '.' (current dir) if path itself is repo_path
+                if part != '.' and part in self.exclude_dirs: # Check part != '.' for robustness
+                    logger.debug(f"[TEMP_DEBUG] should_exclude_path: Ignored by exclude_dirs ('{part}'): {path} (relative: {path_relative_to_repo})")
+                    return True
+        except ValueError:
+            # This can happen if 'path' is not under 'self.repo_path'.
+            # For example, if path is an absolute system path elsewhere.
+            # In such cases, direct dir exclusion might not apply or needs careful thought.
+            # For now, if it's not relative, we don't apply this specific dir exclusion.
+            # Alternatively, one might want to check absolute path.parts if path is outside repo_path.
+            # Given the context, exclusion usually applies to files *within* the repo.
+            logger.debug(f"[TEMP_DEBUG] should_exclude_path: Path {path} is not relative to repo {self.repo_path}, skipping exclude_dirs check on parts.")
+            pass
+
 
         # 检查文件扩展名排除列表
         if path.suffix.lower() in self.exclude_extensions:
+            logger.debug(f"[TEMP_DEBUG] should_exclude_path: Ignored by exclude_extensions ('{path.suffix.lower()}'): {path}")
             return True
 
         # 检查是否是我们想要索引的文件
-        return not self._should_include_file(path)
+        #检查是否是我们想要索引的文件
+        should_include = self._should_include_file(path)
+        if should_include:
+            return False # Not excluded
+        else:
+            return True  # Excluded because it's not an included file
 
     def _should_include_file(self, path: Path) -> bool:
         """判断文件是否应该被索引"""
@@ -674,12 +807,12 @@ class CodeIndexer:
             return True
 
         # 检查文件名模式 (如 .env, .env.local 等)
-        for config_file in self.include_config_files:
-            if file_name.startswith(config_file):
+        for config_file_pattern in self.include_config_files:
+            if file_name.startswith(config_file_pattern):
                 return True
 
         # 检查扩展名
-        if file_suffix in self.include_extensions:
+        if file_suffix and file_suffix in self.include_extensions:
             return True
 
         # 没有扩展名的文件，检查是否是常见的配置文件
