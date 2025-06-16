@@ -1,4 +1,5 @@
 import abc
+from typing import Optional, List, Union
 from pydantic import BaseModel, Field
 
 
@@ -17,16 +18,16 @@ class Document:
     """
 
     id: str
-    url: str | None = None
-    title: str | None = None
-    chunks: list[Chunk] = []
+    url: Optional[str] = None
+    title: Optional[str] = None
+    chunks: List[Chunk] = []
 
     def __init__(
         self,
         id: str,
-        url: str | None = None,
-        title: str | None = None,
-        chunks: list[Chunk] = [],
+        url: Optional[str] = None,
+        title: Optional[str] = None,
+        chunks: List[Chunk] = [],
     ):
         self.id = id
         self.url = url
@@ -52,7 +53,7 @@ class Resource(BaseModel):
 
     uri: str = Field(..., description="The URI of the resource")
     title: str = Field(..., description="The title of the resource")
-    description: str | None = Field("", description="The description of the resource")
+    description: Optional[str] = Field("", description="The description of the resource")
 
 
 class Retriever(abc.ABC):
@@ -61,7 +62,7 @@ class Retriever(abc.ABC):
     """
 
     @abc.abstractmethod
-    def list_resources(self, query: str | None = None) -> list[Resource]:
+    def list_resources(self, query: Optional[str] = None) -> List[Resource]:
         """
         List resources from the rag provider.
         """
@@ -69,8 +70,8 @@ class Retriever(abc.ABC):
 
     @abc.abstractmethod
     def query_relevant_documents(
-        self, query: str, resources: list[Resource] = []
-    ) -> list[Document]:
+        self, query: str, resources: List[Resource] = []
+    ) -> List[Document]:
         """
         Query relevant documents from the resources.
         """

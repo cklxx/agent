@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .base import ContextType, Priority
 from .manager import ContextManager
-from ..rag.code_retriever import CodeRetriever
+from src.rag.code_retriever import CodeRetriever
 
 logger = logging.getLogger(__name__)
 

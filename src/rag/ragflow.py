@@ -1,5 +1,6 @@
 import os
 import requests
+from typing import List, Optional, Dict, Tuple
 from src.rag.retriever import Chunk, Document, Resource, Retriever
 from urllib.parse import urlparse
 
@@ -29,15 +30,15 @@ class RAGFlowProvider(Retriever):
             self.page_size = int(page_size)
 
     def query_relevant_documents(
-        self, query: str, resources: list[Resource] = []
-    ) -> list[Document]:
+        self, query: str, resources: List[Resource] = []
+    ) -> List[Document]:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
 
-        dataset_ids: list[str] = []
-        document_ids: list[str] = []
+        dataset_ids: List[str] = []
+        document_ids: List[str] = []
 
         for resource in resources:
             dataset_id, document_id = parse_uri(resource.uri)
@@ -62,7 +63,7 @@ class RAGFlowProvider(Retriever):
         result = response.json()
         data = result.get("data", {})
         doc_aggs = data.get("doc_aggs", [])
-        docs: dict[str, Document] = {
+        docs: Dict[str, Document] = {
             doc.get("doc_id"): Document(
                 id=doc.get("doc_id"),
                 title=doc.get("doc_name"),
@@ -83,7 +84,7 @@ class RAGFlowProvider(Retriever):
 
         return list(docs.values())
 
-    def list_resources(self, query: str | None = None) -> list[Resource]:
+    def list_resources(self, query: Optional[str] = None) -> List[Resource]:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -114,7 +115,7 @@ class RAGFlowProvider(Retriever):
         return resources
 
 
-def parse_uri(uri: str) -> tuple[str, str]:
+def parse_uri(uri: str) -> Tuple[str, str]:
     parsed = urlparse(uri)
     if parsed.scheme != "rag":
         raise ValueError(f"Invalid URI: {uri}")
