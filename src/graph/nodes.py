@@ -36,9 +36,6 @@ from ..config import SELECTED_SEARCH_ENGINE, SearchEngine
 
 logger = logging.getLogger(__name__)
 
-# 设置日志
-llm_logger = logging.getLogger("llm_planner")
-
 
 @tool
 def handoff_to_planner(
@@ -95,13 +92,6 @@ def planner_node(
     plan_iterations = state["plan_iterations"] if state.get("plan_iterations", 0) else 0
     messages = apply_prompt_template("planner", state, configurable)
 
-    # 记录规划相关的输入信息
-    if state.get("messages"):
-        user_query = state["messages"][-1].content if state["messages"] else "未知查询"
-        llm_logger.info(
-            f"📝 用户查询: {user_query[:80]}{'...' if len(user_query) > 80 else ''}"
-        )
-
     logger.debug(f"规划迭代次数: {plan_iterations}")
 
     if (
@@ -134,9 +124,10 @@ def planner_node(
         logger.warning(f"⚠️ 规划迭代达到上限 ({configurable.max_plan_iterations})")
         return Command(goto="reporter")
 
-    llm_logger.info("🧠 LLM规划中...")
+    logger.info("🧠 LLM规划中...")
 
     full_response = ""
+
     if AGENT_LLM_MAP["planner"] == "basic":
         response = llm.invoke(messages)
         full_response = response.model_dump_json(indent=4, exclude_none=True)
@@ -155,7 +146,7 @@ def planner_node(
 
         # 记录规划的核心信息
         steps = curr_plan.get("steps", [])
-        llm_logger.info(f"✅ 生成 {len(steps)} 个执行步骤")
+        logger.info(f"✅ 生成 {len(steps)} 个执行步骤")
 
         # 只在debug模式下显示详细信息
         if steps:
@@ -187,7 +178,7 @@ def planner_node(
 
     if curr_plan.get("has_enough_context"):
         logger.info("Planner response has enough context.")
-        llm_logger.info("✅ 上下文充足，直接跳转到reporter生成最终报告")
+        logger.info("✅ 上下文充足，直接跳转到reporter生成最终报告")
         new_plan = Plan.model_validate(curr_plan)
         return Command(
             update={
@@ -197,7 +188,7 @@ def planner_node(
             goto="reporter",
         )
 
-    llm_logger.info("ℹ️ 上下文不足，需要人工反馈或进一步调研")
+    logger.info("ℹ️ 上下文不足，需要人工反馈或进一步调研")
     return Command(
         update={
             "messages": [AIMessage(content=full_response, name="planner")],
@@ -303,28 +294,14 @@ def coordinator_node(
 
 
 def reporter_node(state: State):
-    """Reporter node that write a final report."""
-    logger.info("Reporter write final report")
-    current_plan = state.get("current_plan")
-    input_ = {
-        "messages": [
-            HumanMessage(
-                f"# Research Requirements\n\n## Task\n\n{current_plan.title}\n\n## Description\n\n{current_plan.thought}"
-            )
-        ],
-        "locale": state.get("locale", "en-US"),
-    }
-    invoke_messages = apply_prompt_template("reporter", input_)
+    """Reporter node that writes the final report."""
+    logger.info("📝 Reporter writing final report")
+
+    observations = state.get("observations", [])
+    messages = apply_prompt_template("reporter", state)
     observations = state.get("observations", [])
 
-    # Add a reminder about the new report format, citation style, and table usage
-    invoke_messages.append(
-        HumanMessage(
-            content="IMPORTANT: Structure your report according to the format in the prompt. Remember to include:\n\n1. Key Points - A bulleted list of the most important findings\n2. Overview - A brief introduction to the topic\n3. Detailed Analysis - Organized into logical sections\n4. Survey Note (optional) - For more comprehensive reports\n5. Key Citations - List all references at the end\n\nFor citations, DO NOT include inline citations in the text. Instead, place all citations in the 'Key Citations' section at the end using the format: `- [Source Title](URL)`. Include an empty line between each citation for better readability.\n\nPRIORITIZE USING MARKDOWN TABLES for data presentation and comparison. Use tables whenever presenting comparative data, statistics, features, or options. Structure tables with clear headers and aligned columns. Example table format:\n\n| Feature | Description | Pros | Cons |\n|---------|-------------|------|------|\n| Feature 1 | Description 1 | Pros 1 | Cons 1 |\n| Feature 2 | Description 2 | Pros 2 | Cons 2 |",
-            name="system",
-        )
-    )
-
+    invoke_messages = messages[:]
     for observation in observations:
         invoke_messages.append(
             HumanMessage(
@@ -332,9 +309,13 @@ def reporter_node(state: State):
                 name="observation",
             )
         )
+
     logger.debug(f"Current invoke messages: {invoke_messages}")
+
     response = get_llm_by_type(AGENT_LLM_MAP["reporter"]).invoke(invoke_messages)
+
     response_content = response.content
+
     logger.info(f"reporter response: {response_content}")
 
     return {"final_report": response_content}
@@ -446,6 +427,7 @@ async def _execute_agent_step(
         recursion_limit = default_recursion_limit
 
     logger.info(f"Agent input: {agent_input}")
+
     try:
         result = await agent.ainvoke(
             input=agent_input, config={"recursion_limit": recursion_limit}

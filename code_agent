@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# Code Agent CLI 启动脚本
-# 这个脚本提供了一个便捷的方式来启动Code Agent CLI工具
+# Architect Agent CLI 启动脚本
+# 智能架构师Agent - 专注于技术架构规划和系统设计
 SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
-MAIN_SCRIPT="$SCRIPT_DIR/main.py"
+WORKFLOW_SCRIPT="$SCRIPT_DIR/src/architect_agent_workflow.py"
 
-# 检查主脚本是否存在
-if [ ! -f "$MAIN_SCRIPT" ]; then
-    echo "❌ 错误: 找不到主脚本: $MAIN_SCRIPT"
+# 检查工作流脚本是否存在
+if [ ! -f "$WORKFLOW_SCRIPT" ]; then
+    echo "❌ 错误: 找不到Architect Agent工作流脚本: $WORKFLOW_SCRIPT"
     exit 1
 fi
 
@@ -20,38 +20,101 @@ fi
 
 # 显示使用说明
 show_help() {
-    echo "🤖 Code Agent CLI - 智能编程助手"
+    echo "🏗️ Architect Agent CLI - 智能架构师助手"
     echo ""
     echo "用法:"
-    echo "  ./code_agent \"任务描述\"                        # 直接执行编程任务"
-    echo "  ./code_agent --interactive                     # 交互式模式，可选择内置问题"
-    echo "  ./code_agent \"任务描述\" --debug               # 启用调试模式"
-    echo "  ./code_agent \"任务描述\" --max_plan_iterations 2  # 设置最大规划迭代次数"
-    echo "  ./code_agent \"任务描述\" --max_step_num 5      # 设置计划最大步骤数"
-    echo "  ./code_agent \"任务描述\" --no-background-investigation  # 禁用背景调研"
-    echo "  ./code_agent --help                           # 显示帮助信息"
+    echo "  ./architect_agent \"技术需求描述\"                     # 直接执行架构设计任务"
+    echo "  ./architect_agent --interactive                      # 交互式模式，选择内置问题"
+    echo "  ./architect_agent \"任务描述\" --debug               # 启用调试模式"
+    echo "  ./architect_agent \"任务描述\" --max-iterations 15   # 设置最大迭代次数"
+    echo "  ./architect_agent \"任务描述\" --locale en-US        # 设置语言环境"
+    echo "  ./architect_agent --help                            # 显示帮助信息"
     echo ""
     echo "核心特性:"
-    echo "  • 智能任务规划和执行"
-    echo "  • 多角色协作 (规划师、研究员、编码员、报告员)"
-    echo "  • 自动代码生成和文件操作"
-    echo "  • 终端命令执行和环境管理"
-    echo "  • 反思和重新规划机制"
-    echo "  • 支持简单任务直接执行"
+    echo "  • 🏗️ 技术架构规划和系统设计"
+    echo "  • 💻 代码开发和文件操作"
+    echo "  • 🔍 信息搜索和资料收集"
+    echo "  • 🗺️ 地图服务和位置查询"
+    echo "  • 📝 文档处理和笔记本编辑"
+    echo "  • 🔄 递归任务分解和智能执行"
+    echo "  • 🧠 架构思维和最佳实践指导"
     echo ""
     echo "工作流程:"
-    echo "  1. 协调器分析任务复杂度"
-    echo "  2. 简单任务直接执行，复杂任务制定计划"
-    echo "  3. 团队协作执行具体步骤"
-    echo "  4. 报告员生成最终报告和质量评估"
+    echo "  1. 🤔 任务分析 - 理解需求和技术约束"
+    echo "  2. 📋 架构规划 - 制定详细的技术方案"
+    echo "  3. 🔄 递归执行 - 智能分解复杂任务"
+    echo "  4. ✅ 质量验证 - 确保方案可行性"
+    echo ""
+    echo "适用场景:"
+    echo "  • 系统架构设计和技术选型"
+    echo "  • 代码重构和性能优化"
+    echo "  • 项目规划和开发指导"
+    echo "  • 技术调研和方案评估"
+    echo "  • 复杂问题的分解和解决"
     echo ""
     echo "示例:"
-    echo "  ./code_agent \"创建一个HTTP客户端\""
-    echo "  ./code_agent \"重构用户模块\" --debug"
-    echo "  ./code_agent \"分析代码性能问题\" --max_step_num 10"
-    echo "  ./code_agent --interactive"
+    echo "  ./architect_agent \"设计一个微服务架构的电商系统\""
+    echo "  ./architect_agent \"重构这个Python项目以提高性能\" --debug"
+    echo "  ./architect_agent \"分析当前代码并提出改进建议\" --max-iterations 20"
+    echo "  ./architect_agent --interactive"
     echo ""
-    echo "更多信息请查看: python main.py --help"
+    echo "更多信息请查看: python src/architect_agent_workflow.py --help"
+}
+
+# 交互式模式
+interactive_mode() {
+    echo "🏗️ Architect Agent - 交互式模式"
+    echo ""
+    echo "请选择一个预设任务，或输入自定义任务："
+    echo ""
+    echo "预设任务:"
+    echo "1. 设计一个分布式微服务架构"
+    echo "2. 分析并重构现有Python项目"
+    echo "3. 制定前端React应用的技术方案"
+    echo "4. 设计数据库架构和API接口"
+    echo "5. 评估项目技术栈并提出优化建议"
+    echo "6. 创建CI/CD流水线设计方案"
+    echo "7. 输入自定义任务"
+    echo ""
+    read -p "请选择 (1-7): " choice
+    
+    case $choice in
+        1)
+            TASK="设计一个高可用、可扩展的分布式微服务架构，包括服务注册发现、负载均衡、监控告警等完整方案"
+            ;;
+        2)
+            TASK="分析当前目录下的Python项目，识别代码质量问题、性能瓶颈和架构缺陷，并提出详细的重构方案"
+            ;;
+        3)
+            TASK="制定一个现代化React前端应用的完整技术方案，包括状态管理、路由、UI框架、测试策略等"
+            ;;
+        4)
+            TASK="设计一个电商系统的数据库架构，包括用户、商品、订单等核心模块，以及配套的RESTful API接口设计"
+            ;;
+        5)
+            TASK="评估当前项目的技术栈选择，分析其优缺点，并提出针对性的优化和升级建议"
+            ;;
+        6)
+            TASK="创建一个完整的CI/CD流水线设计方案，包括代码检查、自动化测试、构建部署等环节"
+            ;;
+        7)
+            echo ""
+            read -p "请输入您的自定义任务: " TASK
+            ;;
+        *)
+            echo "❌ 无效选择，退出"
+            exit 1
+            ;;
+    esac
+    
+    if [ -z "$TASK" ]; then
+        echo "❌ 任务描述不能为空"
+        exit 1
+    fi
+    
+    echo ""
+    echo "🚀 开始执行任务: $TASK"
+    echo ""
 }
 
 # 如果请求帮助
@@ -60,20 +123,35 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     exit 0
 fi
 
-# 启动Code Agent
-echo "🚀 启动 Code Agent..."
+# 保存当前工作目录
+ORIGINAL_CWD="$(pwd)"
+echo "💼 当前工作目录: $ORIGINAL_CWD"
+
+# 启动Architect Agent
+echo "🏗️ 启动 Architect Agent..."
 
 # 处理参数
 ARGS=()
+TASK=""
 
-# 如果没有任何参数，则使用交互模式
-if [ $# -eq 0 ]; then
-    echo "ℹ️  未提供参数，启动交互模式"
-    ARGS+=("--interactive")
+# 检查是否是交互模式
+if [ "$1" = "--interactive" ] || [ $# -eq 0 ]; then
+    interactive_mode
+    # 将任务和其他参数传递给工作流
+    ARGS+=("$TASK")
+    # 添加剩余参数（跳过第一个参数或所有参数如果是无参数调用）
+    if [ "$1" = "--interactive" ]; then
+        shift
+    fi
+    ARGS+=("$@")
 else
-    # 将所有参数传递给main.py
+    # 将所有参数直接传递给工作流
     ARGS+=("$@")
 fi
 
+# 添加工作目录上下文参数
+ARGS+=("--user-workspace" "$ORIGINAL_CWD")
+
+# 切换到项目目录并运行
 cd "$SCRIPT_DIR"
-uv run python "$MAIN_SCRIPT" "${ARGS[@]}" 
+uv run python "$WORKFLOW_SCRIPT" "${ARGS[@]}" 
