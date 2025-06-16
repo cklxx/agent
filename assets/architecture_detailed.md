@@ -127,7 +127,7 @@ graph TB
     COORD --> CODE
     COORD --> RAG_CODE
     COORD --> REPORT
-    
+
     %% Architect agent connections
     ARCHITECT --> ARCHITECT_PLAN
     ARCHITECT --> DISPATCH

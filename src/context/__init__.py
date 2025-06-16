@@ -10,6 +10,7 @@ Agent通用Context管理模块
 - 上下文检索和筛选
 - 上下文压缩和摘要
 - 多会话隔离
+- RAG检索结果上下文化
 """
 
 from .base import BaseContext, ContextType
@@ -18,6 +19,7 @@ from .memory import WorkingMemory, LongTermMemory
 from .retriever import ContextRetriever
 from .compressor import ContextCompressor
 from .code_rag_adapter import CodeRAGAdapter
+from .rag_context_manager import RAGContextManager
 from .session import (
     SessionManager,
     get_session_manager,
@@ -35,6 +37,7 @@ __all__ = [
     "ContextRetriever",
     "ContextCompressor",
     "CodeRAGAdapter",
+    "RAGContextManager",
     "SessionManager",
     "get_session_manager",
     "create_session",
