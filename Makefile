@@ -20,3 +20,6 @@ langgraph-dev:
 
 coverage:
 	uv run pytest --cov=src tests/ --cov-report=term-missing --cov-report=xml
+
+pack:
+	uv run packaging/build.py
