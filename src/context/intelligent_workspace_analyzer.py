@@ -11,6 +11,7 @@ from pathlib import Path
 from .workspace_state_manager import WorkspaceStateManager, WorkspaceAnalysis
 from ..llms.llm import get_llm_by_type
 from ..prompts import apply_prompt_template
+from ..rag.code_indexer import GitignoreParser
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,8 @@ class IntelligentWorkspaceAnalyzer:
         self.workspace_path = workspace_path
         self.state_manager = WorkspaceStateManager(workspace_path)
         self.llm = get_llm_by_type(llm_type)
+        # 集成 GitignoreParser 以支持 .gitignore 文件
+        self.gitignore_parser = GitignoreParser(workspace_path)
 
         logger.info(f"智能工作区分析器初始化完成：{workspace_path}")
 
@@ -232,7 +235,7 @@ class IntelligentWorkspaceAnalyzer:
             }
 
     async def _analyze_project_structure(self) -> Dict[str, Any]:
-        """分析项目结构"""
+        """分析项目结构，支持 .gitignore 规则"""
         workspace_path = Path(self.workspace_path)
         structure_info = {
             "total_files": 0,
@@ -242,25 +245,27 @@ class IntelligentWorkspaceAnalyzer:
             "directories": [],
             "directory_structure": {},  # 新增：详细的目录结构
             "main_languages": [],
+            "gitignore_excluded_count": 0,  # 新增：被 gitignore 排除的文件数量
         }
 
-        # 只扫描根目录和第一层子目录，避免扫描.venv等深层目录
+        # 基础排除目录（用于性能优化，避免扫描明显无用的目录）
         exclude_dirs = {
             ".git",
-            ".venv",
-            "venv",
             "__pycache__",
-            "node_modules",
-            "dist",
-            "build",
             ".pytest_cache",
             ".coverage",
-            "temp",
         }
 
         # 扫描根目录的直接文件
         for item in workspace_path.iterdir():
             if item.is_file():
+                # 检查是否被 .gitignore 排除
+                relative_path = str(item.relative_to(workspace_path))
+                if self.gitignore_parser.is_ignored(relative_path):
+                    structure_info["gitignore_excluded_count"] += 1
+                    logger.debug(f"文件被 .gitignore 排除: {relative_path}")
+                    continue
+
                 structure_info["total_files"] += 1
 
                 # 统计文件类型
@@ -285,6 +290,12 @@ class IntelligentWorkspaceAnalyzer:
                     structure_info["config_files"].append(item.name)
 
             elif item.is_dir() and item.name not in exclude_dirs:
+                # 检查目录是否被 .gitignore 排除
+                relative_dir_path = str(item.relative_to(workspace_path))
+                if self.gitignore_parser.is_ignored(relative_dir_path):
+                    logger.debug(f"目录被 .gitignore 排除: {relative_dir_path}")
+                    continue
+
                 structure_info["total_directories"] += 1
                 structure_info["directories"].append(item.name)
 
@@ -295,6 +306,12 @@ class IntelligentWorkspaceAnalyzer:
                 try:
                     for subitem in item.iterdir():
                         if subitem.is_file():
+                            # 检查子文件是否被 .gitignore 排除
+                            relative_subfile_path = str(subitem.relative_to(workspace_path))
+                            if self.gitignore_parser.is_ignored(relative_subfile_path):
+                                structure_info["gitignore_excluded_count"] += 1
+                                continue
+
                             structure_info["total_files"] += 1
                             current_dir_structure["files"].append(subitem.name)
                             suffix = subitem.suffix.lower()
@@ -303,6 +320,10 @@ class IntelligentWorkspaceAnalyzer:
                                     structure_info["file_types"].get(suffix, 0) + 1
                                 )
                         elif subitem.is_dir() and subitem.name not in exclude_dirs:
+                            # 检查子目录是否被 .gitignore 排除
+                            relative_subdir_path = str(subitem.relative_to(workspace_path))
+                            if self.gitignore_parser.is_ignored(relative_subdir_path):
+                                continue
                             # 初始化子目录结构
                             subdir_structure = {"files": []}
 
@@ -310,6 +331,12 @@ class IntelligentWorkspaceAnalyzer:
                             try:
                                 for subsubitem in subitem.iterdir():
                                     if subsubitem.is_file():
+                                        # 检查深层文件是否被 .gitignore 排除
+                                        relative_deep_path = str(subsubitem.relative_to(workspace_path))
+                                        if self.gitignore_parser.is_ignored(relative_deep_path):
+                                            structure_info["gitignore_excluded_count"] += 1
+                                            continue
+
                                         structure_info["total_files"] += 1
                                         subdir_structure["files"].append(
                                             subsubitem.name

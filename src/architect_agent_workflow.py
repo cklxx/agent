@@ -126,7 +126,7 @@ class ArchitectAgentWorkflow:
             # 返回最终结果
             return {
                 "success": not last_state.get("execution_failed", False),
-                "final_report": last_state.get("final_report", "未生成报告"),
+                "report": last_state.get("report", "未生成报告"),
                 "iteration_count": last_state.get("iteration_count", 0),
                 "step_count": step_count,
                 "execution_completed": last_state.get("execution_completed", False),
@@ -138,7 +138,7 @@ class ArchitectAgentWorkflow:
             return {
                 "success": False,
                 "error": str(e),
-                "final_report": f"执行过程中发生错误: {str(e)}",
+                "report": f"执行过程中发生错误: {str(e)}",
                 "iteration_count": 0,
                 "step_count": 0,
                 "execution_completed": False,

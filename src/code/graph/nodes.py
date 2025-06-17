@@ -122,7 +122,7 @@ def update_context(state: State):
                 "task_description": task_description,
             }
         )
-        logger.info("✅ 上下文准备完成" + str(environment_info) + " " + str(state.get("task_description", "")))
+        logger.info("✅ 上下文准备完成")
 
     except Exception as e:
         error_msg = str(e)
@@ -176,9 +176,7 @@ def leader_node(state: State) -> Command[Literal["__end__", "team"]]:
         # 从响应中提取content字段
         response = result["messages"][-1]
         plan_content = response.content
-        logger.info(f"🔍 leader原始响应: {plan_content}")
-
-        logger.info(f"🔍 leader原始响应: {plan_content}")
+        logger.debug(f"🔍 leader响应: {response}")
         # 记录token使用情况
 
         usage_metadata = response.usage_metadata
@@ -193,7 +191,7 @@ def leader_node(state: State) -> Command[Literal["__end__", "team"]]:
         # 解析计划内容
         try:
             plan_json = repair_json_output(plan_content)
-            logger.info(f"🔍 leader执行结果: {plan_json}")
+            logger.info(f"🔍 leader plan: {plan_json}")
 
             current_plan = Plan.model_validate(json.loads(plan_json))
         except (json.JSONDecodeError, ValueError) as e:
@@ -305,6 +303,7 @@ def execute_node(state: State) -> Command[Literal["team"]]:
             ]
         )
     }
+    logger.info(f"🔍 执行代理节点输入: {len(str(agent_input))}")
     # Invoke the agent
     default_recursion_limit = 20
     result = agent.invoke(
