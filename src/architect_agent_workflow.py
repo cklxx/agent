@@ -278,7 +278,7 @@ if __name__ == "__main__":
     print(f"迭代次数: {result['iteration_count']}")
     print(f"步骤数: {result['step_count']}")
     print("\n📄 最终报告:")
-    print(result["final_report"])
+    print(result["report"])
 
     if not result["success"]:
         sys.exit(1)

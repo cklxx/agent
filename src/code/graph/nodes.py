@@ -101,8 +101,6 @@ def update_context(state: State):
         user_messages = state.get("messages", [])
         task_description = user_messages[-1].content
 
-        logger.info(f"📝 分析任务: {task_description[:100]}...")
-
         # 初始化智能工作区分析器
         analyzer = IntelligentWorkspaceAnalyzer(state.get("workspace", ""))
         # 决定是否需要执行分析
@@ -124,7 +122,7 @@ def update_context(state: State):
                 "task_description": task_description,
             }
         )
-        logger.info("✅ 上下文准备完成" + str(state))
+        logger.info("✅ 上下文准备完成" + str(environment_info) + " " + str(state.get("task_description", "")))
 
     except Exception as e:
         error_msg = str(e)
@@ -133,7 +131,7 @@ def update_context(state: State):
 
 def leader_node(state: State) -> Command[Literal["__end__", "team"]]:
     """领导节点：理解用户意图, 产出规划"""
-    logger.info("🏗️ 领导节点开始执行任务...")
+    logger.info("🏗️ 开始规划任务...")
     update_context(state)
     plan_iterations = state.get("plan_iterations", 0)
     task_description = state.get("task_description", "Unknown task")
@@ -154,20 +152,17 @@ def leader_node(state: State) -> Command[Literal["__end__", "team"]]:
         ALL_TOOLS = get_workspace_aware_agent_tools(state)
         agent = create_agent("leader", "leader", ALL_TOOLS, "leader")
 
-        # 构建输入消息
-        print(
-            f"🔍 任务描述: {task_description} 环境信息: {state.get("environment_info", "Environment information not available")}"
-        )
+
         messages = apply_prompt_template(agent_type, state)
         observations = state.get("observations", [])
         plan = state.get("plan", None)
         if plan is not None and len(observations) >= len(plan.steps):
-            print(f"🔍 观察: {observations[-1]}")
+            logger.debug(f"🔍 观察: {observations[-1]}")
             all_observations = ""
             for index, observation in enumerate(observations):
                 all_observations += f"# Existing Observations {index}\n\n{observation}"
             messages += [HumanMessage(content=all_observations)]
-        logger.info(f"🔧 构建的消息: {messages}")
+        logger.debug(f"🔧 构建的消息: {messages}")
         agent_input = {
             "messages": messages,
             "plan": plan,
@@ -177,13 +172,13 @@ def leader_node(state: State) -> Command[Literal["__end__", "team"]]:
         }
         # 调用架构师代理
         result = agent.invoke(input=agent_input, config={"recursion_limit": 20})
-        logger.info(f"🔍 leader原始响应: {result}")
 
         # 从响应中提取content字段
         response = result["messages"][-1]
         plan_content = response.content
+        logger.info(f"🔍 leader原始响应: {plan_content}")
 
-        print(f"🔍 plan_content: {plan_content}")
+        logger.info(f"🔍 leader原始响应: {plan_content}")
         # 记录token使用情况
 
         usage_metadata = response.usage_metadata
@@ -316,10 +311,12 @@ def execute_node(state: State) -> Command[Literal["team"]]:
         input=agent_input, config={"recursion_limit": default_recursion_limit}
     )
 
-    logger.info(f"🔍 执行代理节点执行结果: {result}")
     observations = state.get("observations", [])
 
     response = result["messages"][-1]
+
+    logger.info(f"🔍 执行代理节点执行结果: {response.content}")
+
     response_content = response.content
     usage_metadata = (
         response.usage_metadata if response.usage_metadata is not None else {}
@@ -327,7 +324,6 @@ def execute_node(state: State) -> Command[Literal["team"]]:
     response_metadata = (
         response.response_metadata if response.response_metadata is not None else {}
     )
-    print(f"🔍 usage_metadata: {usage_metadata} {response_metadata}")
     token_tracker.add_usage(
         input_tokens=usage_metadata.get("input_tokens", 0),
         output_tokens=usage_metadata.get("output_tokens", 0),
