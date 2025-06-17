@@ -16,6 +16,7 @@ AGENT_LLM_MAP: dict[str, LLMType] = {
     "ppt_composer": "reasoning",
     "prose_writer": "reasoning",
     # Leader agent (new unified agent)
+    "architect": "reasoning",
     "leader": "reasoning",
     # Execute agent for analysis tasks
     "execute": "reasoning",

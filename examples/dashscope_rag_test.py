@@ -31,9 +31,7 @@ async def test_dashscope_embedding_client():
     dashscope_config = {
         "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
         "model": "text-embedding-v4",
-        "api_key": os.getenv(
-            "DASHSCOPE_API_KEY", "sk-43b68821d03249bd855b251ddf2c9248"
-        ),
+        "api_key": os.getenv("DASHSCOPE_API_KEY", "sk-xxx"),
         "dimensions": 1024,
         "encoding_format": "float",
     }
@@ -75,9 +73,7 @@ async def test_dashscope_rag_retriever():
     embedding_config = {
         "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
         "model": "text-embedding-v4",
-        "api_key": os.getenv(
-            "DASHSCOPE_API_KEY", "sk-43b68821d03249bd855b251ddf2c9248"
-        ),
+        "api_key": os.getenv("DASHSCOPE_API_KEY", "sk-xxx"),
         "dimensions": 1024,
         "encoding_format": "float",
     }

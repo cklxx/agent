@@ -11,6 +11,9 @@ import asyncio
 from pathlib import Path
 from typing import Optional, Dict, Any, Callable, List
 from langchain_core.tools import tool
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Import raw tools
 from src.tools.file_system_tools import (
@@ -82,6 +85,7 @@ def create_workspace_aware_tools(workspace: Optional[str] = None) -> Dict[str, A
             offset: Start line number
             limit: Number of lines to read
         """
+        logger.debug(f"🔍 view_file: {file_path}")
         resolved_path = resolve_workspace_path(file_path, workspace)
         return view_file_raw.func(resolved_path, offset, limit)
 
@@ -93,6 +97,7 @@ def create_workspace_aware_tools(workspace: Optional[str] = None) -> Dict[str, A
         Args:
             path: Directory path to list
         """
+        logger.debug(f"🔍 list_files: {path}")
         resolved_path = resolve_workspace_path(path, workspace)
         return list_files_raw.func(resolved_path)
 
@@ -105,6 +110,7 @@ def create_workspace_aware_tools(workspace: Optional[str] = None) -> Dict[str, A
             pattern: Glob pattern to match (e.g. *.py, **/*.js)
             path: Directory to search in
         """
+        logger.debug(f"🔍 glob_search: {pattern}, {path}")
         try:
             # 使用事件循环运行异步RAG增强搜索
             loop = asyncio.get_event_loop()
@@ -143,6 +149,7 @@ def create_workspace_aware_tools(workspace: Optional[str] = None) -> Dict[str, A
             path: Directory to search in
             include: File pattern filter (e.g. *.py)
         """
+        logger.debug(f"🔍 grep_search: {pattern}, {path}, {include}")
         try:
             # 使用事件循环运行异步RAG增强搜索
             loop = asyncio.get_event_loop()
@@ -212,6 +219,7 @@ def create_workspace_aware_tools(workspace: Optional[str] = None) -> Dict[str, A
             old_string: Exact text to replace
             new_string: New text content
         """
+        logger.debug(f"🔍 edit_file: {file_path}, {old_string}, {new_string}")
         resolved_path = resolve_workspace_path(file_path, workspace)
         return edit_file_raw.func(resolved_path, old_string, new_string)
 
@@ -224,6 +232,7 @@ def create_workspace_aware_tools(workspace: Optional[str] = None) -> Dict[str, A
             file_path: Path to file
             content: Complete new file content
         """
+        logger.debug(f"🔍 replace_file: {file_path}, {content}")
         resolved_path = resolve_workspace_path(file_path, workspace)
         return replace_file_raw.func(resolved_path, content)
 
@@ -235,6 +244,7 @@ def create_workspace_aware_tools(workspace: Optional[str] = None) -> Dict[str, A
         Args:
             notebook_path: Path to .ipynb file
         """
+        logger.debug(f"🔍 notebook_read: {notebook_path}")
         resolved_path = resolve_workspace_path(notebook_path, workspace)
         return notebook_read_raw.func(resolved_path)
 
@@ -251,6 +261,9 @@ def create_workspace_aware_tools(workspace: Optional[str] = None) -> Dict[str, A
             new_content: New cell content
             cell_type: Cell type (code/markdown)
         """
+        logger.debug(
+            f"🔍 notebook_edit_cell: {notebook_path}, {cell_index}, {new_content}, {cell_type}"
+        )
         resolved_path = resolve_workspace_path(notebook_path, workspace)
         return notebook_edit_cell_raw.func(
             resolved_path, cell_index, new_content, cell_type
@@ -268,6 +281,7 @@ def create_workspace_aware_tools(workspace: Optional[str] = None) -> Dict[str, A
             timeout: Timeout in milliseconds
             run_in_background: Run as background process
         """
+        logger.debug(f"🔍 bash_command: {command}, {timeout}, {run_in_background}")
         working_directory = workspace if workspace else None
         return bash_command_raw.func(
             command, timeout, working_directory, run_in_background
