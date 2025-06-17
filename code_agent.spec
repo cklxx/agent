@@ -1,16 +1,21 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_submodules
+
+hiddenimports = ['langchain_community', 'langchain_openai', 'fastapi', 'uvicorn', 'litellm', 'jinja2', 'sklearn', 'sklearn.utils._cython_blas', 'sklearn.neighbors.typedefs', 'sklearn.neighbors.quad_tree', 'sklearn.tree._utils', 'sklearn.externals.six', 'sklearn.externals.joblib', 'sklearn.externals.array_api_compat', 'sklearn.externals.array_api_compat.numpy', 'sklearn.externals.array_api_compat.numpy.fft', 'numpy', 'numpy.random.common', 'numpy.random.bounded_integers', 'numpy.random.entropy', 'scipy', 'scipy.special._ufuncs_cxx', 'scipy.linalg.cython_blas', 'scipy.linalg.cython_lapack', 'scipy.integrate._odepack', 'scipy.integrate._quadpack', 'scipy.integrate._ode', 'pandas', 'pandas._libs.tslibs.timedeltas', 'pandas._libs.tslibs.np_datetime', 'pandas._libs.tslibs.nattype', 'pandas._libs.skiplist', 'charset_normalizer.md__mypyc', 'tiktoken_ext', 'tiktoken_ext.openai_public']
+hiddenimports += collect_submodules('sklearn')
+hiddenimports += collect_submodules('scipy')
 
 
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('conf.yaml.example', '.'), ('src', 'src')],
-    hiddenimports=['langchain_community', 'langchain_openai', 'fastapi', 'uvicorn', 'sse_starlette', 'httpx', 'readabilipy', 'python_dotenv', 'socksio', 'markdownify', 'pandas', 'numpy', 'yfinance', 'litellm', 'json_repair', 'jinja2', 'duckduckgo_search', 'inquirerpy', 'arxiv', 'mcp', 'tenacity', 'nest_asyncio'],
+    datas=[('conf.yaml.example', '.')],
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['matplotlib', 'tkinter', 'PyQt5', 'PyQt6', 'PySide2', 'PySide6', 'wx'],
     noarchive=False,
     optimize=0,
 )

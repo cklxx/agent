@@ -151,12 +151,8 @@ def leader_node(state: State) -> Command[Literal["__end__", "team"]]:
         )
     try:
         # 创建架构师代理
-        llm = get_llm_by_type(AGENT_LLM_MAP[agent_type])
-        logger.info(f"🔧 创建LLM: {llm}")
-        all_tools = get_workspace_aware_agent_tools(state)
-        # 先绑定工具
-        llm = llm.bind_tools(all_tools)
-        logger.info("🔧 工具绑定完成")
+        ALL_TOOLS = get_workspace_aware_agent_tools(state)
+        agent = create_agent("leader", "leader", ALL_TOOLS, "leader")
 
         # 构建输入消息
         print(
@@ -172,26 +168,26 @@ def leader_node(state: State) -> Command[Literal["__end__", "team"]]:
                 all_observations += f"# Existing Observations {index}\n\n{observation}"
             messages += [HumanMessage(content=all_observations)]
         logger.info(f"🔧 构建的消息: {messages}")
-
-        logger.info("🚀 leader执行任务...")
-
+        agent_input = {
+            "messages": messages,
+            "plan": plan,
+            "observations": observations,
+            "environment_info": state.get("environment_info", ""),
+            "task_description": task_description,
+        }
         # 调用架构师代理
-        response = llm.invoke(messages)
-        logger.info(f"🔍 leader原始响应: {response}")
+        result = agent.invoke(input=agent_input, config={"recursion_limit": 20})
+        logger.info(f"🔍 leader原始响应: {result}")
 
         # 从响应中提取content字段
-        response_data = None
-        if hasattr(response, "content"):
-            response_data = response
-        else:
-            full_response = response.model_dump_json(indent=4, exclude_none=True)
-            response_data = json.loads(full_response)
-        plan_content = response_data.content
+        response = result["messages"][-1]
+        plan_content = response.content
+
         print(f"🔍 plan_content: {plan_content}")
         # 记录token使用情况
 
-        usage_metadata = response_data.usage_metadata
-        response_metadata = response_data.response_metadata
+        usage_metadata = response.usage_metadata
+        response_metadata = response.response_metadata
 
         token_tracker.add_usage(
             input_tokens=usage_metadata.get("input_tokens", 0),
@@ -305,11 +301,14 @@ def execute_node(state: State) -> Command[Literal["team"]]:
     agent = create_agent("execute", "execute", ALL_TOOLS, "execute")
     # Prepare the input for the agent with completed steps info
     agent_input = {
-        "messages": [
-            HumanMessage(
-                content=f"{completed_steps_info}# Current Task\n\n## Title\n\n{current_step.title}\n\n## Description\n\n{current_step.description}\n\n## Locale\n\n{state.get('locale', 'en-US')}"
-            )
-        ]
+        "messages": (
+            apply_prompt_template("execute", state)
+            + [
+                HumanMessage(
+                    content=f"{completed_steps_info}# Current Task\n\n## Title\n\n{current_step.title}\n\n## Description\n\n{current_step.description}\n\n## Locale\n\n{state.get('locale', 'en-US')}"
+                )
+            ]
+        )
     }
     # Invoke the agent
     default_recursion_limit = 20
@@ -317,18 +316,23 @@ def execute_node(state: State) -> Command[Literal["team"]]:
         input=agent_input, config={"recursion_limit": default_recursion_limit}
     )
 
-    usage_metadata = result.get("usage_metadata", {})
-    response_metadata = result.get("response_metadata", {})
+    logger.info(f"🔍 执行代理节点执行结果: {result}")
+    observations = state.get("observations", [])
+
+    response = result["messages"][-1]
+    response_content = response.content
+    usage_metadata = (
+        response.usage_metadata if response.usage_metadata is not None else {}
+    )
+    response_metadata = (
+        response.response_metadata if response.response_metadata is not None else {}
+    )
+    print(f"🔍 usage_metadata: {usage_metadata} {response_metadata}")
     token_tracker.add_usage(
         input_tokens=usage_metadata.get("input_tokens", 0),
         output_tokens=usage_metadata.get("output_tokens", 0),
         model=response_metadata.get("model_name", ""),
     )
-    logger.info(f"🔍 执行代理节点执行结果: {result}")
-    observations = state.get("observations", [])
-
-    response_content = result["messages"][-1].content
-
     logger.debug(f"execute full response: {response_content}")
     # Update the step with the execution result
     current_step.execution_res = response_content
