@@ -152,7 +152,6 @@ def leader_node(state: State) -> Command[Literal["__end__", "team"]]:
         ALL_TOOLS = get_workspace_aware_agent_tools(state)
         agent = create_agent("leader", "leader", ALL_TOOLS, "leader")
 
-
         messages = apply_prompt_template(agent_type, state)
         observations = state.get("observations", [])
         plan = state.get("plan", None)

@@ -307,7 +307,9 @@ class IntelligentWorkspaceAnalyzer:
                     for subitem in item.iterdir():
                         if subitem.is_file():
                             # 检查子文件是否被 .gitignore 排除
-                            relative_subfile_path = str(subitem.relative_to(workspace_path))
+                            relative_subfile_path = str(
+                                subitem.relative_to(workspace_path)
+                            )
                             if self.gitignore_parser.is_ignored(relative_subfile_path):
                                 structure_info["gitignore_excluded_count"] += 1
                                 continue
@@ -321,7 +323,9 @@ class IntelligentWorkspaceAnalyzer:
                                 )
                         elif subitem.is_dir() and subitem.name not in exclude_dirs:
                             # 检查子目录是否被 .gitignore 排除
-                            relative_subdir_path = str(subitem.relative_to(workspace_path))
+                            relative_subdir_path = str(
+                                subitem.relative_to(workspace_path)
+                            )
                             if self.gitignore_parser.is_ignored(relative_subdir_path):
                                 continue
                             # 初始化子目录结构
@@ -332,9 +336,15 @@ class IntelligentWorkspaceAnalyzer:
                                 for subsubitem in subitem.iterdir():
                                     if subsubitem.is_file():
                                         # 检查深层文件是否被 .gitignore 排除
-                                        relative_deep_path = str(subsubitem.relative_to(workspace_path))
-                                        if self.gitignore_parser.is_ignored(relative_deep_path):
-                                            structure_info["gitignore_excluded_count"] += 1
+                                        relative_deep_path = str(
+                                            subsubitem.relative_to(workspace_path)
+                                        )
+                                        if self.gitignore_parser.is_ignored(
+                                            relative_deep_path
+                                        ):
+                                            structure_info[
+                                                "gitignore_excluded_count"
+                                            ] += 1
                                             continue
 
                                         structure_info["total_files"] += 1
