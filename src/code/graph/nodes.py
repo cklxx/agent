@@ -171,7 +171,7 @@ def leader_node(state: State) -> Command[Literal["__end__", "team"]]:
             "task_description": task_description,
         }
         # 调用架构师代理
-        result = agent.invoke(input=agent_input, config={"recursion_limit": 20})
+        result = agent.invoke(input=agent_input, config={"recursion_limit": 30})
 
         # 从响应中提取content字段
         response = result["messages"][-1]
@@ -305,7 +305,7 @@ def execute_node(state: State) -> Command[Literal["team"]]:
     }
     logger.info(f"🔍 执行代理节点输入: {len(str(agent_input))}")
     # Invoke the agent
-    default_recursion_limit = 20
+    default_recursion_limit = 30
     result = agent.invoke(
         input=agent_input, config={"recursion_limit": default_recursion_limit}
     )
