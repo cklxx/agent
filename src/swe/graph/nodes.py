@@ -67,13 +67,13 @@ def create_architect_plan_tool_factory(
     @tool
     def architect_plan(prompt: str) -> str:
         """
-        Deploy an intelligent agent for code exploration, analysis, and modifications.
+        Deploy specialized agent for complex subtasks requiring deep analysis.
 
         Args:
-            prompt: Specific task for the agent to perform.
+            prompt: Specific task for agent execution.
 
         Returns:
-            The sub-agent's analysis, findings, and any improvements made.
+            Agent's analysis and implementation results.
         """
         logger.debug(f"🔍 architect_plan prompt: {prompt}")
         agent_input = {
@@ -189,7 +189,9 @@ def architect_node(state: State) -> Command[Literal["__end__"]]:
             "task_description": task_description,
         }
         # 调用架构师代理
-        result = agent.invoke(input=agent_input, config={"recursion_limit": recursion_limit})
+        result = agent.invoke(
+            input=agent_input, config={"recursion_limit": recursion_limit}
+        )
         logger.info(f"🔍 leader原始响应: {result}")
 
         # 从响应中提取content字段
