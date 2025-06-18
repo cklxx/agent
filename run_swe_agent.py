@@ -49,7 +49,7 @@ async def run_agent(task: str, workspace: str, debug: bool = False):
     }
 
     # Configuration for the graph invocation
-    config = {"configurable": {"thread_id": conv_id}}
+    config = {"configurable": {"thread_id": conv_id}, "recursion_limit": 100}
 
     print(f"🚀 Starting agent for task: '{task}'")
     print(f"📂 Workspace: {workspace}")

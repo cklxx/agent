@@ -86,7 +86,7 @@ def create_architect_plan_tool_factory(
         result = agent.invoke(
             input=agent_input, config={"recursion_limit": recursion_limit}
         )
-        logger.debug(f"🔍 architect_plan result: {result}")
+        logger.info(f"🔍 architect_plan result: {result}")
         return result["messages"][-1].content
 
     return architect_plan
@@ -165,12 +165,12 @@ def architect_node(state: State) -> Command[Literal["__end__"]]:
     logger.info("🏗️ 架构师节点开始执行任务...")
     update_context(state)
     task_description = state.get("task_description", "Unknown task")
+    recursion_limit = state.get("recursion_limit", 100)
 
     base_tools = get_workspace_aware_agent_tools(state)
     agent_type = "architect"
-
     architect_plan_tool = create_architect_plan_tool_factory(
-        state, agent_type, base_tools, recursion_limit=20
+        state, agent_type, base_tools, recursion_limit=recursion_limit
     )
 
     try:
@@ -189,7 +189,7 @@ def architect_node(state: State) -> Command[Literal["__end__"]]:
             "task_description": task_description,
         }
         # 调用架构师代理
-        result = agent.invoke(input=agent_input, config={"recursion_limit": 20})
+        result = agent.invoke(input=agent_input, config={"recursion_limit": recursion_limit})
         logger.info(f"🔍 leader原始响应: {result}")
 
         # 从响应中提取content字段
