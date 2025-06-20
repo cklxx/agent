@@ -141,21 +141,50 @@ def execute_foreground_command(command: str, timeout: Optional[int] = None) -> s
         try:
             # 实时读取输出
             while True:
-                line = process.stdout.readline()
-                if line:
-                    # 实时打印输出
-                    print(f"📤 {line.rstrip()}")
-                    output_lines.append(line)
-                elif process.poll() is not None:
-                    # 进程已结束
-                    break
-
                 # 检查超时
                 if time.time() - start_time > timeout / 1000:
                     process.terminate()
-                    process.wait(timeout=5)
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
                     print("\n⏰ 命令执行超时")
                     return "\n".join(output_lines) + "\nError: Command timed out"
+
+                # 检查进程是否已结束
+                if process.poll() is not None:
+                    # 进程已结束，读取剩余输出
+                    remaining_output = process.stdout.read()
+                    if remaining_output:
+                        remaining_lines = remaining_output.strip().split("\n")
+                        for line in remaining_lines:
+                            if line:
+                                print(f"📤 {line}")
+                                output_lines.append(line + "\n")
+                    break
+
+                # 尝试读取一行，但不阻塞太久
+                import select
+                import sys
+
+                # 检查是否有数据可读（仅在Unix系统上）
+                if hasattr(select, "select"):
+                    ready, _, _ = select.select([process.stdout], [], [], 0.1)
+                    if ready:
+                        line = process.stdout.readline()
+                        if line:
+                            # 实时打印输出
+                            print(f"📤 {line.rstrip()}")
+                            output_lines.append(line)
+                else:
+                    # Windows系统或其他不支持select的情况，使用短超时
+                    try:
+                        line = process.stdout.readline()
+                        if line:
+                            print(f"📤 {line.rstrip()}")
+                            output_lines.append(line)
+                    except:
+                        time.sleep(0.1)  # 短暂暂停避免CPU占用过高
 
             # 等待进程完成
             return_code = process.wait()
@@ -176,7 +205,10 @@ def execute_foreground_command(command: str, timeout: Optional[int] = None) -> s
 
         except Exception as e:
             process.terminate()
-            process.wait(timeout=5)
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
             print(f"\n❌ 命令执行出错: {str(e)}")
             return f"Error: {str(e)}"
 

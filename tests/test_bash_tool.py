@@ -38,9 +38,9 @@ def test_working_directory():
 
 def test_command_timeout():
     """测试命令超时"""
-    # 测试超时设置
-    result = bash_command.func("sleep 2", timeout=1000)  # 1秒超时
-    assert "Error" in result or "timed out" in result
+    # 测试超时设置 - 使用更长的sleep来确保超时
+    result = bash_command.func("sleep 5", timeout=1000)  # 1秒超时，但命令需要5秒
+    assert "Error" in result or "timed out" in result or "超时" in result
 
 
 def test_banned_commands():
