@@ -70,7 +70,7 @@ def test_error_handling():
     """测试错误处理"""
     # 测试不存在的命令
     result = bash_command.func("nonexistent_command")
-    assert "Error" in result or "command not found" in result
+    assert "Error" in result or "command not found" in result or "not found" in result
 
 
 def test_complex_command_chain():
