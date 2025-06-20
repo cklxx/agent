@@ -156,10 +156,15 @@ class TestWorkspaceAwareToolsIntegration:
         result = list_files_tool.func(".")
         assert "test.txt" in result
 
-    @patch("subprocess.run")
-    def test_bash_command_with_workspace_directory(self, mock_run):
+    @patch("subprocess.Popen")
+    def test_bash_command_with_workspace_directory(self, mock_popen):
         """测试bash_command的workspace工作目录设置"""
-        mock_run.return_value = Mock(stdout="test output", stderr="", returncode=0)
+        # Mock the Popen process
+        mock_process = Mock()
+        mock_process.stdout.readline.side_effect = ["test output\n", ""]
+        mock_process.poll.return_value = 0
+        mock_process.wait.return_value = 0
+        mock_popen.return_value = mock_process
 
         tools = get_workspace_tools(self.temp_workspace)
         # 返回的是列表，需要找到bash_command工具
@@ -168,10 +173,12 @@ class TestWorkspaceAwareToolsIntegration:
         # 执行命令
         result = bash_tool.func("pwd")
 
-        # 验证工作目录设置正确
-        mock_run.assert_called()
-        call_args = mock_run.call_args
-        assert any(self.temp_workspace in str(arg) for arg in call_args[0])
+        # 验证Popen被调用
+        mock_popen.assert_called()
+        call_args = mock_popen.call_args
+        # 检查工作目录是否正确设置在命令中
+        command_arg = call_args[0][0]  # 第一个位置参数是命令
+        assert self.temp_workspace in command_arg
 
 
 class TestWorkspaceToolsErrorHandling:

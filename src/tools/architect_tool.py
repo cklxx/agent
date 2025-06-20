@@ -19,32 +19,34 @@ from src.llms.llm import get_llm_by_type
 logger = logging.getLogger(__name__)
 
 # Enhanced system prompt for the architect with recursive capability
-ARCHITECT_SYSTEM_PROMPT = """You are an expert software architect. Your role is to analyze technical requirements and produce clear, actionable implementation plans.
+ARCHITECT_SYSTEM_PROMPT = """You are an expert software architect. Create clear, actionable implementation plans.
 
-These plans will then be carried out by a junior software engineer so you need to be specific and detailed. However do not actually write the code, just explain the plan.
+**Process:**
+1. **Analyze** - Core functionality, constraints, requirements
+2. **Design** - Technologies, patterns, architecture 
+3. **Plan** - Sequential implementation steps
 
-Follow these steps for each request:
+**Output Requirements:**
+- Specific, actionable steps for junior engineers
+- Include file structure, configuration, testing
+- No code implementation, just clear instructions
+- Focus on what to build, not how to code it
 
-1. **Carefully analyze requirements** to identify core functionality and constraints
-   - Understand the problem domain and technical context
-   - Identify key functional and non-functional requirements
-   - Note any constraints, dependencies, or limitations
+**Format:**
+```
+## Analysis
+[Brief problem analysis]
 
-2. **Define clear technical approach** with specific technologies and patterns
-   - Choose appropriate technologies, frameworks, and tools
-   - Specify architectural patterns and design principles
-   - Consider scalability, performance, and maintainability
+## Technical Approach  
+[Technologies and patterns]
 
-3. **Break down implementation** into concrete, actionable steps at the appropriate level of abstraction
-   - Create sequential steps that a junior engineer can follow
-   - Be specific about what needs to be done in each step
-   - Include file structure, configuration, and integration points
-   - Specify testing and validation checkpoints
+## Implementation Steps
+1. [Specific step with files/configs]
+2. [Next step with validation]
+...
+```
 
-Keep responses focused, specific and actionable.
-
-IMPORTANT: Do not ask the user if you should implement the changes at the end. Just provide the plan as described above.
-IMPORTANT: Do not attempt to write the code or use any string modification tools. Just provide the plan."""
+Be concise. Be specific. Be actionable."""
 
 
 @tool
@@ -97,20 +99,20 @@ def dispatch_agent(
     prompt: str, environment_info: Optional[str] = None, workspace: Optional[str] = None
 ) -> str:
     """
-    Deploy intelligent agent for code exploration, analysis, and modifications.
+    Deploy intelligent agent for code analysis and exploration.
 
     Args:
-        prompt: Specific task for the agent to perform
-        environment_info: Optional environment details
-        workspace: Optional workspace directory path
+        prompt: Task for agent to perform
+        environment_info: Environment details
+        workspace: Workspace directory
 
     Returns:
-        Agent's analysis, findings, and improvements made
+        Agent analysis and findings
     """
     try:
-        logger.info(f"🤖 Dispatching agent for: {prompt}")
+        logger.info(f"🤖 Dispatching agent: {prompt[:50]}...")
 
-        # Read-only tools for safe exploration
+        # Create agent with read-only tools
         tools = [
             "view_file",
             "list_files",
@@ -119,36 +121,33 @@ def dispatch_agent(
             "think",
             "notebook_read",
         ]
-
-        # Create agent with read-only tools
         agent = create_agent(
-            name="dispatch_agent", tools=tools, llm_type=AGENT_LLM_MAP["researcher"]
+            name="dispatch_agent",
+            tools=tools,
+            llm_type=AGENT_LLM_MAP["researcher"],
+            prompt_template="dispatch_agent",
         )
 
-        # Prepare state with environment information
+        # Prepare state for prompt template
         state = {
             "messages": [HumanMessage(content=prompt)],
-            "workspace": workspace,
-            "environment_info": environment_info,
+            "workspace": workspace or "",
+            "environment_info": environment_info or "",
+            "task_description": prompt,
             "locale": "zh-CN",
         }
 
-        # Execute the agent
         result = agent.invoke(state)
 
-        # Extract the agent's response
+        # Extract response
         if isinstance(result, dict) and "messages" in result:
-            last_message = result["messages"][-1]
-            if hasattr(last_message, "content"):
-                response = last_message.content
-            else:
-                response = str(last_message)
+            response = result["messages"][-1].content
         else:
             response = str(result)
 
-        logger.info("✅ Agent dispatch completed successfully")
+        logger.info("✅ Agent dispatch completed")
         return response
 
     except Exception as e:
-        logger.error(f"❌ Error in dispatch_agent: {str(e)}")
-        return f"Error dispatching agent: {str(e)}"
+        logger.error(f"❌ dispatch_agent error: {e}")
+        return f"Error: {str(e)}"

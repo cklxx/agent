@@ -115,38 +115,108 @@ def check_command_security(command: str) -> tuple[bool, str]:
 
 
 def execute_foreground_command(command: str, timeout: Optional[int] = None) -> str:
-    """执行前台命令"""
+    """执行前台命令，支持流式输出"""
     try:
         # 设置超时
         if timeout is None:
             timeout = 1800  # 默认30分钟
 
-        # 执行命令
-        process = subprocess.run(
+        print(f"🚀 开始执行命令: {command}")
+        print("=" * 50)
+
+        # 使用Popen进行流式输出
+        process = subprocess.Popen(
             command,
             shell=True,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True,
-            timeout=timeout / 1000,  # 转换为秒
+            bufsize=1,  # 行缓冲
+            universal_newlines=True,
         )
 
-        # 处理输出
-        output = process.stdout
-        if process.stderr:
-            output += f"\nError: {process.stderr}"
+        output_lines = []
+        start_time = time.time()
 
-        # 添加退出码
-        output += f"\n\nExit code: {process.returncode}"
+        try:
+            # 实时读取输出
+            while True:
+                # 检查超时
+                if time.time() - start_time > timeout / 1000:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                    print("\n⏰ 命令执行超时")
+                    return "\n".join(output_lines) + "\nError: Command timed out"
 
-        # 截断输出
-        if len(output) > 30000:
-            output = output[:30000] + "\n... (output truncated)"
+                # 检查进程是否已结束
+                if process.poll() is not None:
+                    # 进程已结束，读取剩余输出
+                    remaining_output = process.stdout.read()
+                    if remaining_output:
+                        remaining_lines = remaining_output.strip().split("\n")
+                        for line in remaining_lines:
+                            if line:
+                                print(f"📤 {line}")
+                                output_lines.append(line + "\n")
+                    break
 
-        return output
+                # 尝试读取一行，但不阻塞太久
+                import select
+                import sys
+
+                # 检查是否有数据可读（仅在Unix系统上）
+                if hasattr(select, "select"):
+                    ready, _, _ = select.select([process.stdout], [], [], 0.1)
+                    if ready:
+                        line = process.stdout.readline()
+                        if line:
+                            # 实时打印输出
+                            print(f"📤 {line.rstrip()}")
+                            output_lines.append(line)
+                else:
+                    # Windows系统或其他不支持select的情况，使用短超时
+                    try:
+                        line = process.stdout.readline()
+                        if line:
+                            print(f"📤 {line.rstrip()}")
+                            output_lines.append(line)
+                    except:
+                        time.sleep(0.1)  # 短暂暂停避免CPU占用过高
+
+            # 等待进程完成
+            return_code = process.wait()
+
+            # 处理输出
+            output = "".join(output_lines)
+
+            print(f"\n✅ 命令执行完成，退出码: {return_code}")
+
+            # 添加退出码
+            output += f"\n\nExit code: {return_code}"
+
+            # 截断输出
+            if len(output) > 30000:
+                output = output[:30000] + "\n... (output truncated)"
+
+            return output
+
+        except Exception as e:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+            print(f"\n❌ 命令执行出错: {str(e)}")
+            return f"Error: {str(e)}"
 
     except subprocess.TimeoutExpired:
+        print("\n⏰ 命令执行超时")
         return "Error: Command timed out"
     except Exception as e:
+        print(f"\n❌ 启动命令失败: {str(e)}")
         return f"Error: {str(e)}"
 
 
@@ -155,6 +225,25 @@ def execute_background_command(
 ) -> str:
     """执行后台命令（会在工具调用结束时自动停止）"""
     try:
+        # 检测是否是开发服务器或需要流式输出的命令
+        interactive_commands = [
+            "npm start",
+            "npm run",
+            "yarn start",
+            "yarn dev",
+            "uvicorn",
+            "python -m",
+            "flask run",
+            "django runserver",
+            "next dev",
+        ]
+        needs_streaming = any(cmd in command.lower() for cmd in interactive_commands)
+
+        if needs_streaming:
+            print(f"🚀 启动开发服务: {command}")
+            print("💡 提示: 这是一个交互式服务，将显示实时日志...")
+            print("=" * 50)
+
         # 创建日志文件
         log_file = tempfile.NamedTemporaryFile(delete=False, suffix=".log")
         log_path = log_file.name
@@ -167,28 +256,78 @@ def execute_background_command(
             full_command = command
 
         # 启动进程（不创建新会话，保持与父进程关联）
-        process = subprocess.Popen(
-            full_command,
-            shell=True,
-            stdout=open(log_path, "w"),
-            stderr=subprocess.STDOUT,
-            # 移除 start_new_session=True，让进程与父进程保持关联
-        )
+        if needs_streaming:
+            # 对于需要流式输出的命令，使用实时输出
+            process = subprocess.Popen(
+                full_command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                universal_newlines=True,
+            )
 
-        # 保存进程信息（用于临时管理）
-        process_info = {
-            "pid": str(process.pid),
-            "command": command,
-            "working_dir": working_directory or os.getcwd(),
-            "log_file": log_path,
-            "start_time": time.time(),
-            "status": "running",
-            "auto_cleanup": True,  # 标记为自动清理
-        }
+            # 保存进程信息（用于临时管理）
+            process_info = {
+                "pid": str(process.pid),
+                "command": command,
+                "working_dir": working_directory or os.getcwd(),
+                "log_file": log_path,
+                "start_time": time.time(),
+                "status": "running",
+                "auto_cleanup": True,  # 标记为自动清理
+            }
+            save_background_process(process_info)
 
-        save_background_process(process_info)
+            # 启动一个线程来处理流式输出和日志记录
+            import threading
 
-        return f"Started background process (will auto-stop when tool call ends)\nPID: {process.pid}\nLog file: {log_path}\nWorking directory: {working_directory or os.getcwd()}"
+            def stream_output():
+                with open(log_path, "w") as log_file:
+                    try:
+                        for line in iter(process.stdout.readline, ""):
+                            if line:
+                                # 实时打印并写入日志
+                                print(f"📤 {line.rstrip()}")
+                                log_file.write(line)
+                                log_file.flush()
+                            if process.poll() is not None:
+                                break
+                    except Exception as e:
+                        print(f"❌ 流式输出错误: {e}")
+                        log_file.write(f"Error in streaming: {e}\n")
+
+            # 启动输出流线程
+            output_thread = threading.Thread(target=stream_output, daemon=True)
+            output_thread.start()
+
+            return f"🚀 启动交互式服务 (PID: {process.pid})\n📁 工作目录: {working_directory or os.getcwd()}\n📄 日志文件: {log_path}\n💡 正在显示实时输出..."
+
+        else:
+            # 对于普通后台命令，使用原来的方式
+            process = subprocess.Popen(
+                full_command,
+                shell=True,
+                stdout=open(log_path, "w"),
+                stderr=subprocess.STDOUT,
+                # 移除 start_new_session=True，让进程与父进程保持关联
+            )
+
+            # 保存进程信息（用于临时管理）
+            process_info = {
+                "pid": str(process.pid),
+                "command": command,
+                "working_dir": working_directory or os.getcwd(),
+                "log_file": log_path,
+                "start_time": time.time(),
+                "status": "running",
+                "auto_cleanup": True,  # 标记为自动清理
+            }
+
+            save_background_process(process_info)
+
+            return f"Started background process (will auto-stop when tool call ends)\nPID: {process.pid}\nLog file: {log_path}\nWorking directory: {working_directory or os.getcwd()}"
 
     except Exception as e:
         return f"Error: {str(e)}"
