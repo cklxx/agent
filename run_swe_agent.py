@@ -71,7 +71,7 @@ async def run_agent(task: str, workspace: str, debug: bool = False):
                 if kind in ["on_chain_start", "on_chain_end", "on_chain_error"]:
                     print(f"\n🔄 Event: {kind}")
                     if "name" in event:
-                        print(f"📌 Node: {event}")
+                        print(f"📌 Node: {event['name']}")
 
             if kind == "on_chain_end":
                 if event["name"] == "architect":

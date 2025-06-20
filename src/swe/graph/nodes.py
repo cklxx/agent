@@ -192,8 +192,6 @@ def architect_node(state: State) -> Command[Literal["__end__"]]:
         result = agent.invoke(
             input=agent_input, config={"recursion_limit": recursion_limit}
         )
-        logger.info(f"🔍 leader原始响应: {result}")
-
         # 从响应中提取content字段
         response = result["messages"][-1]
         result_content = response.content
