@@ -41,18 +41,17 @@ logger = logging.getLogger(__name__)
 
 # 创建工具名称到工具对象的映射，便于快速查找
 token_tracker = SimpleTokenTracker()
-token_tracker.start_session("architect_agent")
+token_tracker.start_session("swe_agent")
 
 
-def create_architect_plan_tool_factory(
+def create_swe_tool_factory(
     state: State, agent_type: str, base_tools: list, recursion_limit: int = 20
 ):
     """
-    Factory function to create the 'architect_plan' tool.
+    Factory function to create specialized SWE analysis tools.
 
-    This factory encapsulates the logic for creating a tool that can deploy a
-    sub-agent to perform specific tasks. It captures necessary context from
-    the parent agent's state and uses it to invoke the sub-agent.
+    This factory creates tools that can deploy specialized agents for specific
+    software engineering tasks like code analysis, refactoring, or testing.
 
     Args:
         state: The current state of the parent agent's graph.
@@ -61,63 +60,72 @@ def create_architect_plan_tool_factory(
         recursion_limit: The maximum number of recursive calls allowed.
 
     Returns:
-        A configured 'architect_plan' tool instance.
+        A configured SWE analysis tool instance.
     """
 
     @tool
-    def architect_plan(prompt: str) -> str:
+    def swe_analyzer(prompt: str) -> str:
         """
-        Deploy specialized agent for complex subtasks requiring deep analysis.
+        Deploy specialized SWE agent for detailed code analysis and improvement recommendations.
+
+        This tool creates a focused software engineering agent that can:
+        - Perform deep code analysis and quality assessment
+        - Identify architectural issues and improvement opportunities
+        - Generate detailed technical reports with actionable recommendations
+        - Suggest refactoring strategies and implementation approaches
 
         Args:
-            prompt: Specific task for agent execution.
+            prompt: Specific software engineering task or analysis request.
 
         Returns:
-            Agent's analysis and implementation results.
+            Detailed analysis results and improvement recommendations.
         """
-        logger.debug(f"🔍 architect_plan prompt: {prompt}")
+        logger.debug(f"🔍 SWE Analyzer prompt: {prompt}")
         agent_input = {
             "messages": state.get("messages", []) + [HumanMessage(content=prompt)],
             "plan": state.get("plan", None),
             "environment_info": state.get("environment_info", ""),
             "task_description": state.get("task_description", ""),
+            "workspace": state.get("workspace", ""),
         }
         agent = create_agent(agent_type, agent_type, base_tools, agent_type)
         result = agent.invoke(
             input=agent_input, config={"recursion_limit": recursion_limit}
         )
-        logger.info(f"🔍 architect_plan result: {result}")
+        logger.info(f"🔍 SWE Analyzer result: {result}")
         return result["messages"][-1].content
 
-    return architect_plan
+    return swe_analyzer
 
 
-def get_workspace_aware_agent_tools(state: State) -> list:
+def get_swe_specialized_tools(state: State) -> list:
     """
-    Helper function to get a complete list of workspace-aware tools for an agent.
+    Get a specialized list of tools optimized for software engineering tasks.
 
     Args:
         state: Current state containing workspace information
 
     Returns:
-        List of tools including both workspace-aware and original tools
+        List of tools including workspace-aware and SWE-specific tools
     """
     workspace = state.get("workspace", "")
     workspace_tools = get_workspace_tools(workspace)
 
-    other_tools = [
+    # Core SWE tools - focused on analysis and code quality
+    swe_core_tools = [
         think,
-        crawl_tool,
-        get_web_search_tool(3),  # Web search with limit
-        search_location,
-        get_route,
-        get_nearby_places,
-        python_repl_tool,
+        python_repl_tool,  # For testing code snippets and calculations
         clear_conversation,
         compact_conversation,
     ]
 
-    return workspace_tools + other_tools
+    # Optional web tools for research (limited use in SWE context)
+    web_tools = [
+        crawl_tool,
+        get_web_search_tool(3),
+    ]
+
+    return workspace_tools + swe_core_tools + web_tools
 
 
 @tool
@@ -128,24 +136,28 @@ def plan_tool(
     return plan
 
 
-def update_context(state: State):
-    """上下文节点：负责环境感知和RAG索引构建"""
-    logger.info("🔍 启动上下文分析和环境感知...")
+def update_swe_context(state: State):
+    """SWE上下文节点：负责软件工程环境感知和代码库分析准备"""
+    logger.info("🔧 启动SWE上下文分析和环境感知...")
 
-    # 通过系统获取执行环境的信息
     try:
-
         # 获取任务描述
         user_messages = state.get("messages", [])
-        task_description = user_messages[-1].content
+        task_description = (
+            user_messages[-1].content if user_messages else "SWE Analysis"
+        )
 
-        logger.info(f"📝 分析任务: {task_description[:100]}...")
+        logger.info(f"📝 SWE任务分析: {task_description[:100]}...")
 
-        # 初始化智能工作区分析器
-        analyzer = IntelligentWorkspaceAnalyzer(state.get("workspace", ""))
-        # 决定是否需要执行分析
-        environment_result = asyncio.run(analyzer.perform_environment_analysis())
-        environment_info = environment_result["text_summary"]
+        # 初始化智能工作区分析器 - 专注于代码库结构
+        workspace = state.get("workspace", "")
+        if workspace:
+            analyzer = IntelligentWorkspaceAnalyzer(workspace)
+            # 执行环境分析，重点关注代码结构和依赖
+            environment_result = asyncio.run(analyzer.perform_environment_analysis())
+            environment_info = environment_result["text_summary"]
+        else:
+            environment_info = "No workspace specified for SWE analysis"
 
         state.update(
             {
@@ -153,52 +165,64 @@ def update_context(state: State):
                 "task_description": task_description,
             }
         )
-        logger.info("✅ 上下文准备完成" + str(state))
+        logger.info("✅ SWE上下文准备完成")
 
     except Exception as e:
         error_msg = str(e)
-        logger.error(f"❌ 上下文节点执行错误: {error_msg}")
+        logger.error(f"❌ SWE上下文节点执行错误: {error_msg}")
+        state.update(
+            {
+                "environment_info": f"Context analysis failed: {error_msg}",
+                "task_description": "SWE Analysis with limited context",
+            }
+        )
 
 
 def architect_node(state: State) -> Command[Literal["__end__"]]:
-    """领导节点：理解用户意图, 产出规划"""
-    logger.info("🏗️ 架构师节点开始执行任务...")
-    update_context(state)
-    task_description = state.get("task_description", "Unknown task")
+    """SWE架构师节点：执行软件工程分析和质量评估"""
+    logger.info("🏗️ SWE架构师节点开始执行任务...")
+    update_swe_context(state)
+
+    task_description = state.get("task_description", "Unknown SWE task")
+    workspace = state.get("workspace", "")
     recursion_limit = state.get("recursion_limit", 100)
 
-    base_tools = get_workspace_aware_agent_tools(state)
-    agent_type = "architect"
-    architect_plan_tool = create_architect_plan_tool_factory(
+    base_tools = get_swe_specialized_tools(state)
+    agent_type = "swe_architect"  # 使用专门的SWE架构师类型
+    swe_analyzer_tool = create_swe_tool_factory(
         state, agent_type, base_tools, recursion_limit=recursion_limit
     )
 
     try:
-        main_tools = base_tools + [architect_plan_tool]
-        # 创建架构师代理
+        main_tools = base_tools + [swe_analyzer_tool]
+        # 创建SWE架构师代理
         agent = create_agent(agent_type, agent_type, main_tools, agent_type)
+
         # 构建输入消息
-        print(
-            f"🔍 任务描述: {task_description} 环境信息: {state.get("environment_info", "Environment information not available")}"
-        )
+        logger.info(f"🔍 SWE任务描述: {task_description}")
+        logger.info(f"📂 工作目录: {workspace}")
+
         messages = apply_prompt_template(agent_type, state)
 
         agent_input = {
             "messages": messages,
             "environment_info": state.get("environment_info", ""),
             "task_description": task_description,
+            "workspace": workspace,
         }
-        # 调用架构师代理
+
+        # 调用SWE架构师代理
         result = agent.invoke(
             input=agent_input, config={"recursion_limit": recursion_limit}
         )
+
         # 从响应中提取content字段
         response = result["messages"][-1]
         result_content = response.content
 
-        print(f"🔍 result_content: {result_content}")
-        # 记录token使用情况
+        logger.info(f"🔍 SWE分析结果长度: {len(result_content)} 字符")
 
+        # 记录token使用情况
         usage_metadata = response.usage_metadata
         response_metadata = response.response_metadata
         if usage_metadata is not None:
@@ -211,14 +235,73 @@ def architect_node(state: State) -> Command[Literal["__end__"]]:
         return Command(
             update={
                 "report": result_content,
+                "execution_completed": True,
             },
             goto="__end__",
         )
+
     except Exception as e:
-        logger.error(f"❌ architect节点执行错误: {e}")
+        logger.error(f"❌ SWE架构师节点执行错误: {e}")
         return Command(
             update={
-                "report": f"Error: {e}",
+                "report": f"SWE Analysis Error: {e}",
+                "execution_failed": True,
+            },
+            goto="__end__",
+        )
+
+
+def code_analyzer_node(state: State) -> Command[Literal["__end__"]]:
+    """代码分析师节点：专注深度代码质量分析"""
+    logger.info("🔍 代码分析师节点开始执行...")
+
+    task_description = state.get("task_description", "Code Quality Analysis")
+    workspace = state.get("workspace", "")
+    recursion_limit = state.get("recursion_limit", 100)
+
+    base_tools = get_swe_specialized_tools(state)
+    agent_type = "swe_analyzer"  # 使用专门的代码分析师类型
+
+    try:
+        # 创建代码分析师代理
+        agent = create_agent(agent_type, agent_type, base_tools, agent_type)
+
+        # 专注于代码分析的任务描述
+        analysis_task = f"进行深度代码分析: {task_description}"
+
+        messages = apply_prompt_template(agent_type, state)
+
+        agent_input = {
+            "messages": messages,
+            "environment_info": state.get("environment_info", ""),
+            "task_description": analysis_task,
+            "workspace": workspace,
+        }
+
+        # 调用代码分析师代理
+        result = agent.invoke(
+            input=agent_input, config={"recursion_limit": recursion_limit}
+        )
+
+        response = result["messages"][-1]
+        result_content = response.content
+
+        logger.info(f"🔍 代码分析完成，结果长度: {len(result_content)} 字符")
+
+        return Command(
+            update={
+                "report": result_content,
+                "execution_completed": True,
+            },
+            goto="__end__",
+        )
+
+    except Exception as e:
+        logger.error(f"❌ 代码分析师节点执行错误: {e}")
+        return Command(
+            update={
+                "report": f"Code Analysis Error: {e}",
+                "execution_failed": True,
             },
             goto="__end__",
         )

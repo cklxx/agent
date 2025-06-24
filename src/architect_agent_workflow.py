@@ -248,7 +248,7 @@ if __name__ == "__main__":
 
     # 解析命令行参数
     parser = argparse.ArgumentParser(description="Architect Agent 工作流")
-    parser.add_argument("task", help="任务描述")
+    parser.add_argument("--task", help="任务描述")
     parser.add_argument("--debug", action="store_true", help="启用调试模式")
     parser.add_argument("--max-iterations", type=int, default=10, help="最大迭代次数")
     parser.add_argument("--locale", default="zh-CN", help="语言环境")

@@ -18,7 +18,9 @@ export async function* chatStream(
     resources?: Array<Resource>;
     auto_accepted_plan: boolean;
     max_plan_iterations: number;
-    max_step_num: number;
+    locale: string;
+    max_step_num?: number;
+    auto_execute: boolean;
     max_search_results?: number;
     interrupt_feedback?: string;
     enable_background_investigation: boolean;
@@ -62,13 +64,17 @@ async function* chatReplayStream(
     thread_id: string;
     auto_accepted_plan: boolean;
     max_plan_iterations: number;
-    max_step_num: number;
+    locale: string;
+    auto_execute: boolean;
+    max_step_num?: number;
     max_search_results?: number;
     interrupt_feedback?: string;
   } = {
     thread_id: "__mock__",
     auto_accepted_plan: false,
     max_plan_iterations: 3,
+    locale: "zh-CN",
+    auto_execute: true,
     max_step_num: 1,
     max_search_results: 3,
     interrupt_feedback: undefined,
@@ -162,6 +168,8 @@ export async function fetchReplayTitle() {
       max_plan_iterations: 3,
       max_step_num: 1,
       max_search_results: 3,
+      locale: "zh-CN",
+      auto_execute: true,
     },
     {},
   );

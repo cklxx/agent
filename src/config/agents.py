@@ -20,4 +20,8 @@ AGENT_LLM_MAP: dict[str, LLMType] = {
     "leader": "reasoning",
     # Execute agent for analysis tasks
     "execute": "reasoning",
+    # SWE (Software Engineering) agents
+    "swe_architect": "reasoning",
+    "swe_analyzer": "reasoning",
+    "swe_engineer": "reasoning",
 }
