@@ -15,17 +15,11 @@ from langgraph.types import Command
 
 from src.config.tools import SELECTED_RAG_PROVIDER
 from src.graph.builder import build_graph_with_memory
-from src.podcast.graph.builder import build_graph as build_podcast_graph
-from src.ppt.graph.builder import build_graph as build_ppt_graph
-from src.prose.graph.builder import build_graph as build_prose_graph
 from src.rag.builder import build_retriever
 from src.rag.retriever import Resource
 from src.server.chat_request import (
     ChatMessage,
     ChatRequest,
-    GeneratePodcastRequest,
-    GeneratePPTRequest,
-    GenerateProseRequest,
     TTSRequest,
 )
 from src.server.mcp_request import MCPServerMetadataRequest, MCPServerMetadataResponse
@@ -93,12 +87,14 @@ async def _astream_workflow_generator(
 ):
     input_ = {
         "messages": messages,
-        "plan_iterations": 0,
-        "final_report": "",
-        "current_plan": None,
-        "observations": [],
-        "auto_accepted_plan": auto_accepted_plan,
+        "locale": "en-US",
+        "resources": resources,
         "enable_background_investigation": enable_background_investigation,
+        "auto_execute": auto_accepted_plan,
+        "max_research_iterations": max_plan_iterations,
+        "research_findings": [],
+        "current_step_index": 0,
+        "final_report": "",
     }
     if not auto_accepted_plan and interrupt_feedback:
         resume_msg = f"[{interrupt_feedback}]"
@@ -109,12 +105,12 @@ async def _astream_workflow_generator(
     async for agent, _, event_data in graph.astream(
         input_,
         config={
-            "thread_id": thread_id,
-            "resources": resources,
-            "max_plan_iterations": max_plan_iterations,
-            "max_step_num": max_step_num,
-            "max_search_results": max_search_results,
-            "mcp_settings": mcp_settings,
+            "configurable": {
+                "thread_id": thread_id,
+                "resources": resources,
+                "max_search_results": max_search_results,
+                "mcp_settings": mcp_settings,
+            }
         },
         stream_mode=["messages", "updates"],
         subgraphs=True,
@@ -236,60 +232,8 @@ async def text_to_speech(request: TTSRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/podcast/generate")
-async def generate_podcast(request: GeneratePodcastRequest):
-    try:
-        report_content = request.content
-        print(report_content)
-        workflow = build_podcast_graph()
-        final_state = workflow.invoke({"input": report_content})
-        audio_bytes = final_state["output"]
-        return Response(content=audio_bytes, media_type="audio/mp3")
-    except Exception as e:
-        logger.exception(f"Error occurred during podcast generation: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/ppt/generate")
-async def generate_ppt(request: GeneratePPTRequest):
-    try:
-        report_content = request.content
-        print(report_content)
-        workflow = build_ppt_graph()
-        final_state = workflow.invoke({"input": report_content})
-        generated_file_path = final_state["generated_file_path"]
-        with open(generated_file_path, "rb") as f:
-            ppt_bytes = f.read()
-        return Response(
-            content=ppt_bytes,
-            media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        )
-    except Exception as e:
-        logger.exception(f"Error occurred during ppt generation: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/prose/generate")
-async def generate_prose(request: GenerateProseRequest):
-    try:
-        logger.info(f"Generating prose for prompt: {request.prompt}")
-        workflow = build_prose_graph()
-        events = workflow.astream(
-            {
-                "content": request.prompt,
-                "option": request.option,
-                "command": request.command,
-            },
-            stream_mode="messages",
-            subgraphs=True,
-        )
-        return StreamingResponse(
-            (f"data: {event[0].content}\n\n" async for _, event in events),
-            media_type="text/event-stream",
-        )
-    except Exception as e:
-        logger.exception(f"Error occurred during prose generation: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+# Podcast, PPT, and Prose generation endpoints have been removed
+# as part of the refactoring to focus on deep research intelligence
 
 
 @app.post("/api/mcp/server/metadata", response_model=MCPServerMetadataResponse)

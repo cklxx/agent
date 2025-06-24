@@ -125,11 +125,13 @@ class EmbeddingClient:
                 if self.encoding_format:
                     request_data["encoding_format"] = self.encoding_format
 
+                # 使用较短的超时时间，特别是在测试环境
+                timeout_duration = 3.0 if os.getenv("PYTEST_CURRENT_TEST") else 30.0
                 response = await client.post(
                     f"{self.base_url}/embeddings",
                     headers={"Authorization": f"Bearer {self.api_key}"},
                     json=request_data,
-                    timeout=30.0,
+                    timeout=timeout_duration,
                 )
 
                 if response.status_code == 200:

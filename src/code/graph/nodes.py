@@ -92,6 +92,7 @@ context_manager_cache = None
 
 def update_context(state: State):
     """上下文节点：负责环境感知和RAG索引构建"""
+    global context_manager_cache
     logger.info("🔍 启动上下文分析和环境感知...")
 
     # 通过系统获取执行环境的信息

@@ -17,8 +17,9 @@ export async function* chatStream(
     thread_id: string;
     resources?: Array<Resource>;
     auto_accepted_plan: boolean;
-    max_plan_iterations: number;
-    max_step_num: number;
+    max_research_iterations: number;
+    locale: string;
+    auto_execute: boolean;
     max_search_results?: number;
     interrupt_feedback?: string;
     enable_background_investigation: boolean;
@@ -61,15 +62,17 @@ async function* chatReplayStream(
   params: {
     thread_id: string;
     auto_accepted_plan: boolean;
-    max_plan_iterations: number;
-    max_step_num: number;
+    max_research_iterations: number;
+    locale: string;
+    auto_execute: boolean;
     max_search_results?: number;
     interrupt_feedback?: string;
   } = {
     thread_id: "__mock__",
     auto_accepted_plan: false,
-    max_plan_iterations: 3,
-    max_step_num: 1,
+    max_research_iterations: 3,
+    locale: "zh-CN",
+    auto_execute: true,
     max_search_results: 3,
     interrupt_feedback: undefined,
   },

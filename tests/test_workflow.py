@@ -34,10 +34,10 @@ class TestWorkflowModule:
     @pytest.mark.asyncio
     async def test_run_agent_workflow_async_empty_input(self):
         """测试空输入抛出异常"""
-        with pytest.raises(ValueError, match="Input could not be empty"):
+        with pytest.raises(ValueError, match="Research input cannot be empty"):
             await run_agent_workflow_async("")
 
-        with pytest.raises(ValueError, match="Input could not be empty"):
+        with pytest.raises(ValueError, match="Research input cannot be empty"):
             await run_agent_workflow_async(None)
 
     @pytest.mark.asyncio
@@ -46,7 +46,9 @@ class TestWorkflowModule:
         with patch.object(graph, "astream") as mock_astream:
             # Mock astream to return a simple async generator
             async def mock_generator():
-                yield {"messages": [{"role": "assistant", "content": "test response"}]}
+                mock_message = Mock()
+                mock_message.pretty_print = Mock()
+                yield {"messages": [mock_message]}
 
             mock_astream.return_value = mock_generator()
 
@@ -55,7 +57,7 @@ class TestWorkflowModule:
                 await run_agent_workflow_async("test input")
             except Exception as e:
                 # 可能会有一些内部错误，但不应该是输入验证错误
-                assert "Input could not be empty" not in str(e)
+                assert "Research input cannot be empty" not in str(e)
 
             # 验证astream被调用
             assert mock_astream.called
@@ -65,13 +67,12 @@ class TestWorkflowModule:
             # 检查输入参数
             input_state = call_args[1]["input"]
             assert input_state["messages"][0]["content"] == "test input"
-            assert input_state["auto_accepted_plan"] is True
+            assert input_state["auto_execute"] is True
             assert input_state["enable_background_investigation"] is True
+            assert input_state["max_research_iterations"] == 3  # 默认值
 
             # 检查配置参数
             config = call_args[1]["config"]
-            assert config["configurable"]["max_plan_iterations"] == 1
-            assert config["configurable"]["max_step_num"] == 3
             assert config["recursion_limit"] == 100
 
     @pytest.mark.asyncio
@@ -80,23 +81,24 @@ class TestWorkflowModule:
         with patch.object(graph, "astream") as mock_astream:
 
             async def mock_generator():
-                yield {"messages": [{"role": "assistant", "content": "test"}]}
+                mock_message = Mock()
+                mock_message.pretty_print = Mock()
+                yield {"messages": [mock_message]}
 
             mock_astream.return_value = mock_generator()
 
             await run_agent_workflow_async(
                 "test input",
                 debug=True,
-                max_plan_iterations=5,
-                max_step_num=10,
+                max_research_iterations=5,
                 enable_background_investigation=False,
             )
 
-            # 验证配置参数
+            # 验证输入参数
             call_args = mock_astream.call_args
-            config = call_args[1]["config"]
-            assert config["configurable"]["max_plan_iterations"] == 5
-            assert config["configurable"]["max_step_num"] == 10
+            input_state = call_args[1]["input"]
+            assert input_state["max_research_iterations"] == 5
+            assert input_state["enable_background_investigation"] is False
 
             input_state = call_args[1]["input"]
             assert input_state["enable_background_investigation"] is False
@@ -193,7 +195,9 @@ class TestWorkflowModule:
         with patch.object(graph, "astream") as mock_astream:
 
             async def mock_generator():
-                yield {"messages": [{"role": "assistant", "content": "test"}]}
+                mock_message = Mock()
+                mock_message.pretty_print = Mock()
+                yield {"messages": [mock_message]}
 
             mock_astream.return_value = mock_generator()
 
@@ -212,7 +216,7 @@ class TestWorkflowModule:
             assert github_server["command"] == "uvx"
             assert "mcp-github-trending" in github_server["args"]
             assert "get_github_trending_repositories" in github_server["enabled_tools"]
-            assert "researcher" in github_server["add_to_agents"]
+            assert "research_agent" in github_server["add_to_agents"]
 
     @pytest.mark.asyncio
     async def test_run_agent_workflow_async_initial_state(self):
@@ -220,7 +224,9 @@ class TestWorkflowModule:
         with patch.object(graph, "astream") as mock_astream:
 
             async def mock_generator():
-                yield {"messages": [{"role": "assistant", "content": "test"}]}
+                mock_message = Mock()
+                mock_message.pretty_print = Mock()
+                yield {"messages": [mock_message]}
 
             mock_astream.return_value = mock_generator()
 
@@ -236,7 +242,7 @@ class TestWorkflowModule:
             assert len(initial_state["messages"]) == 1
             assert initial_state["messages"][0]["role"] == "user"
             assert initial_state["messages"][0]["content"] == test_input
-            assert initial_state["auto_accepted_plan"] is True
+            assert initial_state["auto_execute"] is True
             assert initial_state["enable_background_investigation"] is False
 
 
