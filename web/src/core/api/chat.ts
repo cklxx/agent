@@ -19,6 +19,7 @@ export async function* chatStream(
     auto_accepted_plan: boolean;
     max_plan_iterations: number;
     locale: string;
+    max_step_num?: number;
     auto_execute: boolean;
     max_search_results?: number;
     interrupt_feedback?: string;

@@ -109,6 +109,8 @@ export async function sendMessage(
       max_step_num: settings.maxStepNum,
       max_search_results: settings.maxSearchResults,
       mcp_settings: settings.mcpSettings,
+      locale: "zh-CN",
+      auto_execute: true,
     },
     options,
   );
