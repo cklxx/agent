@@ -162,9 +162,10 @@ export async function fetchReplayTitle() {
     {
       thread_id: "__mock__",
       auto_accepted_plan: false,
-      max_plan_iterations: 3,
-      max_step_num: 1,
+      max_research_iterations: 3,
       max_search_results: 3,
+      locale: "zh-CN",
+      auto_execute: true,
     },
     {},
   );
